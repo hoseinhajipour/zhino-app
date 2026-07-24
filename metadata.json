@@ -1,0 +1,6 @@
+{
+  "name": "کلینیک روانشناسی ژینو",
+  "description": "سامانه آنلاین کلینیک روانشناسی و مشاوره ژینو - رزرو نوبت، خدمات تخصصی، معرفی درمانگران و مشاوره آنلاین",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
