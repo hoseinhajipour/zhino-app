@@ -3,7 +3,9 @@ import type {
   Article,
   ArticleCategory,
   ArticleStatus,
+  ClinicContactInfo,
   Doctor,
+  FAQItem,
   ServiceBlock,
   ServiceItem,
 } from '../../types';
@@ -23,6 +25,8 @@ interface ArticleEditorPageProps {
   categories: ArticleCategory[];
   allServices: ServiceItem[];
   articles: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   onClose: () => void;
   onSaved: (article: Article) => void;
 }
@@ -37,6 +41,8 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
   categories,
   allServices,
   articles,
+  faqs,
+  contact,
   onClose,
   onSaved,
 }) => {
@@ -283,6 +289,8 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
       allServices={allServices}
       doctors={doctors}
       articles={articles}
+      faqs={faqs}
+      contact={contact}
       contextId={draft.id}
       onClose={onClose}
       onSave={handleSave}

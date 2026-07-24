@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { Article, Doctor, PageScreen, ServiceItem, SitePage } from '../../types';
+import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceItem, SitePage } from '../../types';
 import { fetchSitePage } from '../../lib/dbService';
 import {
   createBlankSitePage,
@@ -8,6 +8,7 @@ import {
   isSystemSitePageId,
 } from '../../lib/sitePageDefaults';
 import { BlockRenderer } from './BlockRenderer';
+import { pageShellClassName } from '../../lib/contentWidth';
 
 interface SitePageViewProps {
   pageId: string;
@@ -16,6 +17,8 @@ interface SitePageViewProps {
   services?: ServiceItem[];
   doctors?: Doctor[];
   articles?: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   bookingEnabled?: boolean;
   onOpenBooking?: () => void;
   onOpenDoctorModal?: (doctorId: string) => void;
@@ -23,6 +26,7 @@ interface SitePageViewProps {
   onNavigate?: (screen: PageScreen) => void;
   onSelectService?: (id: string) => void;
   onSelectArticle?: (article: Article) => void;
+  /** Extra classes merged after layout shell (do not set max-width here) */
   className?: string;
 }
 
@@ -37,6 +41,8 @@ export const SitePageView: React.FC<SitePageViewProps> = ({
   services = [],
   doctors = [],
   articles = [],
+  faqs = [],
+  contact = null,
   bookingEnabled = true,
   onOpenBooking,
   onOpenDoctorModal,
@@ -44,7 +50,7 @@ export const SitePageView: React.FC<SitePageViewProps> = ({
   onNavigate,
   onSelectService,
   onSelectArticle,
-  className = 'space-y-16 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6',
+  className = '',
 }) => {
   const [page, setPage] = useState<SitePage | null>(pageProp ?? null);
   const [loading, setLoading] = useState(!pageProp);
@@ -83,9 +89,10 @@ export const SitePageView: React.FC<SitePageViewProps> = ({
 
   const resolved = page || fallbackPage(pageId);
   const blocks = getDefaultBlocksForPage(resolved);
+  const shell = pageShellClassName(resolved.layoutWidth);
 
   return (
-    <div className={className}>
+    <div className={`${shell} ${className}`.trim()}>
       <BlockRenderer
         blocks={blocks}
         ctx={{
@@ -93,6 +100,8 @@ export const SitePageView: React.FC<SitePageViewProps> = ({
           allServices: services,
           doctors,
           articles,
+          faqs,
+          contact,
           bookingEnabled,
           onOpenBooking,
           onOpenDoctorModal,

@@ -9,6 +9,8 @@ interface MediaFieldProps {
   aspect?: 'video' | 'square' | 'portrait';
   helperText?: string;
   required?: boolean;
+  /** Smaller preview — useful for logo/favicon side-by-side */
+  compact?: boolean;
 }
 
 const aspectClass = {
@@ -25,52 +27,52 @@ export const MediaField: React.FC<MediaFieldProps> = ({
   aspect = 'video',
   helperText,
   required,
+  compact = false,
 }) => {
   const [open, setOpen] = useState(false);
   const isVideo = accept === 'video' || (value && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(value));
+  const previewBox = compact
+    ? `relative ${aspectClass[aspect]} w-full max-w-[120px] mx-auto rounded-xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`
+    : `relative ${aspectClass[aspect]} w-full rounded-2xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`;
 
   return (
-    <div className="space-y-2 text-right">
+    <div className={`space-y-2 text-right ${compact ? 'text-[11px]' : ''}`}>
       <div className="flex items-center justify-between gap-2">
-        <label className="block font-bold text-xs text-on-surface">
+        <label className={`block font-bold text-on-surface ${compact ? 'text-[11px]' : 'text-xs'}`}>
           {label}
           {required ? ' *' : ''}
         </label>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-[11px] font-bold text-teal-700 hover:underline flex items-center gap-1"
+          className="text-[11px] font-bold text-teal-700 hover:underline flex items-center gap-1 shrink-0"
         >
           <span className="material-symbols-outlined text-sm">photo_library</span>
-          <span>کتابخانه رسانه</span>
+          <span className={compact ? 'hidden sm:inline' : ''}>کتابخانه</span>
         </button>
       </div>
 
       {value ? (
-        <div
-          className={`relative ${aspectClass[aspect]} w-full rounded-2xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`}
-        >
+        <div className={previewBox}>
           {isVideo ? (
             <video src={value} className="w-full h-full object-cover" controls />
           ) : (
-            <img src={value} alt={label} className="w-full h-full object-cover" />
+            <img src={value} alt={label} className="w-full h-full object-contain bg-white" />
           )}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 backdrop-blur-[2px]">
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="bg-white text-slate-800 hover:bg-slate-100 text-xs font-bold px-3 py-2 rounded-xl shadow flex items-center gap-1"
+              className="bg-white text-slate-800 hover:bg-slate-100 text-[10px] font-bold px-2 py-1.5 rounded-lg shadow flex items-center gap-0.5"
             >
               <span className="material-symbols-outlined text-sm">edit</span>
-              <span>تغییر</span>
             </button>
             <button
               type="button"
               onClick={() => onChange('')}
-              className="bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold px-3 py-2 rounded-xl shadow flex items-center gap-1"
+              className="bg-rose-600 text-white hover:bg-rose-700 text-[10px] font-bold px-2 py-1.5 rounded-lg shadow flex items-center gap-0.5"
             >
               <span className="material-symbols-outlined text-sm">delete</span>
-              <span>حذف</span>
             </button>
           </div>
         </div>
@@ -78,23 +80,29 @@ export const MediaField: React.FC<MediaFieldProps> = ({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full p-6 border-2 border-dashed border-teal-400/40 hover:border-teal-600 bg-teal-50/40 hover:bg-teal-50 rounded-2xl transition-all flex flex-col items-center justify-center gap-2 text-teal-700"
+          className={`w-full border-2 border-dashed border-teal-400/40 hover:border-teal-600 bg-teal-50/40 hover:bg-teal-50 rounded-xl transition-all flex flex-col items-center justify-center gap-1 text-teal-700 ${
+            compact ? 'p-4 min-h-[100px]' : 'p-6 rounded-2xl gap-2'
+          }`}
         >
-          <span className="material-symbols-outlined text-3xl">add_photo_alternate</span>
-          <span className="font-extrabold text-xs">انتخاب یا آپلود رسانه</span>
+          <span className={`material-symbols-outlined ${compact ? 'text-2xl' : 'text-3xl'}`}>
+            add_photo_alternate
+          </span>
+          <span className={`font-extrabold ${compact ? 'text-[10px]' : 'text-xs'}`}>انتخاب رسانه</span>
           {helperText && <span className="text-[10px] text-on-surface-variant">{helperText}</span>}
         </button>
       )}
 
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-bold text-on-surface-variant shrink-0">یا لینک مستقیم:</span>
+      <div className={`flex items-center gap-2 ${compact ? 'flex-col items-stretch' : ''}`}>
+        {!compact && (
+          <span className="text-[11px] font-bold text-on-surface-variant shrink-0">یا لینک مستقیم:</span>
+        )}
         <input
           type="url"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="https://... یا /uploads/..."
+          placeholder={compact ? 'لینک...' : 'https://... یا /uploads/...'}
           dir="ltr"
-          className="flex-1 p-2 rounded-xl border border-outline-variant/40 bg-surface-container-low font-mono text-xs"
+          className="flex-1 p-2 rounded-xl border border-outline-variant/40 bg-surface-container-low font-mono text-[11px]"
         />
       </div>
 

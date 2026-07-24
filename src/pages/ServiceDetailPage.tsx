@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Doctor, PageScreen, ServiceItem } from '../types';
+import type { ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceItem } from '../types';
 import { useAppNavigation } from '../context/AppContext';
 import { getPageBuilderForService } from '../lib/landingToBlocks';
 import { BlockRenderer } from '../components/page-builder/BlockRenderer';
@@ -8,6 +8,8 @@ interface ServiceDetailPageProps {
   serviceId?: string;
   allServices?: ServiceItem[];
   doctors?: Doctor[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   onNavigate?: (screen: PageScreen) => void;
   onOpenBooking?: (doctorId?: string, serviceId?: string) => void;
   onOpenDoctorModal?: (doctorId: string) => void;
@@ -31,7 +33,13 @@ export const ServiceDetailPage: React.FC<ServiceDetailPageProps> = (props) => {
     bookingEnabled: props.bookingEnabled,
   });
 
-  const { serviceId = contextServiceId, allServices = [], doctors = [] } = props;
+  const {
+    serviceId = contextServiceId,
+    allServices = [],
+    doctors = [],
+    faqs = [],
+    contact = null,
+  } = props;
   const service = allServices.find((s) => s.id === serviceId) || {
     id: serviceId,
     title: 'خدمت تخصصی مشاوره',
@@ -82,6 +90,8 @@ export const ServiceDetailPage: React.FC<ServiceDetailPageProps> = (props) => {
           serviceId,
           allServices,
           doctors,
+          faqs,
+          contact,
           bookingEnabled,
           onOpenBooking,
           onOpenDoctorModal,

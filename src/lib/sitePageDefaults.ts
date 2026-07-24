@@ -77,6 +77,7 @@ export function createDefaultSitePage(id: SitePageId): SitePage {
     pageBuilder: defaultBlocksFor(id),
     isSystem: true,
     status: 'published',
+    layoutWidth: 'contained',
   };
 }
 
@@ -94,6 +95,7 @@ export function createBlankSitePage(input: { title: string; slug: string; id?: s
     title: input.title.trim() || 'صفحه جدید',
     isSystem: false,
     status: 'published',
+    layoutWidth: 'contained',
     updatedAt: new Date().toISOString(),
     pageBuilder: doc([
       {

@@ -5,6 +5,8 @@ interface SEOHeadProps {
   currentScreen: PageScreen;
   extraTitle?: string;
   description?: string;
+  /** Force noindex (maintenance mode) */
+  maintenance?: boolean;
 }
 
 const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
@@ -66,11 +68,22 @@ const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
   },
 };
 
-export const SEOHead: React.FC<SEOHeadProps> = ({ currentScreen, extraTitle, description }) => {
+export const SEOHead: React.FC<SEOHeadProps> = ({
+  currentScreen,
+  extraTitle,
+  description,
+  maintenance = false,
+}) => {
   useEffect(() => {
     const config = SCREEN_SEO[currentScreen] || SCREEN_SEO.home;
-    const finalTitle = extraTitle ? `${extraTitle} | کلینیک ژینو` : config.title;
-    const finalDescription = description || config.description;
+    const finalTitle = maintenance
+      ? `${extraTitle || 'در دست تعمیر'} | کلینیک ژینو`
+      : extraTitle
+        ? `${extraTitle} | کلینیک ژینو`
+        : config.title;
+    const finalDescription = maintenance
+      ? 'سایت موقتاً در دست تعمیر و به‌روزرسانی است.'
+      : description || config.description;
 
     document.title = finalTitle;
 
@@ -81,6 +94,28 @@ export const SEOHead: React.FC<SEOHeadProps> = ({ currentScreen, extraTitle, des
       document.head.appendChild(metaDesc);
     }
     metaDesc.setAttribute('content', finalDescription);
+
+    let robots = document.querySelector('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
+    }
+    robots.setAttribute(
+      'content',
+      maintenance ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+    );
+
+    let googlebot = document.querySelector('meta[name="googlebot"]');
+    if (!googlebot) {
+      googlebot = document.createElement('meta');
+      googlebot.setAttribute('name', 'googlebot');
+      document.head.appendChild(googlebot);
+    }
+    googlebot.setAttribute(
+      'content',
+      maintenance ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow'
+    );
 
     let ogTitle = document.querySelector('meta[property="og:title"]');
     if (ogTitle) ogTitle.setAttribute('content', finalTitle);
@@ -98,7 +133,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({ currentScreen, extraTitle, des
       document.head.appendChild(canonical);
     }
     canonical.href = window.location.href;
-  }, [currentScreen, extraTitle, description]);
+  }, [currentScreen, extraTitle, description, maintenance]);
 
   return null;
 };

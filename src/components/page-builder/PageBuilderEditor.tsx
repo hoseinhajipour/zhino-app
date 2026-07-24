@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import type { Article, Doctor, ServiceBlock, ServiceBlockType, ServiceItem } from '../../types';
+import type { Article, ClinicContactInfo, Doctor, FAQItem, ServiceBlock, ServiceBlockType, ServiceItem } from '../../types';
 import {
   BLOCK_ICONS,
   BLOCK_LABELS,
@@ -42,7 +42,10 @@ export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
   'doctors',
   'testimonials',
   'faqs',
+  'latestFaqs',
+  'contactInfo',
   'richText',
+  'htmlCode',
   'otherServices',
   'cta',
 ];
@@ -65,10 +68,13 @@ export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
   'servicesGrid',
   'articlesGrid',
   'contactCards',
+  'contactInfo',
   'contactForm',
   'testimonials',
   'faqs',
+  'latestFaqs',
   'richText',
+  'htmlCode',
   'cta',
   'hero',
   'otherServices',
@@ -80,6 +86,7 @@ export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
   'heroHeader',
   'pageHero',
   'richText',
+  'htmlCode',
   'imageCarousel',
   'videoPlayer',
   'icon',
@@ -92,6 +99,8 @@ export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
   'features',
   'process',
   'faqs',
+  'latestFaqs',
+  'contactInfo',
   'cta',
   'doctors',
 ];
@@ -108,6 +117,8 @@ interface PageBuilderEditorProps {
   allServices: ServiceItem[];
   doctors: Doctor[];
   articles?: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   contextId?: string;
   onClose: () => void;
   onSave: (blocks: ServiceBlock[]) => Promise<void>;
@@ -164,6 +175,8 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   allServices,
   doctors,
   articles,
+  faqs,
+  contact,
   contextId = 'site',
   onClose,
   onSave,
@@ -177,6 +190,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(initialBlocks[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [device, setDevice] = useState<DevicePreview>('desktop');
   const [widgetQuery, setWidgetQuery] = useState('');
@@ -472,9 +486,11 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveToast(null);
     try {
       await onSave(blocks);
-      onClose();
+      setSaveToast('با موفقیت ذخیره شد');
+      window.setTimeout(() => setSaveToast(null), 3200);
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : 'خطا در ذخیره صفحه');
@@ -775,6 +791,8 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                   allServices,
                   doctors,
                   articles,
+                  faqs,
+                  contact,
                   bookingEnabled: true,
                   onOpenBooking: () => undefined,
                   onOpenDoctorModal: () => undefined,
@@ -904,6 +922,30 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
           onAction={handleContextAction}
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {saveToast && (
+        <div
+          className="pointer-events-none fixed bottom-5 left-5 z-[260] animate-fade-in"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-emerald-600 text-white px-4 py-3 shadow-2xl shadow-emerald-900/30 border border-emerald-500/40 min-w-[220px]">
+            <span className="material-symbols-outlined text-xl">check_circle</span>
+            <div className="min-w-0">
+              <p className="text-xs font-black leading-none">ذخیره شد</p>
+              <p className="text-[11px] font-medium opacity-90 mt-1">{saveToast}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSaveToast(null)}
+              className="ms-auto p-1 rounded-lg hover:bg-white/15"
+              aria-label="بستن"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

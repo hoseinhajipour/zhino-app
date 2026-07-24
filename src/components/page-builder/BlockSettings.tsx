@@ -1592,6 +1592,149 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
       );
     }
 
+    case 'latestFaqs':
+      return (
+        <div className="space-y-3">
+          <TextInput label="نشان" value={String(p.badge || '')} onChange={(v) => set('badge', v)} />
+          <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
+          <TextInput
+            label="زیرعنوان"
+            value={String(p.subtitle || '')}
+            onChange={(v) => set('subtitle', v)}
+            multiline
+          />
+          <TextInput
+            label="حداکثر تعداد"
+            value={String(p.maxCount ?? 6)}
+            onChange={(v) => set('maxCount', Number(v) || 6)}
+          />
+          <TextInput
+            label="فیلتر دسته (با کاما: adult,child,marriage,...)"
+            value={(Array.isArray(p.categoryFilter) ? p.categoryFilter : []).join(',')}
+            onChange={(v) =>
+              set(
+                'categoryFilter',
+                v
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              )
+            }
+          />
+          <label className="block space-y-1">
+            <span className="text-[11px] font-bold text-on-surface-variant">سبک کارت</span>
+            <select
+              value={String(p.accentStyle || 'soft')}
+              onChange={(e) => set('accentStyle', e.target.value)}
+              className={fieldClass}
+            >
+              <option value="soft">نرم (سایه ملایم)</option>
+              <option value="bordered">حاشیه‌دار رنگی</option>
+            </select>
+          </label>
+          <TextInput
+            label="متن دکمه مشاهده همه"
+            value={String(p.viewAllLabel || 'مشاهده همه سوالات')}
+            onChange={(v) => set('viewAllLabel', v)}
+          />
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showCategory !== false}
+              onChange={(e) => set('showCategory', e.target.checked)}
+            />
+            نمایش دسته
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showLikes !== false}
+              onChange={(e) => set('showLikes', e.target.checked)}
+            />
+            نمایش تعداد لایک
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showViewAll !== false}
+              onChange={(e) => set('showViewAll', e.target.checked)}
+            />
+            دکمه مشاهده همه
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.openFirst !== false}
+              onChange={(e) => set('openFirst', e.target.checked)}
+            />
+            اولین آیتم باز باشد
+          </label>
+          <p className="text-[11px] text-on-surface-variant leading-relaxed pt-1">
+            این ویجت سوالات تأییدشدهٔ دیتابیس را نشان می‌دهد؛ محتوا از تب «سوالات متداول» مدیریت می‌شود.
+          </p>
+        </div>
+      );
+
+    case 'contactInfo':
+      return (
+        <div className="space-y-3">
+          <TextInput label="نشان" value={String(p.badge || '')} onChange={(v) => set('badge', v)} />
+          <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
+          <TextInput
+            label="زیرعنوان"
+            value={String(p.subtitle || '')}
+            onChange={(v) => set('subtitle', v)}
+            multiline
+          />
+          <label className="block space-y-1">
+            <span className="text-[11px] font-bold text-on-surface-variant">چیدمان</span>
+            <select
+              value={String(p.layout || 'cards')}
+              onChange={(e) => set('layout', e.target.value)}
+              className={fieldClass}
+            >
+              <option value="cards">کارت‌های شبکه‌ای</option>
+              <option value="stacked">ستونی / پشت‌سرهم</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showPhones !== false}
+              onChange={(e) => set('showPhones', e.target.checked)}
+            />
+            نمایش تلفن‌ها
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showSocials !== false}
+              onChange={(e) => set('showSocials', e.target.checked)}
+            />
+            نمایش پیام‌رسان‌ها و ایمیل
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showAddresses !== false}
+              onChange={(e) => set('showAddresses', e.target.checked)}
+            />
+            نمایش آدرس‌ها
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showMap !== false}
+              onChange={(e) => set('showMap', e.target.checked)}
+            />
+            نمایش نقشه گوگل
+          </label>
+          <p className="text-[11px] text-on-surface-variant leading-relaxed pt-1">
+            محتوا از تب ادمین «اطلاعات تماس» خوانده می‌شود.
+          </p>
+        </div>
+      );
+
     case 'cta':
       return (
         <div className="space-y-3">
@@ -1628,6 +1771,48 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               className={`${fieldClass} font-mono`}
             />
           </label>
+        </div>
+      );
+
+    case 'htmlCode':
+      return (
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-[11px] font-bold text-on-surface-variant">کد HTML</span>
+            <textarea
+              rows={14}
+              value={String(p.html || '')}
+              onChange={(e) => set('html', e.target.value)}
+              dir="ltr"
+              spellCheck={false}
+              placeholder="<!-- HTML, iframe, embed, ... -->"
+              className={`${fieldClass} font-mono text-[11px] leading-relaxed min-h-[220px]`}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] font-bold text-on-surface-variant">عرض محتوا</span>
+            <select
+              value={String(p.maxWidth || 'full')}
+              onChange={(e) => set('maxWidth', e.target.value)}
+              className={fieldClass}
+            >
+              <option value="full">تمام عرض</option>
+              <option value="lg">بزرگ</option>
+              <option value="md">متوسط</option>
+              <option value="sm">کوچک</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.padded !== false}
+              onChange={(e) => set('padded', e.target.checked)}
+            />
+            قاب و حاشیه دور محتوا
+          </label>
+          <p className="text-[11px] text-on-surface-variant leading-relaxed">
+            مناسب برای iframe، فرم‌های خارجی، اسکریپت‌های embed و HTML سفارشی. اسکریپت‌های inline ممکن است در مرورگر محدود شوند.
+          </p>
         </div>
       );
 
@@ -1689,24 +1874,117 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
     case 'articlesGrid':
       return (
         <div className="space-y-3">
-          <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
+          <TextInput label="عنوان بخش" value={String(p.title || '')} onChange={(v) => set('title', v)} />
+          <TextInput
+            label="زیرعنوان"
+            value={String(p.subtitle || '')}
+            onChange={(v) => set('subtitle', v)}
+            multiline
+          />
+
+          <div className="p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40 space-y-3">
+            <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-base">filter_alt</span>
+              کوئری پیش‌فرض
+            </p>
+            <TextInput
+              label="فیلتر دسته (نام یا شناسه — خالی = همه)"
+              value={String(p.categoryFilter || '')}
+              onChange={(v) => set('categoryFilter', v)}
+            />
+            <TextInput
+              label="فیلتر عنوان (شامل این متن)"
+              value={String(p.titleQuery || '')}
+              onChange={(v) => set('titleQuery', v)}
+            />
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">ترتیب نمایش</span>
+              <select
+                value={String(p.sortBy || 'newest')}
+                onChange={(e) => set('sortBy', e.target.value)}
+                className={fieldClass}
+              >
+                <option value="newest">جدیدترین</option>
+                <option value="oldest">قدیمی‌ترین</option>
+                <option value="title_asc">عنوان (الف → ی)</option>
+                <option value="title_desc">عنوان (ی → الف)</option>
+                <option value="views">بیشترین بازدید</option>
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">نوع چیدمان</span>
+              <select
+                value={String(p.layout || 'grid')}
+                onChange={(e) => set('layout', e.target.value)}
+                className={fieldClass}
+              >
+                <option value="grid">شبکه کارت</option>
+                <option value="list">لیست افقی</option>
+                <option value="compact">کارت فشرده</option>
+              </select>
+            </label>
+            <TextInput
+              label={
+                p.showPagination
+                  ? 'تعداد در هر صفحه'
+                  : 'حداکثر آیتم (۰ = همه)'
+              }
+              value={String(p.maxCount ?? 6)}
+              onChange={(v) => set('maxCount', Math.max(0, Number(v) || 0))}
+            />
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={p.showPagination === true}
+                onChange={(e) => set('showPagination', e.target.checked)}
+              />
+              نمایش صفحه‌بندی
+            </label>
+          </div>
+
+          {String(p.layout || 'grid') !== 'list' && (
+            <ResponsiveColumnsFields
+              props={p}
+              onChange={onChange}
+              defaults={{ mobile: 1, tablet: 2, desktop: 3 }}
+            />
+          )}
+
           <label className="flex items-center gap-2 text-xs font-bold">
             <input
               type="checkbox"
-              checked={p.showSearch !== false}
+              checked={p.showSearch === true}
               onChange={(e) => set('showSearch', e.target.checked)}
             />
-            نمایش جستجو
+            نمایش جستجوی زنده برای کاربر
           </label>
           <label className="flex items-center gap-2 text-xs font-bold">
             <input
               type="checkbox"
-              checked={p.showCategories !== false}
+              checked={p.showCategories === true}
               onChange={(e) => set('showCategories', e.target.checked)}
             />
-            نمایش فیلتر دسته‌ها
+            نمایش فیلتر دسته‌ها برای کاربر
           </label>
-          <p className="text-[10px] text-on-surface-variant">مقالات از بانک مقالات منتشرشده خوانده می‌شوند.</p>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showExcerpt !== false}
+              onChange={(e) => set('showExcerpt', e.target.checked)}
+            />
+            نمایش چکیده
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.showCategoryBadge !== false}
+              onChange={(e) => set('showCategoryBadge', e.target.checked)}
+            />
+            نمایش نشان دسته
+          </label>
+          <p className="text-[10px] text-on-surface-variant leading-relaxed">
+            فقط مقالات با وضعیت «منتشر شده» نمایش داده می‌شوند. کوئری پیش‌فرض قبل از فیلترهای زنده کاربر اعمال می‌شود.
+          </p>
         </div>
       );
 
@@ -2067,6 +2345,7 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
       }>;
       const nestTypes: ServiceBlockType[] = [
         'richText',
+        'htmlCode',
         'imageCarousel',
         'videoPlayer',
         'icon',
@@ -2077,9 +2356,61 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         'highlights',
         'cta',
         'contactCards',
+        'contactInfo',
       ];
       return (
         <div className="space-y-3">
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold text-on-surface-variant block">عرض کانتینر</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: 'contained', label: 'کانتینری', hint: 'پیش‌فرض ۱۴۰۰px' },
+                  { value: 'full', label: 'تمام‌عرض', hint: 'عرض کامل صفحه' },
+                ] as const
+              ).map((opt) => {
+                const active = String(p.widthMode || 'contained') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => set('widthMode', opt.value)}
+                    className={`text-right rounded-xl border p-2.5 transition-all ${
+                      active
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                        : 'border-outline-variant/40 hover:border-primary/30'
+                    }`}
+                  >
+                    <p className="text-[11px] font-black text-on-surface">{opt.label}</p>
+                    <p className="text-[10px] text-on-surface-variant">{opt.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {String(p.widthMode || 'contained') !== 'full' && (
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">
+                حداکثر عرض (پیکسل)
+              </span>
+              <input
+                type="number"
+                min={640}
+                max={2400}
+                step={20}
+                value={Number(p.maxWidth) > 0 ? Number(p.maxWidth) : 1400}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  set('maxWidth', Number.isFinite(n) ? n : 1400);
+                }}
+                className={fieldClass}
+                dir="ltr"
+              />
+              <span className="text-[10px] text-on-surface-variant">
+                پیشنهادی: ۱۴۰۰ · محدوده ۶۴۰–۲۴۰۰
+              </span>
+            </label>
+          )}
           <ResponsiveColumnsFields
             props={p}
             onChange={onChange}

@@ -1,15 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import type { Article, Doctor, PageScreen, ServiceBlock, ServiceItem } from '../../../types';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceBlock, ServiceItem } from '../../../types';
 import { fetchArticleCategories } from '../../../lib/dbService';
 import { readResponsiveCols, resolveColsForWidth, resolveContainerColumnCount } from '../../../lib/responsiveGrid';
+import {
+  DEFAULT_CONTACT_INFO,
+  getMapEmbedSrc,
+  getMapHref,
+  getTelHref,
+  listContactChannels,
+  mergeContactInfo,
+} from '../../../lib/contactInfo';
+import { CHANNEL_ACCENT, ContactChannelIcon } from '../../ContactChannelIcon';
 import { ResponsiveGrid } from '../ResponsiveGrid';
 import { useBuilderDevicePreview } from '../BuilderDevicePreviewContext';
+import { containerWidthStyle, DEFAULT_CONTENT_MAX_WIDTH } from '../../../lib/contentWidth';
 
 export interface BlockRenderContext {
   serviceId?: string;
   allServices?: ServiceItem[];
   doctors?: Doctor[];
   articles?: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   bookingEnabled?: boolean;
   onOpenBooking?: (doctorId?: string, serviceId?: string) => void;
   onOpenDoctorModal?: (doctorId: string) => void;
@@ -352,8 +364,7 @@ export const StaffCarouselBlock: React.FC<{
     if (!filter.length) return true;
     return doc.specialties.some((s) => filter.includes(s));
   });
-  const doctors =
-    maxCount > 0 ? allDoctors.slice(0, maxCount) : allDoctors;
+  const doctors = maxCount > 0 ? allDoctors.slice(0, maxCount) : allDoctors;
 
   const previewDevice = useBuilderDevicePreview();
   const { mobile, tablet, desktop } = readResponsiveCols(
@@ -364,6 +375,17 @@ export const StaffCarouselBlock: React.FC<{
   );
   const [visible, setVisible] = useState(desktop);
   const [page, setPage] = useState(0);
+  const [dragPx, setDragPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    lastX: 0,
+    moved: false,
+  });
 
   useEffect(() => {
     if (previewDevice === 'mobile') {
@@ -391,15 +413,101 @@ export const StaffCarouselBlock: React.FC<{
   }, [maxPage, visible, doctors.length]);
 
   useEffect(() => {
-    if (!autoplay || doctors.length <= visible) return;
+    if (!autoplay || doctors.length <= visible || isDragging) return;
     const t = window.setInterval(() => {
       setPage((p) => (p >= maxPage ? 0 : p + 1));
     }, Math.max(2500, intervalMs));
     return () => window.clearInterval(t);
-  }, [autoplay, intervalMs, doctors.length, visible, maxPage]);
+  }, [autoplay, intervalMs, doctors.length, visible, maxPage, isDragging]);
 
-  const go = (dir: -1 | 1) => {
-    setPage((p) => Math.min(maxPage, Math.max(0, p + dir)));
+  const go = useCallback(
+    (dir: -1 | 1) => {
+      setPage((p) => Math.min(maxPage, Math.max(0, p + dir)));
+    },
+    [maxPage]
+  );
+
+  const endDrag = useCallback(
+    (clientX: number) => {
+      const d = dragRef.current;
+      if (!d.active) return;
+      d.active = false;
+      setIsDragging(false);
+
+      const dx = clientX - d.startX;
+      const width = viewportRef.current?.offsetWidth || 320;
+      const threshold = Math.max(48, width * 0.14);
+
+      // Finger/mouse moved right (+dx) → show previous page (RTL carousel)
+      // Moved left (−dx) → show next page
+      if (dx > threshold) {
+        setPage((p) => Math.max(0, p - 1));
+      } else if (dx < -threshold) {
+        setPage((p) => Math.min(maxPage, p + 1));
+      }
+      setDragPx(0);
+
+      // Keep moved flag briefly so click handlers can ignore accidental taps after drag
+      window.setTimeout(() => {
+        d.moved = false;
+      }, 80);
+    },
+    [maxPage]
+  );
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (maxPage <= 0) return;
+    // Ignore non-primary mouse buttons
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragRef.current = {
+      active: true,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      lastX: e.clientX,
+      moved: false,
+    };
+    setIsDragging(true);
+    setDragPx(0);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d.active || d.pointerId !== e.pointerId) return;
+    const dx = e.clientX - d.startX;
+    d.lastX = e.clientX;
+    if (Math.abs(dx) > 6) d.moved = true;
+    // Rubber-band at edges
+    let visual = dx;
+    if ((page <= 0 && dx > 0) || (page >= maxPage && dx < 0)) {
+      visual = dx * 0.35;
+    }
+    setDragPx(visual);
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current.pointerId !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+    endDrag(e.clientX);
+  };
+
+  const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current.pointerId !== e.pointerId) return;
+    dragRef.current.active = false;
+    setIsDragging(false);
+    setDragPx(0);
+    dragRef.current.moved = false;
+  };
+
+  const guardClick = (e: React.MouseEvent | React.PointerEvent) => {
+    if (dragRef.current.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   };
 
   const badgeText = str(props.badge, 'کادر درمانی و روانشناسان کلینیک ژینو');
@@ -418,7 +526,11 @@ export const StaffCarouselBlock: React.FC<{
   const gapPx = 20;
   const cardBasis = `calc((100% - ${(visible - 1) * gapPx}px) / ${visible})`;
   // In RTL flex, moving to next cards = positive translateX
-  const offset = `calc(${page} * (${cardBasis} + ${gapPx}px))`;
+  const pageOffset = `calc(${page} * (${cardBasis} + ${gapPx}px))`;
+  const transform =
+    dragPx !== 0
+      ? `translateX(calc(${pageOffset} + ${dragPx}px))`
+      : `translateX(${pageOffset})`;
 
   return (
     <section className="space-y-6 md:space-y-8 w-full min-w-0">
@@ -470,12 +582,26 @@ export const StaffCarouselBlock: React.FC<{
         </div>
       </div>
 
-      <div className="overflow-hidden">
+      <div
+        ref={viewportRef}
+        className={`overflow-hidden touch-pan-y select-none ${
+          maxPage > 0 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
+        }`}
+        style={{ touchAction: maxPage > 0 ? 'pan-y' : undefined }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={str(props.title, 'کروسل متخصصین')}
+      >
         <div
-          className="flex transition-transform duration-500 ease-out"
+          className={`flex ${isDragging ? '' : 'transition-transform duration-500 ease-out'}`}
           style={{
             gap: gapPx,
-            transform: `translateX(${offset})`,
+            transform,
+            willChange: 'transform',
           }}
         >
           {doctors.map((doc) => (
@@ -484,10 +610,11 @@ export const StaffCarouselBlock: React.FC<{
               className="min-w-0 bg-white dark:bg-surface-dim rounded-[28px] border border-outline-variant/25 shadow-soft overflow-hidden flex flex-col"
               style={{ flex: `0 0 ${cardBasis}`, maxWidth: cardBasis }}
             >
-              <div className="relative aspect-[4/5] bg-surface-container overflow-hidden">
+              <div className="relative aspect-[4/5] bg-surface-container overflow-hidden pointer-events-none">
                 <img
                   src={doc.avatar}
                   alt={doc.name}
+                  draggable={false}
                   className="absolute inset-0 w-full h-full object-cover object-top"
                 />
                 {doc.active && (
@@ -527,7 +654,7 @@ export const StaffCarouselBlock: React.FC<{
                     ))}
                   </div>
                 )}
-                <div className="mt-auto pt-1 flex gap-2">
+                <div className="mt-auto pt-1 flex gap-2" onClickCapture={guardClick}>
                   {ctx.bookingEnabled !== false && (
                     <button
                       type="button"
@@ -651,6 +778,175 @@ export const FaqsBlock: React.FC<{ props: Record<string, unknown> }> = ({ props 
   );
 };
 
+function isPublishedFaq(faq: FAQItem): boolean {
+  return !faq.status || faq.status === 'approved';
+}
+
+function faqSortKey(faq: FAQItem): number {
+  if (!faq.date) return 0;
+  const t = Date.parse(faq.date);
+  return Number.isFinite(t) ? t : 0;
+}
+
+const FAQ_CATEGORY_LABELS: Record<string, string> = {
+  adult: 'بزرگسال',
+  child: 'کودک و نوجوان',
+  marriage: 'زوج و خانواده',
+  neurofeed: 'نوروفیدبک',
+  online: 'آنلاین',
+  general: 'عمومی',
+};
+
+export const LatestFaqsBlock: React.FC<{
+  props: Record<string, unknown>;
+  ctx: BlockRenderContext;
+}> = ({ props, ctx }) => {
+  const maxCount = Math.min(20, Math.max(1, Number(props.maxCount) || 6));
+  const filter = arr<string>(props.categoryFilter).map((c) => c.trim()).filter(Boolean);
+  const showCategory = props.showCategory !== false;
+  const showLikes = props.showLikes !== false;
+  const showViewAll = props.showViewAll !== false;
+  const openFirst = props.openFirst !== false;
+  const accentStyle = str(props.accentStyle, 'soft');
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const items = (ctx.faqs || [])
+    .filter(isPublishedFaq)
+    .filter((faq) => {
+      if (!filter.length) return true;
+      return filter.includes(String(faq.category || ''));
+    })
+    .slice()
+    .sort((a, b) => faqSortKey(b) - faqSortKey(a))
+    .slice(0, maxCount);
+
+  useEffect(() => {
+    if (!openFirst || !items.length) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(items[0].id);
+  }, [openFirst, items.map((i) => i.id).join(',')]);
+
+  const cardClass =
+    accentStyle === 'bordered'
+      ? 'bg-white dark:bg-surface-dim border-2 border-primary/20 shadow-sm'
+      : 'bg-white dark:bg-surface-dim border border-outline-variant/25 shadow-soft';
+
+  return (
+    <section className="space-y-6 md:space-y-8 w-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="space-y-2 text-right min-w-0">
+          {str(props.badge) && (
+            <span className="inline-flex text-[11px] font-bold text-primary bg-primary/10 px-3.5 py-1 rounded-full">
+              {str(props.badge)}
+            </span>
+          )}
+          <h2 className="text-2xl md:text-3xl font-black text-on-surface">{str(props.title)}</h2>
+          {str(props.subtitle) && (
+            <p className="text-sm text-on-surface-variant max-w-xl leading-relaxed">
+              {str(props.subtitle)}
+            </p>
+          )}
+        </div>
+        {showViewAll && (
+          <button
+            type="button"
+            onClick={() => ctx.onNavigate?.('faq')}
+            className="inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0 text-xs font-extrabold text-primary bg-primary/10 hover:bg-primary/15 px-4 py-2.5 rounded-full transition-colors"
+          >
+            <span>{str(props.viewAllLabel, 'مشاهده همه سوالات')}</span>
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+          </button>
+        )}
+      </div>
+
+      {!items.length ? (
+        <div className="rounded-[28px] border border-dashed border-outline-variant/40 py-14 text-center space-y-2">
+          <span className="material-symbols-outlined text-3xl text-on-surface-variant/50">quiz</span>
+          <p className="text-sm text-on-surface-variant">هنوز سوال تأییدشده‌ای برای نمایش وجود ندارد.</p>
+        </div>
+      ) : (
+        <div className="space-y-3 max-w-3xl mx-auto w-full">
+          {items.map((faq, idx) => {
+            const isOpen = openId === faq.id;
+            const catLabel =
+              FAQ_CATEGORY_LABELS[String(faq.category || '')] || faq.serviceTitle || faq.category;
+            return (
+              <div
+                key={faq.id}
+                className={`${cardClass} rounded-[22px] overflow-hidden transition-all duration-300 ${
+                  isOpen ? 'ring-1 ring-primary/25' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isOpen ? null : faq.id)}
+                  className="w-full p-4 sm:p-5 text-right flex items-start gap-3 group"
+                  aria-expanded={isOpen}
+                >
+                  <span
+                    className={`mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black shrink-0 transition-colors ${
+                      isOpen
+                        ? 'bg-primary text-white'
+                        : 'bg-primary/10 text-primary group-hover:bg-primary/15'
+                    }`}
+                  >
+                    {String(idx + 1).padStart(2, '۰')}
+                  </span>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <p className="text-sm sm:text-[15px] font-extrabold text-on-surface leading-snug group-hover:text-primary transition-colors">
+                      {faq.question}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {showCategory && catLabel && (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant">
+                          {catLabel}
+                        </span>
+                      )}
+                      {showLikes && typeof faq.likesCount === 'number' && faq.likesCount > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-on-surface-variant">
+                          <span className="material-symbols-outlined text-sm text-rose-400">favorite</span>
+                          {faq.likesCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`material-symbols-outlined text-xl text-primary shrink-0 transition-transform duration-300 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  >
+                    expand_more
+                  </span>
+                </button>
+                <div
+                  className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                    isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-0 mr-11 space-y-2 border-t border-outline-variant/10">
+                      <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed text-justify pt-3">
+                        {faq.answer || 'پاسخی ثبت نشده است.'}
+                      </p>
+                      {faq.responderName && (
+                        <p className="text-[10px] font-bold text-primary/80">
+                          پاسخ‌دهنده: {faq.responderName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
 export const OtherServicesBlock: React.FC<{ props: Record<string, unknown>; ctx: BlockRenderContext }> = ({
   props,
   ctx,
@@ -719,6 +1015,39 @@ export const RichTextBlock: React.FC<{ props: Record<string, unknown> }> = ({ pr
     dangerouslySetInnerHTML={{ __html: str(props.html, '<p></p>') }}
   />
 );
+
+export const HtmlCodeBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const html = str(props.html);
+  const padded = props.padded !== false;
+  const maxWidth = str(props.maxWidth, 'full');
+  const widthClass =
+    maxWidth === 'sm'
+      ? 'max-w-xl mx-auto'
+      : maxWidth === 'md'
+        ? 'max-w-3xl mx-auto'
+        : maxWidth === 'lg'
+          ? 'max-w-5xl mx-auto'
+          : 'w-full';
+
+  if (!html.trim()) {
+    return (
+      <section className="rounded-[28px] border border-dashed border-outline-variant/40 py-10 text-center text-sm text-on-surface-variant">
+        هنوز کد HTML وارد نشده است.
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className={`html-code-block w-full min-w-0 overflow-x-auto ${widthClass} ${
+        padded
+          ? 'bg-white dark:bg-surface-dim p-4 md:p-6 rounded-3xl border border-outline-variant/30'
+          : ''
+      }`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
 
 export const PageHeroBlock: React.FC<{ props: Record<string, unknown>; ctx: BlockRenderContext }> = ({
   props,
@@ -913,16 +1242,22 @@ export const HeroHeaderBlock: React.FC<{
 
   const titleSizeClass =
     titleSize === 'md'
-      ? 'text-2xl sm:text-3xl md:text-4xl'
+      ? 'text-xl sm:text-2xl md:text-4xl tracking-tight'
       : titleSize === 'xl'
-        ? 'text-3xl sm:text-4xl md:text-6xl'
-        : 'text-3xl sm:text-4xl md:text-5xl';
+        ? 'text-[1.4rem] sm:text-3xl md:text-6xl tracking-tight'
+        : 'text-[1.35rem] sm:text-3xl md:text-5xl tracking-tight';
 
   const padClass =
-    padding === 'sm' ? 'py-6 md:py-8' : padding === 'lg' ? 'py-12 md:py-20' : 'py-8 md:py-14';
+    padding === 'sm'
+      ? 'py-4 sm:py-6 md:py-8'
+      : padding === 'lg'
+        ? 'py-5 sm:py-10 md:py-20'
+        : 'py-5 sm:py-8 md:py-14';
 
   const alignClass =
-    contentAlign === 'center' ? 'items-center text-center' : 'items-stretch text-right';
+    contentAlign === 'center'
+      ? 'items-center text-center'
+      : 'items-stretch text-right';
 
   const handleCta = () => {
     const action = str(props.ctaAction, 'booking');
@@ -951,12 +1286,13 @@ export const HeroHeaderBlock: React.FC<{
   const current = slides[Math.min(slideIdx, Math.max(0, slides.length - 1))];
 
   const mediaColumn = showCarousel && current && (
-    <div className="relative w-full max-w-xl mx-auto lg:mx-0">
+    <div className="relative w-full min-w-0 lg:max-w-xl lg:mx-0">
       <div
-        className="relative overflow-hidden shadow-2xl shadow-slate-900/10 border border-outline-variant/20 bg-surface-container"
-        style={{ borderRadius: mediaRadius }}
+        className="relative overflow-hidden shadow-xl shadow-slate-900/10 border border-outline-variant/20 bg-surface-container"
+        style={{ borderRadius: Math.min(mediaRadius, 24) }}
       >
-        <div className="relative aspect-[4/3] sm:aspect-[5/4]">
+        {/* Mobile: cinematic wide; desktop: taller card */}
+        <div className="relative aspect-[16/10] sm:aspect-[5/4] lg:aspect-[4/3]">
           {slides.map((slide, i) => (
             <img
               key={i}
@@ -968,25 +1304,29 @@ export const HeroHeaderBlock: React.FC<{
             />
           ))}
           {showRating && str(current.rating) && (
-            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-white/95 dark:bg-surface-dim backdrop-blur px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 text-xs font-extrabold text-on-surface">
-              <span className="material-symbols-outlined text-amber-500 text-base leading-none">star</span>
+            <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 bg-white/95 dark:bg-surface-dim backdrop-blur px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow flex items-center gap-1 text-[10px] sm:text-xs font-extrabold text-on-surface">
+              <span className="material-symbols-outlined text-amber-500 text-sm sm:text-base leading-none">
+                star
+              </span>
               <span>{str(current.rating)}</span>
             </div>
           )}
           {(str(current.badge) || str(current.title) || str(current.description)) && (
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-4 sm:p-5 pt-16 space-y-1.5">
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3.5 py-3.5 sm:p-5 pt-12 sm:pt-16 space-y-1">
               {str(current.badge) && (
-                <span className={`inline-flex text-[10px] font-bold text-white px-2.5 py-1 rounded-full bg-gradient-to-l ${accent.gradient}`}>
+                <span
+                  className={`inline-flex text-[9px] sm:text-[10px] font-bold text-white px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-gradient-to-l ${accent.gradient}`}
+                >
                   {str(current.badge)}
                 </span>
               )}
               {str(current.title) && (
-                <h3 className="text-white text-sm sm:text-base font-black leading-snug">
+                <h3 className="text-white text-xs sm:text-base font-black leading-snug line-clamp-2">
                   {str(current.title)}
                 </h3>
               )}
               {str(current.description) && (
-                <p className="text-white/80 text-[11px] sm:text-xs leading-relaxed line-clamp-2">
+                <p className="hidden sm:block text-white/80 text-xs leading-relaxed line-clamp-2">
                   {str(current.description)}
                 </p>
               )}
@@ -999,43 +1339,45 @@ export const HeroHeaderBlock: React.FC<{
               type="button"
               aria-label="قبلی"
               onClick={() => setSlideIdx((i) => (i - 1 + slides.length) % slides.length)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
+              className="absolute top-1/2 right-1.5 sm:right-2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
             >
-              <span className="material-symbols-outlined text-xl">chevron_right</span>
+              <span className="material-symbols-outlined text-lg sm:text-xl">chevron_right</span>
             </button>
             <button
               type="button"
               aria-label="بعدی"
               onClick={() => setSlideIdx((i) => (i + 1) % slides.length)}
-              className="absolute top-1/2 left-2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
+              className="absolute top-1/2 left-1.5 sm:left-2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
             >
-              <span className="material-symbols-outlined text-xl">chevron_left</span>
+              <span className="material-symbols-outlined text-lg sm:text-xl">chevron_left</span>
             </button>
           </>
         )}
       </div>
       {showFloating && str(current.floatingBadge) && (
-        <div className="absolute -bottom-3 left-3 sm:left-4 bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-lg rounded-2xl px-3 py-2.5 flex items-center gap-2 z-10">
-          <span className={`w-9 h-9 rounded-xl ${accent.soft} flex items-center justify-center`}>
-            <span className="material-symbols-outlined text-xl">
+        <div className="absolute -bottom-2.5 left-2.5 sm:-bottom-3 sm:left-4 bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-lg rounded-xl sm:rounded-2xl px-2.5 py-1.5 sm:px-3 sm:py-2.5 flex items-center gap-1.5 sm:gap-2 z-10 max-w-[85%]">
+          <span
+            className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl ${accent.soft} flex items-center justify-center shrink-0`}
+          >
+            <span className="material-symbols-outlined text-base sm:text-xl">
               {str(current.floatingIcon, 'calendar_month')}
             </span>
           </span>
-          <span className="text-[11px] font-extrabold text-on-surface whitespace-nowrap">
+          <span className="text-[10px] sm:text-[11px] font-extrabold text-on-surface truncate">
             {str(current.floatingBadge)}
           </span>
         </div>
       )}
       {showDots && slides.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-5">
+        <div className="flex justify-center gap-1.5 mt-4 sm:mt-5">
           {slides.map((_, i) => (
             <button
               key={i}
               type="button"
               aria-label={`اسلاید ${i + 1}`}
               onClick={() => setSlideIdx(i)}
-              className={`h-2 rounded-full transition-all ${
-                i === slideIdx ? 'w-6 bg-primary' : 'w-2 bg-outline-variant/50'
+              className={`h-1.5 sm:h-2 rounded-full transition-all ${
+                i === slideIdx ? 'w-5 sm:w-6 bg-primary' : 'w-1.5 sm:w-2 bg-outline-variant/50'
               }`}
             />
           ))}
@@ -1045,18 +1387,24 @@ export const HeroHeaderBlock: React.FC<{
   );
 
   const contentColumn = (
-    <div className={`flex flex-col gap-5 md:gap-6 ${alignClass} min-w-0`}>
+    <div
+      className={`flex flex-col gap-3.5 sm:gap-5 md:gap-6 ${alignClass} min-w-0 ${
+        showFloating && str(current?.floatingBadge) ? 'pt-3 sm:pt-0' : ''
+      }`}
+    >
       {(str(props.badge) || (showStatus && str(props.statusText))) && (
         <div
-          className={`inline-flex flex-wrap items-center gap-2 bg-white dark:bg-surface-dim border border-outline-variant/25 shadow-sm rounded-full px-3 py-1.5 ${
+          className={`inline-flex flex-wrap items-center gap-1.5 sm:gap-2 bg-white/90 dark:bg-surface-dim border border-outline-variant/25 shadow-sm rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 ${
             contentAlign === 'center' ? 'mx-auto' : ''
           }`}
         >
           {str(props.badge) && (
-            <span className="text-[11px] sm:text-xs font-bold text-on-surface">{str(props.badge)}</span>
+            <span className="text-[10px] sm:text-xs font-bold text-on-surface leading-none">
+              {str(props.badge)}
+            </span>
           )}
           {showStatus && str(props.statusText) && (
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {str(props.statusText)}
             </span>
@@ -1064,7 +1412,7 @@ export const HeroHeaderBlock: React.FC<{
         </div>
       )}
 
-      <h1 className={`font-black text-on-surface leading-[1.25] ${titleSizeClass}`}>
+      <h1 className={`font-black text-on-surface leading-[1.35] sm:leading-[1.25] ${titleSizeClass}`}>
         {renderHighlightedTitle(
           str(props.title),
           str(props.titleHighlight),
@@ -1075,7 +1423,7 @@ export const HeroHeaderBlock: React.FC<{
 
       {str(props.subtitle) && (
         <p
-          className={`text-sm md:text-base text-on-surface-variant leading-relaxed max-w-xl ${
+          className={`text-[12px] sm:text-sm md:text-base text-on-surface-variant leading-7 sm:leading-relaxed max-w-xl ${
             contentAlign === 'center' ? 'mx-auto' : ''
           }`}
         >
@@ -1089,15 +1437,17 @@ export const HeroHeaderBlock: React.FC<{
           const link = str(props.ctaLink).trim();
           const inner = (
             <>
-              <span className={`w-10 h-10 rounded-full ${accent.soft} flex items-center justify-center shrink-0`}>
-                <span className="material-symbols-outlined text-xl">
+              <span
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${accent.soft} flex items-center justify-center shrink-0`}
+              >
+                <span className="material-symbols-outlined text-lg sm:text-xl">
                   {str(props.ctaIcon, 'psychology')}
                 </span>
               </span>
               <span>{str(props.ctaLabel)}</span>
             </>
           );
-          const cls = `inline-flex items-center gap-3 font-extrabold text-sm px-5 py-3 rounded-full transition-all ${ctaClass}`;
+          const cls = `inline-flex items-center justify-center gap-2.5 sm:gap-3 font-extrabold text-xs sm:text-sm px-4 py-2.5 sm:px-5 sm:py-3 rounded-full transition-all w-full sm:w-auto ${ctaClass}`;
           if (action === 'link' && link) {
             const external = /^https?:\/\//i.test(link);
             return (
@@ -1119,21 +1469,24 @@ export const HeroHeaderBlock: React.FC<{
       )}
 
       {showDepartments && departments.length > 0 && (
-        <div className={`space-y-3 w-full ${contentAlign === 'center' ? 'items-center' : ''}`}>
+        <div className={`space-y-2 sm:space-y-3 w-full ${contentAlign === 'center' ? 'items-center' : ''}`}>
           {str(props.departmentsTitle) && (
-            <p className="text-xs font-bold text-on-surface-variant">{str(props.departmentsTitle)}</p>
+            <p className="text-[11px] sm:text-xs font-bold text-on-surface-variant">
+              {str(props.departmentsTitle)}
+            </p>
           )}
           <div
-            className={`flex flex-wrap gap-2 ${
-              contentAlign === 'center' ? 'justify-center' : 'justify-start'
+            className={`flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none sm:flex-wrap sm:overflow-visible sm:pb-0 sm:mx-0 sm:px-0 ${
+              contentAlign === 'center' ? 'sm:justify-center' : 'sm:justify-start'
             }`}
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {departments.map((dep, i) => {
               const label = str(dep.label);
               if (!label) return null;
               const chip = (
-                <span className="inline-flex items-center gap-1.5 bg-white dark:bg-surface-dim border border-outline-variant/30 text-on-surface text-[11px] font-bold px-3 py-2 rounded-full shadow-sm hover:border-primary/40 transition-colors">
-                  <span className={`material-symbols-outlined text-base ${accent.text}`}>
+                <span className="inline-flex items-center gap-1.5 bg-white dark:bg-surface-dim border border-outline-variant/30 text-on-surface text-[10px] sm:text-[11px] font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-full shadow-sm hover:border-primary/40 transition-colors whitespace-nowrap shrink-0">
+                  <span className={`material-symbols-outlined text-sm sm:text-base ${accent.text}`}>
                     {str(dep.icon, 'circle')}
                   </span>
                   {label}
@@ -1142,7 +1495,7 @@ export const HeroHeaderBlock: React.FC<{
               const link = str(dep.link).trim();
               if (link) {
                 return (
-                  <a key={i} href={link} className="inline-flex">
+                  <a key={i} href={link} className="inline-flex shrink-0">
                     {chip}
                   </a>
                 );
@@ -1152,7 +1505,7 @@ export const HeroHeaderBlock: React.FC<{
                   key={i}
                   type="button"
                   onClick={() => ctx.onNavigate?.('services')}
-                  className="inline-flex"
+                  className="inline-flex shrink-0"
                 >
                   {chip}
                 </button>
@@ -1164,39 +1517,38 @@ export const HeroHeaderBlock: React.FC<{
     </div>
   );
 
+  // Mobile: slider always on top. Desktop: respect mediaSide.
+  const mediaOrder = mediaSide === 'end' ? 'order-1 lg:order-2' : 'order-1 lg:order-1';
+  const contentOrder = mediaSide === 'end' ? 'order-2 lg:order-1' : 'order-2 lg:order-2';
+
   return (
-    <section className={`w-full min-w-0 ${padClass}`}>
-      <div
-        className={`grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center ${
-          mediaSide === 'end' ? '' : ''
-        }`}
-      >
-        {mediaSide === 'end' ? (
-          <>
-            {contentColumn}
-            {mediaColumn}
-          </>
-        ) : (
-          <>
-            {mediaColumn}
-            {contentColumn}
-          </>
-        )}
+    <section className={`w-full min-w-0 overflow-x-clip ${padClass}`}>
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 lg:items-center">
+        {mediaColumn && <div className={`${mediaOrder} w-full min-w-0`}>{mediaColumn}</div>}
+        <div className={`${contentOrder} w-full min-w-0 px-0.5 sm:px-0`}>{contentColumn}</div>
       </div>
 
       {showStats && stats.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-10 md:mt-14">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mt-7 sm:mt-10 md:mt-14">
           {stats.map((stat, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 bg-white dark:bg-surface-dim border border-outline-variant/25 rounded-2xl p-4 shadow-soft"
+              className="flex items-center gap-2.5 sm:gap-3 bg-white dark:bg-surface-dim border border-outline-variant/25 rounded-2xl p-3 sm:p-4 shadow-soft"
             >
-              <span className={`w-11 h-11 rounded-xl ${accent.soft} flex items-center justify-center shrink-0`}>
-                <span className="material-symbols-outlined text-2xl">{str(stat.icon, 'analytics')}</span>
+              <span
+                className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${accent.soft} flex items-center justify-center shrink-0`}
+              >
+                <span className="material-symbols-outlined text-xl sm:text-2xl">
+                  {str(stat.icon, 'analytics')}
+                </span>
               </span>
               <div className="min-w-0">
-                <p className="text-lg font-black text-on-surface leading-none">{str(stat.value)}</p>
-                <p className="text-[11px] text-on-surface-variant font-bold mt-1">{str(stat.label)}</p>
+                <p className="text-base sm:text-lg font-black text-on-surface leading-none">
+                  {str(stat.value)}
+                </p>
+                <p className="text-[10px] sm:text-[11px] text-on-surface-variant font-bold mt-1">
+                  {str(stat.label)}
+                </p>
               </div>
             </div>
           ))}
@@ -1795,8 +2147,14 @@ export const ContainerBlock: React.FC<{
         ? 'bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-soft'
         : '';
 
+  const widthMode = str(props.widthMode, 'contained');
+  const maxWidthRaw = Number(props.maxWidth);
+  const maxWidth =
+    Number.isFinite(maxWidthRaw) && maxWidthRaw > 0 ? maxWidthRaw : DEFAULT_CONTENT_MAX_WIDTH;
+  const widthStyle = containerWidthStyle(widthMode, maxWidth);
+
   return (
-    <section className={`rounded-[28px] ${padClass} ${bgClass}`}>
+    <section className={`rounded-[28px] ${padClass} ${bgClass}`} style={widthStyle}>
       <ResponsiveGrid
         columnsMobile={props.columnsMobile}
         columnsTablet={props.columnsTablet}
@@ -1941,6 +2299,147 @@ export const ContactCardsBlock: React.FC<{ props: Record<string, unknown> }> = (
   </section>
 );
 
+export const ContactInfoBlock: React.FC<{
+  props: Record<string, unknown>;
+  ctx: BlockRenderContext;
+}> = ({ props, ctx }) => {
+  const contact = mergeContactInfo(ctx.contact || DEFAULT_CONTACT_INFO);
+  const channels = listContactChannels(contact);
+  const showPhones = props.showPhones !== false;
+  const showSocials = props.showSocials !== false;
+  const showAddresses = props.showAddresses !== false;
+  const showMap = props.showMap !== false;
+  const layout = str(props.layout, 'cards');
+
+  const socials = channels.filter((c) => c.id !== 'phone');
+  const phones = contact.phones.filter((p) => p.number.trim());
+
+  return (
+    <section className="space-y-6 md:space-y-8 w-full min-w-0">
+      <div className="space-y-2 text-right">
+        {str(props.badge) && (
+          <span className="inline-flex text-[11px] font-bold text-primary bg-primary/10 px-3.5 py-1 rounded-full">
+            {str(props.badge)}
+          </span>
+        )}
+        {str(props.title) && (
+          <h2 className="text-2xl md:text-3xl font-black text-on-surface">{str(props.title)}</h2>
+        )}
+        {str(props.subtitle) && (
+          <p className="text-sm text-on-surface-variant max-w-2xl leading-relaxed">
+            {str(props.subtitle)}
+          </p>
+        )}
+      </div>
+
+      {showSocials && socials.length > 0 && (
+        <div className="flex flex-wrap gap-2.5 justify-start">
+          {socials.map((ch, idx) => (
+            <a
+              key={`${ch.id}-${idx}`}
+              href={ch.href}
+              target={ch.external ? '_blank' : undefined}
+              rel={ch.external ? 'noopener noreferrer' : undefined}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold shadow-sm transition-transform hover:scale-[1.02] ${CHANNEL_ACCENT[ch.id]}`}
+            >
+              <ContactChannelIcon id={ch.id} size={18} />
+              <span>{ch.label}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div
+        className={
+          layout === 'stacked'
+            ? 'space-y-4'
+            : 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'
+        }
+      >
+        {showPhones && phones.length > 0 && (
+          <div className="bg-white dark:bg-surface-dim rounded-[28px] border border-outline-variant/30 p-6 space-y-4 shadow-soft">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                <span className="material-symbols-outlined text-2xl">call</span>
+              </div>
+              <h3 className="font-black text-on-surface">تلفن‌های تماس</h3>
+            </div>
+            <ul className="space-y-2.5">
+              {phones.map((phone) => {
+                const href = getTelHref(phone);
+                return (
+                  <li key={phone.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-on-surface-variant font-bold">{phone.label || 'تلفن'}</span>
+                    {href ? (
+                      <a href={href} className="font-black text-on-surface hover:text-primary" dir="ltr">
+                        {phone.number}
+                      </a>
+                    ) : (
+                      <span className="font-black" dir="ltr">
+                        {phone.number}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {showAddresses &&
+          contact.addresses.map((addr) => {
+            const embed = showMap ? getMapEmbedSrc(addr) : null;
+            const mapHref = getMapHref(addr);
+            return (
+              <div
+                key={addr.id}
+                className="bg-white dark:bg-surface-dim rounded-[28px] border border-outline-variant/30 overflow-hidden shadow-soft"
+              >
+                <div className="p-6 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-2xl">location_on</span>
+                    </div>
+                    <h3 className="font-black text-on-surface">{addr.title || 'آدرس'}</h3>
+                  </div>
+                  <p className="text-sm text-on-surface-variant leading-relaxed">{addr.text}</p>
+                  {mapHref && (
+                    <a
+                      href={mapHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-extrabold text-primary hover:underline"
+                    >
+                      <span className="material-symbols-outlined text-sm">open_in_new</span>
+                      مشاهده در گوگل‌مپ
+                    </a>
+                  )}
+                </div>
+                {embed && (
+                  <div className="aspect-[16/10] bg-surface-container-low border-t border-outline-variant/20">
+                    <iframe
+                      title={addr.title || 'نقشه'}
+                      src={embed}
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+
+      {!phones.length && !contact.addresses.length && !socials.length && (
+        <div className="rounded-[28px] border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+          هنوز اطلاعات تماسی در پنل ادمین ثبت نشده است.
+        </div>
+      )}
+    </section>
+  );
+};
+
 export const ContactFormBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -2039,9 +2538,30 @@ export const ArticlesGridBlock: React.FC<{ props: Record<string, unknown>; ctx: 
   props,
   ctx,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const defaultCategory = str(props.categoryFilter).trim();
+  const titleQuery = str(props.titleQuery).trim();
+  const sortBy = str(props.sortBy, 'newest');
+  const layout = str(props.layout, 'grid');
+  const maxCount = Math.max(0, Number(props.maxCount) || 0);
+  const showPagination = props.showPagination === true;
+  const pageSize = Math.max(1, maxCount || 6);
+  const showSearch = props.showSearch === true;
+  const showCategories = props.showCategories === true;
+  const showExcerpt = props.showExcerpt !== false;
+  const showCategoryBadge = props.showCategoryBadge !== false;
+
+  const [selectedCategory, setSelectedCategory] = useState(defaultCategory || 'all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    setSelectedCategory(defaultCategory || 'all');
+  }, [defaultCategory]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, searchQuery, titleQuery, sortBy, maxCount, showPagination, ctx.articles]);
 
   const published = (ctx.articles || []).filter((a) => a.status === 'published');
 
@@ -2075,30 +2595,150 @@ export const ArticlesGridBlock: React.FC<{ props: Record<string, unknown>; ctx: 
       });
   }, [ctx.articles]);
 
-  const filtered = published.filter((art) => {
-    const matchesCat =
-      selectedCategory === 'all' ||
-      art.category === selectedCategory ||
-      art.categoryId === selectedCategory;
-    const q = searchQuery.trim();
-    const matchesSearch =
-      !q ||
-      art.title.includes(q) ||
-      art.summary.includes(q) ||
-      art.tags.some((t) => t.includes(q));
-    return matchesCat && matchesSearch;
-  });
+  const articleDateKey = (art: Article) => {
+    const raw = art.publishedAt || '';
+    const t = Date.parse(raw);
+    return Number.isFinite(t) ? t : 0;
+  };
 
-  const showSearch = props.showSearch !== false;
-  const showCategories = props.showCategories !== false;
+  const filtered = published
+    .filter((art) => {
+      const catKey = selectedCategory === 'all' ? '' : selectedCategory;
+      const matchesCat =
+        !catKey ||
+        art.category === catKey ||
+        art.categoryId === catKey ||
+        art.categoryId === categories.find((c) => c.name === catKey)?.id;
+      const fixedTitle = titleQuery;
+      const matchesFixedTitle = !fixedTitle || art.title.includes(fixedTitle);
+      const q = searchQuery.trim();
+      const matchesSearch =
+        !q ||
+        art.title.includes(q) ||
+        (art.summary || '').includes(q) ||
+        (art.tags || []).some((t) => t.includes(q));
+      return matchesCat && matchesFixedTitle && matchesSearch;
+    })
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'oldest') return articleDateKey(a) - articleDateKey(b);
+      if (sortBy === 'title_asc') return a.title.localeCompare(b.title, 'fa');
+      if (sortBy === 'title_desc') return b.title.localeCompare(a.title, 'fa');
+      if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
+      // newest (default)
+      const da = articleDateKey(a);
+      const db = articleDateKey(b);
+      if (db !== da) return db - da;
+      return 0;
+    });
+
+  const total = filtered.length;
+  const totalPages = showPagination ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+  const currentPage = Math.min(page, totalPages);
+  const visible = showPagination
+    ? filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : maxCount > 0
+      ? filtered.slice(0, maxCount)
+      : filtered;
+
+  const renderCard = (art: Article) => {
+    if (layout === 'list') {
+      return (
+        <article
+          key={art.id}
+          onClick={() => ctx.onSelectArticle?.(art)}
+          className="bg-white dark:bg-surface-dim rounded-3xl overflow-hidden shadow-soft border border-outline-variant/30 flex flex-col sm:flex-row group hover:shadow-xl transition-all cursor-pointer"
+        >
+          <div className="sm:w-48 md:w-56 shrink-0 aspect-video sm:aspect-auto sm:min-h-[140px] relative overflow-hidden bg-surface-container">
+            <img
+              src={art.coverImage}
+              alt={art.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          </div>
+          <div className="p-5 flex flex-col justify-between gap-3 flex-1 min-w-0">
+            <div className="space-y-2">
+              {showCategoryBadge && art.category && (
+                <span className="inline-flex text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                  {art.category}
+                </span>
+              )}
+              <h3 className="text-base md:text-lg font-bold text-on-surface group-hover:text-primary transition-colors leading-snug">
+                {art.title}
+              </h3>
+              {showExcerpt && (
+                <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">{art.summary}</p>
+              )}
+            </div>
+            <div className="text-xs font-bold text-primary flex items-center gap-1">
+              <span>ادامه مطلب</span>
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
+            </div>
+          </div>
+        </article>
+      );
+    }
+
+    const compact = layout === 'compact';
+    return (
+      <article
+        key={art.id}
+        onClick={() => ctx.onSelectArticle?.(art)}
+        className={`bg-white dark:bg-surface-dim rounded-3xl overflow-hidden shadow-soft border border-outline-variant/30 flex flex-col justify-between group hover:shadow-xl transition-all cursor-pointer ${
+          compact ? 'rounded-2xl' : ''
+        }`}
+      >
+        <div>
+          <div className={`relative overflow-hidden bg-surface-container ${compact ? 'aspect-[16/10]' : 'aspect-video'}`}>
+            <img
+              src={art.coverImage}
+              alt={art.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            {showCategoryBadge && art.category && (
+              <span className="absolute top-3 right-3 bg-primary text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+                {art.category}
+              </span>
+            )}
+          </div>
+          <div className={`space-y-2 ${compact ? 'p-4' : 'p-6 space-y-3'}`}>
+            <h3
+              className={`font-bold text-on-surface group-hover:text-primary transition-colors leading-snug ${
+                compact ? 'text-sm line-clamp-2' : 'text-lg'
+              }`}
+            >
+              {art.title}
+            </h3>
+            {showExcerpt && !compact && (
+              <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3">{art.summary}</p>
+            )}
+          </div>
+        </div>
+        <div className={`text-xs font-bold text-primary flex items-center gap-1 ${compact ? 'px-4 pb-4' : 'px-6 pb-5'}`}>
+          <span>ادامه مطلب</span>
+          <span className="material-symbols-outlined text-sm">arrow_back</span>
+        </div>
+      </article>
+    );
+  };
 
   return (
-    <section className="space-y-8">
-      {str(props.title) && (
-        <h2 className="text-2xl font-black text-primary text-center">{str(props.title)}</h2>
+    <section className="space-y-6 md:space-y-8 w-full min-w-0">
+      {(str(props.title) || str(props.subtitle)) && (
+        <div className="text-center space-y-2">
+          {str(props.title) && (
+            <h2 className="text-2xl md:text-3xl font-black text-primary">{str(props.title)}</h2>
+          )}
+          {str(props.subtitle) && (
+            <p className="text-sm text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
+              {str(props.subtitle)}
+            </p>
+          )}
+        </div>
       )}
+
       {(showSearch || showCategories) && (
-        <div className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-4">
+        <div className="bg-white dark:bg-surface-dim p-5 md:p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             {showCategories && (
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -2119,7 +2759,7 @@ export const ArticlesGridBlock: React.FC<{ props: Record<string, unknown>; ctx: 
                     type="button"
                     onClick={() => setSelectedCategory(cat.name)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      selectedCategory === cat.name
+                      selectedCategory === cat.name || selectedCategory === cat.id
                         ? 'bg-primary text-white shadow-md'
                         : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
                     }`}
@@ -2147,41 +2787,57 @@ export const ArticlesGridBlock: React.FC<{ props: Record<string, unknown>; ctx: 
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filtered.map((art) => (
-          <article
-            key={art.id}
-            onClick={() => ctx.onSelectArticle?.(art)}
-            className="bg-white dark:bg-surface-dim rounded-3xl overflow-hidden shadow-soft border border-outline-variant/30 flex flex-col justify-between group hover:shadow-xl transition-all cursor-pointer"
+      {layout === 'list' ? (
+        <div className="space-y-4">{visible.map(renderCard)}</div>
+      ) : (
+        <ResponsiveGrid
+          columnsMobile={Number(props.columnsMobile) || 1}
+          columnsTablet={Number(props.columnsTablet) || 2}
+          columnsDesktop={Number(props.columnsDesktop) || 3}
+          className="gap-6 md:gap-8"
+        >
+          {visible.map(renderCard)}
+        </ResponsiveGrid>
+      )}
+
+      {!visible.length && (
+        <p className="text-center text-sm text-on-surface-variant py-12">مقاله‌ای یافت نشد.</p>
+      )}
+
+      {showPagination && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 flex-wrap pt-2">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-2 rounded-xl border border-outline-variant/40 text-xs font-bold disabled:opacity-40 hover:bg-surface-container-low"
           >
-            <div>
-              <div className="aspect-video relative overflow-hidden bg-surface-container">
-                <img
-                  src={art.coverImage}
-                  alt={art.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <span className="absolute top-3 right-3 bg-primary text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
-                  {art.category}
-                </span>
-              </div>
-              <div className="p-6 space-y-3">
-                <h3 className="text-lg font-bold text-on-surface group-hover:text-primary transition-colors leading-snug">
-                  {art.title}
-                </h3>
-                <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3">{art.summary}</p>
-              </div>
-            </div>
-            <div className="px-6 pb-5 text-xs font-bold text-primary flex items-center gap-1">
-              <span>ادامه مطلب</span>
-              <span className="material-symbols-outlined text-sm">arrow_back</span>
-            </div>
-          </article>
-        ))}
-        {!filtered.length && (
-          <p className="col-span-full text-center text-sm text-on-surface-variant py-12">مقاله‌ای یافت نشد.</p>
-        )}
-      </div>
+            قبلی
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              className={`w-9 h-9 rounded-xl text-xs font-black transition-colors ${
+                n === currentPage
+                  ? 'bg-primary text-white shadow'
+                  : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="px-3 py-2 rounded-xl border border-outline-variant/40 text-xs font-bold disabled:opacity-40 hover:bg-surface-container-low"
+          >
+            بعدی
+          </button>
+        </div>
+      )}
     </section>
   );
 };
@@ -2219,12 +2875,16 @@ export function renderServiceBlock(
       return <TestimonialsBlock props={block.props} />;
     case 'faqs':
       return <FaqsBlock props={block.props} />;
+    case 'latestFaqs':
+      return <LatestFaqsBlock props={block.props} ctx={ctx} />;
     case 'otherServices':
       return <OtherServicesBlock props={block.props} ctx={ctx} />;
     case 'servicesGrid':
       return <ServicesGridBlock props={block.props} ctx={ctx} />;
     case 'contactCards':
       return <ContactCardsBlock props={block.props} />;
+    case 'contactInfo':
+      return <ContactInfoBlock props={block.props} ctx={ctx} />;
     case 'contactForm':
       return <ContactFormBlock props={block.props} />;
     case 'articlesGrid':
@@ -2233,6 +2893,8 @@ export function renderServiceBlock(
       return <CtaBlock props={block.props} ctx={ctx} />;
     case 'richText':
       return <RichTextBlock props={block.props} />;
+    case 'htmlCode':
+      return <HtmlCodeBlock props={block.props} />;
     case 'imageCarousel':
       return <ImageCarouselBlock props={block.props} />;
     case 'videoPlayer':

@@ -23,7 +23,9 @@ import {
 import { uploadsRouter, uploadsDir } from './routes/uploads';
 import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
+import { systemRouter } from './routes/system';
 import { isInstallLocked, writeInstallLock } from './lib/installLock';
+import { isMaintenanceModeCached } from './lib/maintenanceCache';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -49,9 +51,41 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/pages', pagesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/system', systemRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, installed: isInstallLocked() });
+});
+
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    next();
+    return;
+  }
+  try {
+    if (await isMaintenanceModeCached()) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    }
+  } catch {
+    /* ignore */
+  }
+  next();
+});
+
+app.get('/robots.txt', async (_req, res, next) => {
+  try {
+    if (await isMaintenanceModeCached()) {
+      res
+        .type('text/plain')
+        .send(
+          '# Maintenance mode — crawling disabled\nUser-agent: *\nDisallow: /\n'
+        );
+      return;
+    }
+  } catch {
+    /* fall through to static */
+  }
+  next();
 });
 
 const distDir = path.resolve(__dirname, '../dist');

@@ -8,6 +8,7 @@ import {
   patchEntity,
   upsertEntity,
 } from '../db';
+import { invalidateMaintenanceCache } from '../lib/maintenanceCache';
 
 function createCrudRouter(table: EntityTable) {
   const router = Router();
@@ -139,6 +140,7 @@ settingsRouter.put('/', async (req, res) => {
   try {
     const body = { ...req.body, id: 'clinic_settings' };
     await upsertEntity('settings', 'clinic_settings', body);
+    invalidateMaintenanceCache();
     res.json(body);
   } catch (err) {
     console.error('PUT /settings error:', err);

@@ -97,8 +97,11 @@ export type ServiceBlockType =
   | 'doctors'
   | 'testimonials'
   | 'faqs'
+  | 'latestFaqs'
+  | 'contactInfo'
   | 'cta'
   | 'richText'
+  | 'htmlCode'
   | 'otherServices'
   | 'servicesGrid'
   | 'contactCards'
@@ -140,6 +143,16 @@ export interface SitePage {
   /** When true (or id is a known SitePageId), page cannot be deleted. */
   isSystem?: boolean;
   status?: 'published' | 'draft';
+  /** Featured / OG image */
+  coverImage?: string;
+  /** Short summary for listings / SEO */
+  excerpt?: string;
+  /**
+   * Page shell width:
+   * - contained: centered content (max 1400px)
+   * - full: edge-to-edge (widgets control their own width)
+   */
+  layoutWidth?: 'contained' | 'full';
   updatedAt?: string;
 }
 
@@ -237,6 +250,13 @@ export interface SiteIdentitySettings {
   faviconUrl: string;
   primaryColor: string;
   secondaryColor: string;
+  /** CTA / button surfaces */
+  buttonColor: string;
+  backgroundColor: string;
+  accentColor: string;
+  textColor: string;
+  /** Font id from SITE_FONT_OPTIONS (e.g. vazirmatn) */
+  fontFamily: string;
   phone1: string;
   phone2: string;
   phoneClean: string;
@@ -295,10 +315,94 @@ export interface SiteChromeSettings {
 
 export interface ClinicSettings {
   bookingEnabled?: boolean;
+  /** When true, public visitors see maintenance page; logged-in users bypass */
+  maintenanceMode?: boolean;
+  /** Optional custom message on the maintenance page */
+  maintenanceMessage?: string;
   zarinpal: ZarinpalSettings;
   kavenegar: KavenegarSettings;
   /** Branding, header, menus, footer — editable in admin settings */
   site?: SiteChromeSettings;
+  /** Managed contact channels (phones, socials, addresses) */
+  contact?: ClinicContactInfo;
+  /** Feature modules (admin-only); e.g. auto-translate */
+  modules?: SiteModulesSettings;
+}
+
+/** Catalog entry for site language switcher */
+export interface TranslateLanguageOption {
+  code: string;
+  label: string;
+  nativeLabel: string;
+  dir: 'rtl' | 'ltr';
+  flag?: string;
+}
+
+export interface AutoTranslateModuleSettings {
+  /** Master switch — when off, no switcher / no Google Translate */
+  enabled: boolean;
+  /** Original content language (usually fa) */
+  sourceLanguage: string;
+  /** First language on load if no stored preference */
+  defaultLanguage: string;
+  /** Language codes shown in header switcher */
+  languages: string[];
+  showFlags?: boolean;
+}
+
+/** Simple on/off feature module */
+export interface FeatureModuleSettings {
+  enabled: boolean;
+}
+
+export interface SiteModulesSettings {
+  autoTranslate: AutoTranslateModuleSettings;
+  /** Online booking + admin appointments tab */
+  appointments: FeatureModuleSettings;
+}
+
+export interface ContactPhoneItem {
+  id: string;
+  label: string;
+  number: string;
+  /** Digits for tel: link; falls back to stripped `number` */
+  telHref?: string;
+}
+
+export interface ContactAddressItem {
+  id: string;
+  title: string;
+  text: string;
+  lat?: number;
+  lng?: number;
+}
+
+export type ConsultFabPosition = 'right' | 'left';
+export type ConsultFabEntryAnimation = 'fadeUp' | 'scale' | 'bounce' | 'slide' | 'none';
+
+/** Floating consult button appearance (admin-configurable). */
+export interface ConsultFabSettings {
+  enabled: boolean;
+  position: ConsultFabPosition;
+  color: string;
+  icon: string;
+  label: string;
+  showLabel: boolean;
+  entryAnimation: ConsultFabEntryAnimation;
+  pulse: boolean;
+}
+
+export interface ClinicContactInfo {
+  phones: ContactPhoneItem[];
+  whatsapp: string;
+  email: string;
+  telegram: string;
+  instagram: string;
+  bale: string;
+  eitaa: string;
+  rubika: string;
+  addresses: ContactAddressItem[];
+  fab?: ConsultFabSettings;
 }
 
 export interface Article {

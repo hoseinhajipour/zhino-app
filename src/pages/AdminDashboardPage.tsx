@@ -41,8 +41,17 @@ import { ServicePageBuilder } from '../components/page-builder/ServicePageBuilde
 import { SitePageBuilder } from '../components/page-builder/SitePageBuilder';
 import { ArticleEditorPage } from '../components/page-builder/ArticleEditorPage';
 import { SiteChromeSettingsPanel } from '../components/admin/SiteChromeSettingsPanel';
+import { ContactInfoSettingsPanel } from '../components/admin/ContactInfoSettingsPanel';
+import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
+import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
+import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { mergeSiteChrome } from '../lib/siteChromeDefaults';
-import type { SiteChromeSettings } from '../types';
+import {
+  identityPatchFromContact,
+  mergeContactInfo,
+} from '../lib/contactInfo';
+import { isAppointmentsModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import type { ClinicContactInfo, SiteChromeSettings, SiteModulesSettings } from '../types';
 import { createBlankArticle } from '../lib/articleDefaults';
 import {
   createBlankSitePage,
@@ -68,7 +77,10 @@ import {
   canManageArticles,
   canManageDoctors,
   canManagePersonnel,
+  canManageModules,
   canManageSettings,
+  canManageUsers,
+  canViewSystemStatus,
   canViewServicesOnly,
   getAllowedTabs,
   getRoleLabel,
@@ -144,8 +156,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [siteChromeDraft, setSiteChromeDraft] = useState<SiteChromeSettings>(() =>
     mergeSiteChrome(DEFAULT_CLINIC_SETTINGS.site)
   );
+  const [contactDraft, setContactDraft] = useState<ClinicContactInfo>(() =>
+    mergeContactInfo(DEFAULT_CLINIC_SETTINGS.contact)
+  );
+  const [modulesDraft, setModulesDraft] = useState<SiteModulesSettings>(() =>
+    mergeSiteModules(DEFAULT_CLINIC_SETTINGS.modules)
+  );
   const [savingSiteChrome, setSavingSiteChrome] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [savingModules, setSavingModules] = useState(false);
   const [settingsSaveMsg, setSettingsSaveMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const [isTestingGateway, setIsTestingGateway] = useState(false);
   const [testGatewayResult, setTestGatewayResult] = useState<string | null>(null);
 
@@ -189,6 +212,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       if (st) {
         setSettings(st);
         setSiteChromeDraft(mergeSiteChrome(st.site));
+        setContactDraft(mergeContactInfo(st.contact, st.site?.identity));
+        setModulesDraft(mergeSiteModules(st.modules));
+        setMaintenanceMode(!!st.maintenanceMode);
+        setMaintenanceMessage(st.maintenanceMessage || '');
         setResBookingEnabled(st.bookingEnabled ?? true);
         setZpEnabled(st.zarinpal.enabled);
         setZpIsSandbox(st.zarinpal.isSandbox);
@@ -435,6 +462,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [editPageTitle, setEditPageTitle] = useState('');
   const [editPageSlug, setEditPageSlug] = useState('');
   const [editPageStatus, setEditPageStatus] = useState<'published' | 'draft'>('published');
+  const [editPageCover, setEditPageCover] = useState('');
+  const [editPageExcerpt, setEditPageExcerpt] = useState('');
+  const [editPageLayoutWidth, setEditPageLayoutWidth] = useState<'contained' | 'full'>('contained');
   const [pageSearch, setPageSearch] = useState('');
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [servTitle, setServTitle] = useState('');
@@ -577,6 +607,89 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره ظاهر سایت' });
     } finally {
       setSavingSiteChrome(false);
+    }
+  };
+
+  const handleSaveContactInfo = async () => {
+    setSavingContact(true);
+    setSettingsSaveMsg(null);
+    const contact = mergeContactInfo(contactDraft);
+    const patchedIdentity = {
+      ...siteChromeDraft.identity,
+      ...identityPatchFromContact(contact),
+    };
+    const site = {
+      ...siteChromeDraft,
+      identity: patchedIdentity,
+    };
+    const updated: ClinicSettings = {
+      ...settings,
+      contact,
+      site,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setSiteChromeDraft(site);
+      setContactDraft(contact);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: 'اطلاعات تماس ذخیره شد و فوتر/ویجت‌ها به‌روز می‌شوند.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره اطلاعات تماس' });
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const handleSaveModules = async () => {
+    setSavingModules(true);
+    setSettingsSaveMsg(null);
+    const modules = mergeSiteModules(modulesDraft);
+    const updated: ClinicSettings = {
+      ...settings,
+      modules,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setModulesDraft(modules);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: 'تنظیمات ماژول‌ها ذخیره شد.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره ماژول‌ها' });
+    } finally {
+      setSavingModules(false);
+    }
+  };
+
+  const handleSaveMaintenance = async () => {
+    setSavingMaintenance(true);
+    setSettingsSaveMsg(null);
+    const updated: ClinicSettings = {
+      ...settings,
+      maintenanceMode,
+      maintenanceMessage: maintenanceMessage.trim(),
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: maintenanceMode
+          ? 'حالت تعمیر فعال شد — بازدیدکنندگان عمومی صفحه تعمیر را می‌بینند.'
+          : 'حالت تعمیر خاموش شد — سایت برای همه در دسترس است.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره حالت تعمیر' });
+    } finally {
+      setSavingMaintenance(false);
     }
   };
 
@@ -1023,6 +1136,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         : page.slug.replace(/^\/+/, '').replace(/^p\//, '')
     );
     setEditPageStatus(page.status === 'draft' ? 'draft' : 'published');
+    setEditPageCover(page.coverImage || '');
+    setEditPageExcerpt(page.excerpt || '');
+    setEditPageLayoutWidth(page.layoutWidth === 'full' ? 'full' : 'contained');
   };
 
   const handleSavePageMeta = async () => {
@@ -1047,6 +1163,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         ...editingPageMeta,
         title,
         slug,
+        coverImage: editPageCover.trim(),
+        excerpt: editPageExcerpt.trim(),
+        layoutWidth: editPageLayoutWidth,
         status: isSystemSitePage(editingPageMeta) ? 'published' : editPageStatus,
         updatedAt: new Date().toISOString(),
       };
@@ -1130,12 +1249,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           : 'پیگیری، تأیید و ثبت نوبت‌های کلینیک',
     },
     personnel: { title: 'پرسنل و خدمات', subtitle: 'مدیریت کادر درمان و صفحات خدمات' },
+    users: {
+      title: 'مدیریت کاربران',
+      subtitle: 'لیست کاربران، نقش‌ها و ایجاد حساب جدید',
+    },
     pages: {
       title: 'مدیریت صفحه‌ها',
       subtitle: 'ویرایش صفحات موجود یا ساخت صفحه جدید با صفحه‌ساز',
     },
     articles: { title: 'مقالات و بلاگ', subtitle: 'تولید و انتشار محتوای مجله کلینیک' },
     faqs: { title: 'سوالات متداول', subtitle: 'پاسخ‌گویی و تأیید پرسش‌های مراجعین' },
+    contact: {
+      title: 'اطلاعات تماس',
+      subtitle: 'تلفن‌ها، پیام‌رسان‌ها، ایمیل و آدرس‌های کلینیک',
+    },
+    modules: {
+      title: 'ماژول‌ها',
+      subtitle: 'قابلیت‌های اختیاری سایت — ترجمه خودکار و ماژول‌های بعدی',
+    },
+    system: {
+      title: 'وضعیت سیستم',
+      subtitle: 'سلامت سرور، منابع سخت‌افزاری، نسخه نرم‌افزار و به‌روزرسانی',
+    },
     settings: { title: 'تنظیمات کلینیک', subtitle: 'هویت برند، هدر، منو و فوتر سایت' },
   };
 
@@ -2271,8 +2406,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               return (
                 <div
                   key={page.id}
-                  className="bg-white dark:bg-surface-dim rounded-2xl border border-outline-variant/30 p-5 shadow-soft flex flex-col gap-4"
+                  className="bg-white dark:bg-surface-dim rounded-2xl border border-outline-variant/30 overflow-hidden shadow-soft flex flex-col"
                 >
+                  {page.coverImage ? (
+                    <div className="aspect-[16/7] bg-surface-container-low overflow-hidden">
+                      <img
+                        src={page.coverImage}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="p-5 flex flex-col gap-4 flex-1">
                   <div className="flex items-start gap-3">
                     <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined">{icon}</span>
@@ -2298,7 +2443,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                       <p className="text-[11px] text-on-surface-variant font-mono mt-0.5 truncate" dir="ltr">
                         {path}
                       </p>
-                      <p className="text-[11px] text-on-surface-variant mt-1">{blockCount} بلوک</p>
+                      {page.excerpt ? (
+                        <p className="text-[11px] text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
+                          {page.excerpt}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-on-surface-variant mt-1">{blockCount} بلوک</p>
+                      )}
                     </div>
                   </div>
 
@@ -2338,6 +2489,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                         </button>
                       )}
                     </div>
+                  </div>
                   </div>
                 </div>
               );
@@ -2918,6 +3070,45 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* TAB: CONTACT INFO */}
+      {/* ========================================================================= */}
+      {activeTab === 'contact' && canManageSettings(currentUser?.role) && (
+        <div className="space-y-6 animate-fade-in">
+          <ContactInfoSettingsPanel
+            value={contactDraft}
+            onChange={setContactDraft}
+            onSave={handleSaveContactInfo}
+            saving={savingContact}
+            saveMsg={settingsSaveMsg}
+          />
+        </div>
+      )}
+
+      {activeTab === 'modules' && canManageModules(currentUser?.role) && (
+        <div className="space-y-6 animate-fade-in">
+          <ModulesSettingsPanel
+            value={modulesDraft}
+            onChange={setModulesDraft}
+            onSave={handleSaveModules}
+            saving={savingModules}
+            saveMsg={settingsSaveMsg}
+          />
+        </div>
+      )}
+
+      {activeTab === 'system' && canViewSystemStatus(currentUser?.role) && (
+        <div className="space-y-6 animate-fade-in">
+          <SystemStatusPanel />
+        </div>
+      )}
+
+      {activeTab === 'users' && canManageUsers(currentUser?.role) && (
+        <div className="space-y-6 animate-fade-in">
+          <UsersManagementPanel currentUserId={currentUser?.id} />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* TAB 4: SYSTEM SETTINGS (SITE CHROME) */}
       {/* ========================================================================= */}
       {activeTab === 'settings' && canManageSettings(currentUser?.role) && (
@@ -2938,6 +3129,86 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             </div>
           )}
 
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+                    maintenanceMode
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="material-symbols-outlined">construction</span>
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-on-surface">حالت تعمیر (Maintenance)</h2>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    بستن موقت سایت برای بازدیدکنندگان و موتورهای جستجو
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={savingMaintenance}
+                onClick={() => void handleSaveMaintenance()}
+                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">save</span>
+                {savingMaintenance ? 'در حال ذخیره…' : 'ذخیره'}
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <label
+                className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+                  maintenanceMode
+                    ? 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/20'
+                    : 'border-outline-variant/40 bg-surface-container-low/40'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-outline-variant"
+                  checked={maintenanceMode}
+                  onChange={(e) => setMaintenanceMode(e.target.checked)}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-on-surface">فعال‌سازی Maintenance Mode</p>
+                  <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
+                    کاربران عادی صفحه «در دست تعمیر» را می‌بینند. موتورهای جستجو با{' '}
+                    <code className="text-[10px] bg-white/80 px-1 rounded" dir="ltr">
+                      noindex
+                    </code>{' '}
+                    و مسدودسازی در robots از ایندکس شدن جلوگیری می‌شود. کاربران لاگین‌شده (ادمین،
+                    اپراتور، پزشک و مراجع) همچنان به سایت دسترسی دارند.
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
+                    maintenanceMode
+                      ? 'bg-amber-200 text-amber-900'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {maintenanceMode ? 'فعال' : 'غیرفعال'}
+                </span>
+              </label>
+
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-bold text-on-surface-variant">
+                  پیام صفحه تعمیر (اختیاری)
+                </span>
+                <textarea
+                  rows={3}
+                  value={maintenanceMessage}
+                  onChange={(e) => setMaintenanceMessage(e.target.value)}
+                  placeholder="سایت موقتاً در دست به‌روزرسانی است. از صبوری شما متشکریم…"
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="lg:col-span-2">
               <SiteChromeSettingsPanel
@@ -2947,7 +3218,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 saving={savingSiteChrome}
               />
             </div>
-
           </div>
         </div>
       )}
@@ -3955,7 +4225,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
       {editingPageMeta && canEditSitePages(currentUser?.role) && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-surface-dim w-full max-w-md rounded-3xl shadow-2xl p-6 text-right space-y-4 border border-outline-variant/30">
+          <div className="bg-white dark:bg-surface-dim w-full max-w-md rounded-3xl shadow-2xl p-6 text-right space-y-4 border border-outline-variant/30 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="font-extrabold text-base text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">tune</span>
@@ -3978,6 +4248,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 className="w-full p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-sm"
               />
             </label>
+            <MediaField
+              label="تصویر شاخص"
+              value={editPageCover}
+              onChange={setEditPageCover}
+              accept="image"
+              aspect="video"
+            />
             <label className="block space-y-1">
               <span className="text-[11px] font-bold text-on-surface-variant">آدرس</span>
               {isSystemSitePage(editingPageMeta) ? (
@@ -4004,6 +4281,43 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 </div>
               )}
             </label>
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">چکیده</span>
+              <textarea
+                rows={3}
+                value={editPageExcerpt}
+                onChange={(e) => setEditPageExcerpt(e.target.value)}
+                placeholder="خلاصه کوتاه صفحه..."
+                className="w-full p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-sm leading-relaxed"
+              />
+            </label>
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-on-surface-variant block">عرض قالب صفحه</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditPageLayoutWidth('contained')}
+                  className={`text-right rounded-xl border p-2.5 text-[11px] font-black transition-all ${
+                    editPageLayoutWidth === 'contained'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-outline-variant/40 text-on-surface-variant'
+                  }`}
+                >
+                  کانتینری (۱۴۰۰px)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditPageLayoutWidth('full')}
+                  className={`text-right rounded-xl border p-2.5 text-[11px] font-black transition-all ${
+                    editPageLayoutWidth === 'full'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-outline-variant/40 text-on-surface-variant'
+                  }`}
+                >
+                  تمام‌عرض
+                </button>
+              </div>
+            </div>
             {!isSystemSitePage(editingPageMeta) && (
               <label className="block space-y-1">
                 <span className="text-[11px] font-bold text-on-surface-variant">وضعیت انتشار</span>
@@ -4046,6 +4360,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           categories={articleCategories}
           allServices={services}
           articles={articles}
+          faqs={faqs}
+          contact={settings.contact}
           onClose={() => {
             setArticleEditor(null);
             setArticleEditorIsNew(false);
@@ -4057,7 +4373,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 ? articles.map((a) => (a.id === updated.id ? updated : a))
                 : [updated, ...articles]
             );
-            setArticleEditor(null);
+            setArticleEditor(updated);
             setArticleEditorIsNew(false);
           }}
         />
@@ -4068,10 +4384,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           service={pageBuilderService}
           allServices={services}
           doctors={doctors}
+          faqs={faqs}
+          contact={settings.contact}
           onClose={() => setPageBuilderService(null)}
           onSaved={(updated) => {
             onUpdateServices(services.map((s) => (s.id === updated.id ? updated : s)));
-            setPageBuilderService(null);
+            setPageBuilderService(updated);
           }}
         />
       )}
@@ -4081,13 +4399,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           allServices={services}
           doctors={doctors}
           articles={articles}
+          faqs={faqs}
+          contact={settings.contact}
+          existingPages={sitePages}
           onClose={() => setPageBuilderSitePage(null)}
           onSaved={(updated) => {
             const next = sitePages.some((p) => p.id === updated.id)
               ? sitePages.map((p) => (p.id === updated.id ? updated : p))
               : [...sitePages, updated];
             onUpdateSitePages?.(next);
-            setPageBuilderSitePage(null);
+            setPageBuilderSitePage(updated);
           }}
         />
       )}

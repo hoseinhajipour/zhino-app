@@ -55,6 +55,11 @@ export function getPool(): Pool {
   return pool;
 }
 
+/** Lightweight connectivity probe for system status. */
+export async function pingDatabase(): Promise<void> {
+  await getPool().query('SELECT 1');
+}
+
 /** Close cached pool so next getPool() picks up new env. */
 export async function resetPool(): Promise<void> {
   if (pool) {

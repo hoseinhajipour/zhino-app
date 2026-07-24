@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import type { SiteChromeSettings, SiteNavItem } from '../../types';
 import { MediaField } from '../media/MediaField';
-import { BUILTIN_NAV_TARGETS, newNavItem } from '../../lib/siteChromeDefaults';
+import {
+  BUILTIN_NAV_TARGETS,
+  getSiteFontOption,
+  newNavItem,
+  SITE_FONT_OPTIONS,
+} from '../../lib/siteChromeDefaults';
 
 type ChromeTab = 'identity' | 'header' | 'menu' | 'footer';
 
@@ -48,6 +53,47 @@ function TextField({
           dir={dir}
         />
       )}
+    </label>
+  );
+}
+
+function ColorField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const safe = /^#[0-9A-Fa-f]{6}$/.test(value) ? value : '#000000';
+  return (
+    <label className="block space-y-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-lowest/60 p-3">
+      <span className="text-[11px] font-bold text-on-surface block">{label}</span>
+      {hint && <span className="text-[10px] text-on-surface-variant block -mt-0.5">{hint}</span>}
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={safe}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-10 h-10 rounded-lg border border-outline-variant/40 cursor-pointer shrink-0 bg-transparent"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={fieldClass}
+          dir="ltr"
+          placeholder="#000000"
+        />
+        <span
+          className="w-8 h-8 rounded-lg border border-outline-variant/30 shrink-0 shadow-inner"
+          style={{ backgroundColor: safe }}
+          aria-hidden
+        />
+      </div>
     </label>
   );
 }
@@ -276,7 +322,7 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
 
       <div className="p-5 md:p-6 space-y-4 text-xs">
         {tab === 'identity' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <TextField
                 label="نام سایت / برند"
@@ -289,114 +335,171 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
                 onChange={(v) => onChange({ ...value, identity: { ...identity, tagline: v } })}
               />
             </div>
-            <MediaField
-              label="لوگو / آیکون برند"
-              value={identity.logoUrl}
-              onChange={(v) => onChange({ ...value, identity: { ...identity, logoUrl: v } })}
-              accept="image"
-              aspect="square"
-            />
-            <MediaField
-              label="فاوآیکون"
-              value={identity.faviconUrl}
-              onChange={(v) => onChange({ ...value, identity: { ...identity, faviconUrl: v } })}
-              accept="image"
-              aspect="square"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="block space-y-1">
-                <span className="text-[11px] font-bold text-on-surface-variant">رنگ اصلی</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={identity.primaryColor}
-                    onChange={(e) =>
-                      onChange({ ...value, identity: { ...identity, primaryColor: e.target.value } })
-                    }
-                    className="w-12 h-10 rounded-lg border border-outline-variant/40 cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={identity.primaryColor}
-                    onChange={(e) =>
-                      onChange({ ...value, identity: { ...identity, primaryColor: e.target.value } })
-                    }
-                    className={fieldClass}
-                    dir="ltr"
-                  />
-                </div>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[11px] font-bold text-on-surface-variant">رنگ ثانویه</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={identity.secondaryColor}
-                    onChange={(e) =>
-                      onChange({ ...value, identity: { ...identity, secondaryColor: e.target.value } })
-                    }
-                    className="w-12 h-10 rounded-lg border border-outline-variant/40 cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={identity.secondaryColor}
-                    onChange={(e) =>
-                      onChange({ ...value, identity: { ...identity, secondaryColor: e.target.value } })
-                    }
-                    className={fieldClass}
-                    dir="ltr"
-                  />
-                </div>
-              </label>
+
+            <div>
+              <p className="text-[11px] font-black text-on-surface mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-primary">image</span>
+                لوگو و فاوآیکون
+              </p>
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                <MediaField
+                  label="لوگو"
+                  value={identity.logoUrl}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, logoUrl: v } })}
+                  accept="image"
+                  aspect="square"
+                  compact
+                  helperText="هدر و فوتر"
+                />
+                <MediaField
+                  label="فاوآیکون"
+                  value={identity.faviconUrl}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, faviconUrl: v } })}
+                  accept="image"
+                  aspect="square"
+                  compact
+                  helperText="تب مرورگر"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TextField
-                label="تلفن ۱"
-                value={identity.phone1}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, phone1: v } })}
-              />
-              <TextField
-                label="تلفن ۲"
-                value={identity.phone2}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, phone2: v } })}
-              />
-              <TextField
-                label="شماره تماس لاتین (tel:)"
-                value={identity.phoneClean}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, phoneClean: v } })}
-                dir="ltr"
-              />
-              <TextField
-                label="واتساپ (+98…)"
-                value={identity.whatsappNumber}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, whatsappNumber: v } })}
-                dir="ltr"
-              />
-              <TextField
-                label="ایمیل"
-                value={identity.email}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, email: v } })}
-                dir="ltr"
-              />
-              <TextField
-                label="اینستاگرام"
-                value={identity.instagram}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, instagram: v } })}
-                dir="ltr"
-              />
-              <TextField
-                label="تلگرام"
-                value={identity.telegram}
-                onChange={(v) => onChange({ ...value, identity: { ...identity, telegram: v } })}
-                dir="ltr"
-              />
+
+            <div>
+              <p className="text-[11px] font-black text-on-surface mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-primary">palette</span>
+                پالت رنگ سایت
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <ColorField
+                  label="رنگ اصلی"
+                  hint="برند، لینک‌ها و هایلایت"
+                  value={identity.primaryColor}
+                  onChange={(v) => {
+                    const syncButton =
+                      !identity.buttonColor || identity.buttonColor === identity.primaryColor;
+                    onChange({
+                      ...value,
+                      identity: {
+                        ...identity,
+                        primaryColor: v,
+                        ...(syncButton ? { buttonColor: v } : {}),
+                      },
+                    });
+                  }}
+                />
+                <ColorField
+                  label="رنگ ثانویه"
+                  hint="بخش‌های مکمل و فوتر"
+                  value={identity.secondaryColor}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, secondaryColor: v } })}
+                />
+                <ColorField
+                  label="رنگ دکمه"
+                  hint="دکمه‌های CTA و اکشن"
+                  value={identity.buttonColor || identity.primaryColor}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, buttonColor: v } })}
+                />
+                <ColorField
+                  label="رنگ پس‌زمینه"
+                  hint="پس‌زمینه صفحات"
+                  value={identity.backgroundColor || '#f8f9fa'}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, backgroundColor: v } })}
+                />
+                <ColorField
+                  label="رنگ تأکیدی"
+                  hint="تگ‌ها و جزئیات بصری"
+                  value={identity.accentColor || '#13677b'}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, accentColor: v } })}
+                />
+                <ColorField
+                  label="رنگ متن"
+                  hint="متن اصلی بدنه"
+                  value={identity.textColor || '#191c1d'}
+                  onChange={(v) => onChange({ ...value, identity: { ...identity, textColor: v } })}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                <span className="text-[10px] font-bold text-on-surface-variant ml-1">پیش‌نمایش:</span>
+                <span
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-bold text-white shadow-sm"
+                  style={{ backgroundColor: identity.buttonColor || identity.primaryColor }}
+                >
+                  دکمه نمونه
+                </span>
+                <span className="text-[11px] font-bold" style={{ color: identity.primaryColor }}>
+                  لینک اصلی
+                </span>
+                <span className="text-[11px]" style={{ color: identity.accentColor || '#13677b' }}>
+                  تأکید
+                </span>
+                <span
+                  className="text-[11px] px-2 py-1 rounded-md"
+                  style={{
+                    backgroundColor: identity.backgroundColor || '#f8f9fa',
+                    color: identity.textColor || '#191c1d',
+                    border: `1px solid ${identity.secondaryColor}33`,
+                  }}
+                >
+                  متن روی پس‌زمینه
+                </span>
+              </div>
             </div>
-            <TextField
-              label="آدرس"
-              value={identity.address}
-              onChange={(v) => onChange({ ...value, identity: { ...identity, address: v } })}
-              multiline
-            />
+
+            <div>
+              <p className="text-[11px] font-black text-on-surface mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-primary">text_fields</span>
+                فونت پیش‌فرض سایت
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SITE_FONT_OPTIONS.map((font) => {
+                  const selected = (identity.fontFamily || 'vazirmatn') === font.id;
+                  return (
+                    <button
+                      key={font.id}
+                      type="button"
+                      onClick={() =>
+                        onChange({ ...value, identity: { ...identity, fontFamily: font.id } })
+                      }
+                      className={`text-right rounded-xl border p-3 transition-all ${
+                        selected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-outline-variant/40 bg-surface-container-lowest hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[11px] font-black text-on-surface">{font.label}</span>
+                        {selected && (
+                          <span className="material-symbols-outlined text-primary text-base">check_circle</span>
+                        )}
+                      </div>
+                      <p
+                        className="text-sm text-on-surface leading-relaxed"
+                        style={{ fontFamily: font.stack }}
+                      >
+                        {font.sample}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                className="mt-3 text-sm text-on-surface-variant rounded-xl bg-surface-container-low px-3 py-2 border border-outline-variant/20"
+                style={{ fontFamily: getSiteFontOption(identity.fontFamily).stack }}
+              >
+                نمونهٔ زنده: {identity.siteName || 'نام سایت'} — {identity.tagline || 'شعار کوتاه'}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <p className="text-[11px] font-black text-primary flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">contact_phone</span>
+                اطلاعات تماس
+              </p>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                تلفن‌ها، واتساپ، ایمیل، اینستاگرام، تلگرام، بله، ایتا، روبیکا و آدرس‌ها از تب اختصاصی{' '}
+                <strong className="text-on-surface">«اطلاعات تماس»</strong> در منوی داشبورد مدیریت می‌شوند و در کل
+                سایت (هدر، فوتر، دکمه مشاوره و ویجت‌ها) استفاده می‌گردند.
+              </p>
+            </div>
           </div>
         )}
 

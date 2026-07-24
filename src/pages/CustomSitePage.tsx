@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Article, Doctor, PageScreen, ServiceItem, SitePage } from '../types';
+import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceItem, SitePage } from '../types';
 import { SitePageView } from '../components/page-builder/SitePageView';
 
 interface CustomSitePageProps {
@@ -7,6 +7,8 @@ interface CustomSitePageProps {
   services?: ServiceItem[];
   doctors?: Doctor[];
   articles?: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   bookingEnabled?: boolean;
   onOpenBooking?: () => void;
   onOpenDoctorModal?: (doctorId: string) => void;
@@ -21,6 +23,8 @@ export const CustomSitePage: React.FC<CustomSitePageProps> = ({
   services,
   doctors,
   articles,
+  faqs,
+  contact,
   bookingEnabled,
   onOpenBooking,
   onOpenDoctorModal,
@@ -34,6 +38,8 @@ export const CustomSitePage: React.FC<CustomSitePageProps> = ({
     services={services}
     doctors={doctors}
     articles={articles}
+    faqs={faqs}
+    contact={contact}
     bookingEnabled={bookingEnabled}
     onOpenBooking={onOpenBooking}
     onOpenDoctorModal={onOpenDoctorModal}

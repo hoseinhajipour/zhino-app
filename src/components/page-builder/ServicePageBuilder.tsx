@@ -1,5 +1,12 @@
 import React, { useMemo } from 'react';
-import type { Doctor, ServiceBlock, ServiceItem, ServicePageBuilder as ServicePageDoc } from '../../types';
+import type {
+  ClinicContactInfo,
+  Doctor,
+  FAQItem,
+  ServiceBlock,
+  ServiceItem,
+  ServicePageBuilder as ServicePageDoc,
+} from '../../types';
 import { getPageBuilderForService } from '../../lib/landingToBlocks';
 import { saveService } from '../../lib/dbService';
 import { PageBuilderEditor, SERVICE_WIDGET_TYPES } from './PageBuilderEditor';
@@ -8,6 +15,8 @@ interface ServicePageBuilderProps {
   service: ServiceItem;
   allServices: ServiceItem[];
   doctors: Doctor[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   onClose: () => void;
   onSaved: (updated: ServiceItem) => void;
 }
@@ -16,6 +25,8 @@ export const ServicePageBuilder: React.FC<ServicePageBuilderProps> = ({
   service,
   allServices,
   doctors,
+  faqs,
+  contact,
   onClose,
   onSaved,
 }) => {
@@ -36,6 +47,8 @@ export const ServicePageBuilder: React.FC<ServicePageBuilderProps> = ({
       widgetTypes={SERVICE_WIDGET_TYPES}
       allServices={allServices}
       doctors={doctors}
+      faqs={faqs}
+      contact={contact}
       contextId={service.id}
       onClose={onClose}
       onSave={handleSave}

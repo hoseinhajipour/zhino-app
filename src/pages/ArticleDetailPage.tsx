@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Article } from '../types';
+import { Article, ClinicContactInfo, FAQItem } from '../types';
 import { BlockRenderer } from '../components/page-builder/BlockRenderer';
 
 interface ArticleDetailPageProps {
   article: Article;
   allArticles: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   onBack: () => void;
   onSelectArticle: (article: Article) => void;
   onOpenBooking: () => void;
@@ -13,6 +15,8 @@ interface ArticleDetailPageProps {
 export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
   article,
   allArticles,
+  faqs = [],
+  contact = null,
   onBack,
   onSelectArticle,
   onOpenBooking,
@@ -329,6 +333,8 @@ export const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
               blocks={article.pageBuilder.blocks}
               ctx={{
                 articles: allArticles,
+                faqs,
+                contact,
                 bookingEnabled: true,
                 onOpenBooking,
                 onSelectArticle,

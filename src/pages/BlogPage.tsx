@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { Article, Doctor, PageScreen, ServiceBlock, ServiceItem, SitePage } from '../types';
+import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceBlock, ServiceItem, SitePage } from '../types';
 import { ArticleDetailPage } from './ArticleDetailPage';
 import { BlockRenderer } from '../components/page-builder/BlockRenderer';
 import { createDefaultSitePage } from '../lib/sitePageDefaults';
@@ -7,6 +7,8 @@ import { fetchArticleCategories, fetchSitePage } from '../lib/dbService';
 
 interface BlogPageProps {
   articles: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
   onOpenBooking: () => void;
   selectedArticleSlug?: string | null;
   onSelectArticle?: (article: Article) => void;
@@ -44,6 +46,8 @@ function normalizeCategories(
 
 export const BlogPage: React.FC<BlogPageProps> = ({
   articles,
+  faqs = [],
+  contact = null,
   onOpenBooking,
   selectedArticleSlug,
   onSelectArticle,
@@ -103,6 +107,8 @@ export const BlogPage: React.FC<BlogPageProps> = ({
       <ArticleDetailPage
         article={activeArticle}
         allArticles={publishedArticles}
+        faqs={faqs}
+        contact={contact}
         onBack={() => onBackToBlog?.()}
         onSelectArticle={(art) => onSelectArticle?.(art)}
         onOpenBooking={onOpenBooking}
@@ -164,6 +170,8 @@ export const BlogPage: React.FC<BlogPageProps> = ({
           allServices: services,
           doctors,
           articles,
+          faqs,
+          contact,
           bookingEnabled,
           onOpenBooking,
           onNavigate,

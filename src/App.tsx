@@ -27,12 +27,16 @@ import { AppProvider, AppContextType } from './context/AppContext';
 
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
+import { ConsultFloatingButton } from './components/ConsultFloatingButton';
 import { AppointmentModal } from './components/AppointmentModal';
 import { DoctorProfileModal } from './components/DoctorProfileModal';
 import { FreeGuideModal } from './components/FreeGuideModal';
 import { AuthModal } from './components/AuthModal';
+import { SiteTranslateProvider } from './components/SiteTranslateProvider';
 import { InstallerWizardPage } from './pages/InstallerWizardPage';
+import { MaintenancePage } from './pages/MaintenancePage';
+import { mergeContactInfo } from './lib/contactInfo';
+import { mergeSiteModules } from './lib/siteModules';
 
 // Lazy-loaded page components for optimal code-splitting & performance
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -360,6 +364,8 @@ export function App() {
   };
 
   const siteChrome = mergeSiteChrome(settings.site);
+  const contactInfo = mergeContactInfo(settings.contact, siteChrome.identity);
+  const siteModules = mergeSiteModules(settings.modules);
 
   useEffect(() => {
     applySiteTheme(siteChrome.identity);
@@ -439,6 +445,13 @@ export function App() {
     currentScreen === 'admin' ||
     (currentScreen === 'user-panel' && !!currentUser && currentUser.role !== 'patient');
 
+  /** Public maintenance: guests blocked; logged-in users + admin login bypass */
+  const showMaintenance =
+    !!settings.maintenanceMode &&
+    !currentUser &&
+    currentScreen !== 'admin' &&
+    installCheck === 'ready';
+
   if (installCheck === 'loading') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background text-on-surface font-vazir">
@@ -459,8 +472,22 @@ export function App() {
     );
   }
 
+  if (showMaintenance) {
+    return (
+      <>
+        <SEOHead currentScreen="home" maintenance />
+        <MaintenancePage
+          identity={siteChrome.identity}
+          message={settings.maintenanceMessage}
+          onStaffLogin={() => handleNavigate('admin')}
+        />
+      </>
+    );
+  }
+
   return (
     <AppProvider value={appContextValue}>
+      <SiteTranslateProvider modules={siteModules} disabled={isAdminSurface}>
       <div className="min-h-screen flex flex-col bg-background text-on-surface font-vazir antialiased selection:bg-primary selection:text-white">
       {/* Dynamic SEO Head Manager */}
       <SEOHead
@@ -498,6 +525,7 @@ export function App() {
           darkMode={darkMode}
           onToggleTheme={handleToggleTheme}
           siteChrome={siteChrome}
+          contact={contactInfo}
         />
       )}
 
@@ -511,9 +539,13 @@ export function App() {
               onOpenDoctorModal={handleOpenDoctorProfile}
               onOpenGuide={() => setGuideModalOpen(true)}
               onSelectService={handleSelectService}
+              onSelectArticle={handleSelectArticle}
               bookingEnabled={settings.bookingEnabled}
               services={services}
               doctors={doctors}
+              articles={articles}
+              faqs={faqs}
+              contact={contactInfo}
               sitePage={getSitePage('home')}
             />
           )}
@@ -532,6 +564,8 @@ export function App() {
               serviceId={selectedServiceId}
               allServices={services}
               doctors={doctors}
+              faqs={faqs}
+              contact={contactInfo}
               onNavigate={handleNavigate}
               onOpenBooking={(docId, servId) => handleOpenBooking(docId, servId)}
               onOpenDoctorModal={handleOpenDoctorProfile}
@@ -571,8 +605,12 @@ export function App() {
             <AboutPage
               onNavigate={handleNavigate}
               onOpenBooking={() => handleOpenBooking()}
+              onSelectArticle={handleSelectArticle}
               services={services}
               doctors={doctors}
+              articles={articles}
+              faqs={faqs}
+              contact={contactInfo}
               sitePage={getSitePage('about')}
               bookingEnabled={settings.bookingEnabled}
             />
@@ -592,8 +630,12 @@ export function App() {
             <ContactPage
               onNavigate={handleNavigate}
               onOpenBooking={() => handleOpenBooking()}
+              onSelectArticle={handleSelectArticle}
               services={services}
               doctors={doctors}
+              articles={articles}
+              faqs={faqs}
+              contact={contactInfo}
               sitePage={getSitePage('contact')}
               bookingEnabled={settings.bookingEnabled}
             />
@@ -602,6 +644,8 @@ export function App() {
           {currentScreen === 'blog' && (
             <BlogPage
               articles={articles}
+              faqs={faqs}
+              contact={contactInfo}
               onOpenBooking={() => handleOpenBooking()}
               selectedArticleSlug={selectedArticleSlug}
               onSelectArticle={handleSelectArticle}
@@ -645,6 +689,8 @@ export function App() {
                 services={services}
                 doctors={doctors}
                 articles={articles}
+                faqs={faqs}
+                contact={contactInfo}
                 bookingEnabled={settings.bookingEnabled}
                 onOpenBooking={() => handleOpenBooking()}
                 onOpenDoctorModal={handleOpenDoctorProfile}
@@ -748,11 +794,12 @@ export function App() {
           onOpenBooking={() => handleOpenBooking()}
           bookingEnabled={settings.bookingEnabled}
           siteChrome={siteChrome}
+          contact={contactInfo}
         />
       )}
 
-      {/* Floating WhatsApp Action Button */}
-      {!isAdminSurface && <WhatsAppFloatingButton />}
+      {/* Floating consult / contact channels */}
+      {!isAdminSurface && <ConsultFloatingButton contact={contactInfo} />}
 
       {/* Interactive Modals */}
       <AppointmentModal
@@ -763,6 +810,7 @@ export function App() {
         onAddAppointment={handleAddAppointment}
         bookingEnabled={settings.bookingEnabled}
         onNavigate={handleNavigate}
+        contact={contactInfo}
       />
 
       <DoctorProfileModal
@@ -784,6 +832,7 @@ export function App() {
         onLoginSuccess={handleLoginSuccess}
       />
     </div>
+      </SiteTranslateProvider>
     </AppProvider>
   );
 }

@@ -10,10 +10,14 @@ import {
   UserProfile,
   ArticleCategory,
 } from '../types';
+import { DEFAULT_CONTACT_INFO, mergeContactInfo } from './contactInfo';
 import { DEFAULT_SITE_CHROME, mergeSiteChrome } from './siteChromeDefaults';
+import { DEFAULT_SITE_MODULES, mergeSiteModules } from './siteModules';
 
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   bookingEnabled: true,
+  maintenanceMode: false,
+  maintenanceMessage: '',
   zarinpal: {
     enabled: true,
     isSandbox: true,
@@ -32,15 +36,22 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     cancelPattern: 'مراجع محترم %patient%، نوبت شما برای تاریخ %date% با موفقیت لغو شد.',
   },
   site: DEFAULT_SITE_CHROME,
+  contact: DEFAULT_CONTACT_INFO,
+  modules: DEFAULT_SITE_MODULES,
 };
 
 export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): ClinicSettings {
   const base = DEFAULT_CLINIC_SETTINGS;
+  const site = mergeSiteChrome(raw?.site || base.site);
   return {
     bookingEnabled: raw?.bookingEnabled ?? base.bookingEnabled,
+    maintenanceMode: raw?.maintenanceMode ?? base.maintenanceMode,
+    maintenanceMessage: raw?.maintenanceMessage ?? base.maintenanceMessage ?? '',
     zarinpal: { ...base.zarinpal, ...(raw?.zarinpal || {}) },
     kavenegar: { ...base.kavenegar, ...(raw?.kavenegar || {}) },
-    site: mergeSiteChrome(raw?.site || base.site),
+    site,
+    contact: mergeContactInfo(raw?.contact || base.contact, site.identity),
+    modules: mergeSiteModules(raw?.modules || base.modules),
   };
 }
 
@@ -321,8 +332,16 @@ export async function registerUser(input: {
   name: string;
   mobile: string;
   password: string;
+  role?: string;
+  username?: string;
   nationalId?: string;
   email?: string;
+  doctorTitle?: string;
+  specialty?: string;
+  gender?: 'female' | 'male';
+  age?: number;
+  address?: string;
+  emergencyPhone?: string;
 }): Promise<UserProfile> {
   return api<UserProfile>('/api/users/register', {
     method: 'POST',
@@ -330,11 +349,17 @@ export async function registerUser(input: {
   });
 }
 
-export async function saveUserProfile(user: UserProfile): Promise<UserProfile> {
+export async function saveUserProfile(
+  user: UserProfile & { password?: string }
+): Promise<UserProfile> {
   return api<UserProfile>(`/api/users/${encodeURIComponent(user.id)}`, {
     method: 'PUT',
     body: JSON.stringify(user),
   });
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await api(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export async function fetchUsers(): Promise<UserProfile[]> {

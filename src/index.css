@@ -44,12 +44,14 @@
   --color-on-tertiary-fixed-variant: #004e5f;
   
   --font-vazir: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-site: var(--font-vazir);
+  --color-button: #b5106a;
 }
 
 body {
-  font-family: 'Vazirmatn', sans-serif;
-  background-color: #f8f9fa;
-  color: #191c1d;
+  font-family: var(--font-site), 'Vazirmatn', sans-serif;
+  background-color: var(--color-background, #f8f9fa);
+  color: var(--color-on-surface, #191c1d);
   scroll-behavior: smooth;
   direction: rtl;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -153,4 +155,167 @@ body {
 
 .animate-float {
   animation: float 4s ease-in-out infinite;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Floating consult / contact FAB */
+.consult-fab-root {
+  opacity: 0;
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.consult-fab-anim-fadeUp {
+  transform: translateY(16px) scale(0.88);
+}
+.consult-fab-anim-fadeUp.consult-fab-root--in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.consult-fab-anim-scale {
+  transform: scale(0.4);
+}
+.consult-fab-anim-scale.consult-fab-root--in {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.consult-fab-anim-bounce {
+  transform: translateY(28px);
+}
+.consult-fab-anim-bounce.consult-fab-root--in {
+  opacity: 1;
+  transform: translateY(0);
+  animation: consult-fab-bounce-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.consult-fab-anim-slide.consult-fab-root--right {
+  transform: translateX(40px);
+}
+.consult-fab-anim-slide.consult-fab-root--left {
+  transform: translateX(-40px);
+}
+.consult-fab-anim-slide.consult-fab-root--in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.consult-fab-anim-none {
+  opacity: 0;
+}
+.consult-fab-anim-none.consult-fab-root--in {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+@keyframes consult-fab-bounce-in {
+  0% {
+    transform: translateY(28px) scale(0.85);
+  }
+  60% {
+    transform: translateY(-6px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.consult-fab-item {
+  opacity: 0;
+  transform: translateY(12px) scale(0.55);
+  transition:
+    opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.consult-fab-item--open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.consult-fab-channel-label {
+  position: absolute;
+  top: 50%;
+  white-space: nowrap;
+  background: #0f172a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.consult-fab-root--right .consult-fab-channel-label {
+  right: calc(100% + 10px);
+  transform: translateY(-50%) translateX(6px);
+}
+.consult-fab-root--left .consult-fab-channel-label {
+  left: calc(100% + 10px);
+  transform: translateY(-50%) translateX(-6px);
+}
+
+.consult-fab-item:hover .consult-fab-channel-label,
+.consult-fab-item:focus-visible .consult-fab-channel-label {
+  opacity: 1;
+}
+.consult-fab-root--right .consult-fab-item:hover .consult-fab-channel-label,
+.consult-fab-root--right .consult-fab-item:focus-visible .consult-fab-channel-label {
+  transform: translateY(-50%) translateX(0);
+}
+.consult-fab-root--left .consult-fab-item:hover .consult-fab-channel-label,
+.consult-fab-root--left .consult-fab-item:focus-visible .consult-fab-channel-label {
+  transform: translateY(-50%) translateX(0);
+}
+
+.consult-fab-side-label {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 10px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.consult-fab-side-label:hover {
+  transform: scale(1.03);
+}
+
+/* ——— Google Website Translator (auto-translate module) ——— */
+.zhino-gt-host,
+.goog-te-banner-frame,
+.goog-te-balloon-frame,
+.goog-te-menu-frame,
+#goog-gt-tt,
+.goog-te-gadget,
+.goog-logo-link,
+.goog-te-spinner-pos {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  inset: -9999px auto auto -9999px !important;
+}
+body {
+  top: 0 !important;
+}
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
 }

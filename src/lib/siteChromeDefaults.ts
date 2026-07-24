@@ -28,6 +28,11 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
     faviconUrl: '/favicon.ico',
     primaryColor: '#b5106a',
     secondaryColor: '#2c694e',
+    buttonColor: '#b5106a',
+    backgroundColor: '#f8f9fa',
+    accentColor: '#13677b',
+    textColor: '#191c1d',
+    fontFamily: 'vazirmatn',
     phone1: CLINIC_INFO.phone1,
     phone2: CLINIC_INFO.phone2,
     phoneClean: CLINIC_INFO.phoneClean,
@@ -142,14 +147,164 @@ export function mergeSiteChrome(partial?: Partial<SiteChromeSettings> | null): S
   };
 }
 
-export function applySiteTheme(identity: SiteIdentitySettings) {
+export type SiteFontOption = {
+  id: string;
+  label: string;
+  /** CSS font-family stack */
+  stack: string;
+  /** Google Fonts family query (empty = already loaded / system) */
+  google?: string;
+  sample: string;
+};
+
+/** Persian + English fonts for site identity. */
+export const SITE_FONT_OPTIONS: SiteFontOption[] = [
+  {
+    id: 'vazirmatn',
+    label: 'وزیرمتن (پیش‌فرض)',
+    stack: "'Vazirmatn', Tahoma, sans-serif",
+    google: 'Vazirmatn:wght@300;400;500;600;700;800;900',
+    sample: 'کلینیک ژینو — مشاوره تخصصی',
+  },
+  {
+    id: 'ibm-plex-arabic',
+    label: 'IBM Plex Arabic',
+    stack: "'IBM Plex Sans Arabic', Tahoma, sans-serif",
+    google: 'IBM+Plex+Sans+Arabic:wght@300;400;500;600;700',
+    sample: 'سلامت روان با فونت مدرن',
+  },
+  {
+    id: 'noto-sans-arabic',
+    label: 'نوتو سنس عربی',
+    stack: "'Noto Sans Arabic', Tahoma, sans-serif",
+    google: 'Noto+Sans+Arabic:wght@300;400;500;600;700',
+    sample: 'نمایش خوانا برای متن فارسی',
+  },
+  {
+    id: 'cairo',
+    label: 'Cairo / قاهره',
+    stack: "'Cairo', Tahoma, sans-serif",
+    google: 'Cairo:wght@300;400;500;600;700;800',
+    sample: 'طراحی معاصر برای عناوین',
+  },
+  {
+    id: 'readex-pro',
+    label: 'Readex Pro',
+    stack: "'Readex Pro', Tahoma, sans-serif",
+    google: 'Readex+Pro:wght@300;400;500;600;700',
+    sample: 'فونت دو‌زبانه فارسی/انگلیسی',
+  },
+  {
+    id: 'amiri',
+    label: 'امیری (سریف)',
+    stack: "'Amiri', Georgia, serif",
+    google: 'Amiri:wght@400;700',
+    sample: 'سبک کلاسیک و ادبی',
+  },
+  {
+    id: 'inter',
+    label: 'Inter (انگلیسی)',
+    stack: "'Inter', system-ui, sans-serif",
+    google: 'Inter:wght@300;400;500;600;700;800',
+    sample: 'Clean modern English UI',
+  },
+  {
+    id: 'roboto',
+    label: 'Roboto (انگلیسی)',
+    stack: "'Roboto', system-ui, sans-serif",
+    google: 'Roboto:wght@300;400;500;700',
+    sample: 'Neutral product typography',
+  },
+  {
+    id: 'poppins',
+    label: 'Poppins (انگلیسی)',
+    stack: "'Poppins', system-ui, sans-serif",
+    google: 'Poppins:wght@300;400;500;600;700',
+    sample: 'Friendly rounded headlines',
+  },
+  {
+    id: 'system',
+    label: 'سیستم (بدون وب‌فونت)',
+    stack: "Tahoma, 'Segoe UI', system-ui, sans-serif",
+    sample: 'سریع و سبک روی همه دستگاه‌ها',
+  },
+];
+
+export function getSiteFontOption(id?: string): SiteFontOption {
+  return SITE_FONT_OPTIONS.find((f) => f.id === id) || SITE_FONT_OPTIONS[0];
+}
+
+function ensureGoogleFontLoaded(googleQuery: string) {
+  if (typeof document === 'undefined' || !googleQuery) return;
+  const id = `site-font-${googleQuery.replace(/[^a-zA-Z0-9]+/g, '-')}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${googleQuery}&display=swap`;
+  document.head.appendChild(link);
+}
+
+function lightenHex(hex: string, amount = 0.18): string {
+  const raw = hex.replace('#', '').trim();
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return hex;
+  const n = parseInt(full, 16);
+  let r = (n >> 16) & 255;
+  let g = (n >> 8) & 255;
+  let b = n & 255;
+  const mix = (channel: number) => {
+    if (amount >= 0) return Math.min(255, Math.round(channel + (255 - channel) * amount));
+    return Math.max(0, Math.round(channel * (1 + amount)));
+  };
+  r = mix(r);
+  g = mix(g);
+  b = mix(b);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+export function applySiteTheme(identity: Partial<SiteIdentitySettings> | SiteIdentitySettings) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  const primary = identity.primaryColor || DEFAULT_SITE_CHROME.identity.primaryColor;
-  const secondary = identity.secondaryColor || DEFAULT_SITE_CHROME.identity.secondaryColor;
-  root.style.setProperty('--color-primary', primary);
-  root.style.setProperty('--color-primary-container', primary);
+  const d = DEFAULT_SITE_CHROME.identity;
+  const primary = identity.primaryColor || d.primaryColor;
+  const secondary = identity.secondaryColor || d.secondaryColor;
+  const button = identity.buttonColor || primary;
+  const background = identity.backgroundColor || d.backgroundColor;
+  const accent = identity.accentColor || d.accentColor;
+  const text = identity.textColor || d.textColor;
+  const font = getSiteFontOption(identity.fontFamily || d.fontFamily);
+
+  // CTA surfaces use buttonColor (via --color-primary); brand hue stays in surface-tint.
+  root.style.setProperty('--color-primary', button);
+  root.style.setProperty('--color-primary-container', lightenHex(button, 0.14));
+  root.style.setProperty('--color-surface-tint', primary);
   root.style.setProperty('--color-secondary', secondary);
+  root.style.setProperty('--color-tertiary', accent);
+  root.style.setProperty('--color-tertiary-container', lightenHex(accent, 0.35));
+  root.style.setProperty('--color-background', background);
+  root.style.setProperty('--color-surface', background);
+  root.style.setProperty('--color-surface-bright', lightenHex(background, 0.05));
+  root.style.setProperty('--color-surface-container-lowest', lightenHex(background, 0.08));
+  root.style.setProperty('--color-surface-container-low', lightenHex(background, 0.03));
+  root.style.setProperty('--color-surface-container', lightenHex(background, -0.04));
+  root.style.setProperty('--color-surface-container-high', lightenHex(background, -0.08));
+  root.style.setProperty('--color-on-surface', text);
+  root.style.setProperty('--color-on-background', text);
+  root.style.setProperty('--color-button', button);
+  root.style.setProperty('--color-brand', primary);
+  root.style.setProperty('--font-site', font.stack);
+  root.style.setProperty('--font-vazir', font.stack);
+
+  document.body.style.fontFamily = font.stack;
+  if (font.google) ensureGoogleFontLoaded(font.google);
+
   if (identity.faviconUrl) {
     let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
     if (!link) {

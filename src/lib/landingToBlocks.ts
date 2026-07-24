@@ -16,8 +16,11 @@ export const BLOCK_LABELS: Record<string, string> = {
   doctors: 'تیم متخصصین',
   testimonials: 'نظرات مراجعین',
   faqs: 'سوالات متداول',
+  latestFaqs: 'آخرین سوالات متداول',
+  contactInfo: 'اطلاعات تماس',
   cta: 'فراخوان اقدام (CTA)',
   richText: 'متن آزاد',
+  htmlCode: 'کد HTML',
   otherServices: 'سایر خدمات (چیپ)',
   servicesGrid: 'شبکه خدمات',
   contactCards: 'کارت‌های تماس',
@@ -45,8 +48,11 @@ export const BLOCK_ICONS: Record<string, string> = {
   doctors: 'groups',
   testimonials: 'format_quote',
   faqs: 'help',
+  latestFaqs: 'quiz',
+  contactInfo: 'contact_phone',
   cta: 'campaign',
   richText: 'notes',
+  htmlCode: 'code',
   otherServices: 'apps',
   servicesGrid: 'view_module',
   contactCards: 'contact_mail',
@@ -66,6 +72,7 @@ export const BLOCK_ICONS: Record<string, string> = {
 /** Widgets safe to nest inside container columns */
 export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = [
   'richText',
+  'htmlCode',
   'imageCarousel',
   'videoPlayer',
   'features',
@@ -76,6 +83,7 @@ export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = [
   'iconList',
   'button',
   'googleMap',
+  'contactInfo',
 ];
 
 export const WIDGET_GROUPS: Array<{
@@ -96,7 +104,7 @@ export const WIDGET_GROUPS: Array<{
   {
     id: 'content',
     label: 'محتوا',
-    types: ['richText', 'highlights', 'features', 'iconList', 'button', 'process', 'symptoms', 'cta'],
+    types: ['richText', 'htmlCode', 'highlights', 'features', 'iconList', 'button', 'process', 'symptoms', 'cta'],
   },
   {
     id: 'clinic',
@@ -109,6 +117,8 @@ export const WIDGET_GROUPS: Array<{
       'articlesGrid',
       'testimonials',
       'faqs',
+      'latestFaqs',
+      'contactInfo',
       'contactCards',
       'contactForm',
     ],
@@ -419,6 +429,29 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       subtitle: 'پاسخ به ابهامات',
       items: [{ question: 'سوال؟', answer: 'پاسخ...' }],
     },
+    latestFaqs: {
+      badge: 'پاسخ‌های تخصصی',
+      title: 'آخرین سوالات متداول',
+      subtitle: 'پرسش‌های پرتکرار مراجعین که توسط تیم کلینیک پاسخ داده شده‌اند',
+      maxCount: 6,
+      categoryFilter: [],
+      showCategory: true,
+      showLikes: true,
+      showViewAll: true,
+      viewAllLabel: 'مشاهده همه سوالات',
+      accentStyle: 'soft',
+      openFirst: true,
+    },
+    contactInfo: {
+      badge: 'ارتباط با ما',
+      title: 'اطلاعات تماس',
+      subtitle: 'از طریق تلفن، پیام‌رسان‌ها یا مراجعه حضوری با کلینیک در ارتباط باشید',
+      layout: 'cards',
+      showPhones: true,
+      showSocials: true,
+      showAddresses: true,
+      showMap: true,
+    },
     cta: {
       badge: 'اقدام کنید',
       title: 'رزرو نوبت',
@@ -428,6 +461,11 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
     },
     richText: {
       html: '<p>متن دلخواه خود را اینجا بنویسید.</p>',
+    },
+    htmlCode: {
+      html: '<!-- کد HTML خود را اینجا قرار دهید -->\n<div style="padding:16px;text-align:center">نمونه محتوا</div>',
+      padded: true,
+      maxWidth: 'full',
     },
     otherServices: {
       title: 'سایر خدمات کلینیک',
@@ -453,8 +491,20 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
     },
     articlesGrid: {
       title: 'مقالات',
-      showSearch: true,
-      showCategories: true,
+      subtitle: '',
+      categoryFilter: '',
+      titleQuery: '',
+      sortBy: 'newest',
+      layout: 'grid',
+      maxCount: 6,
+      showPagination: false,
+      showSearch: false,
+      showCategories: false,
+      showExcerpt: true,
+      showCategoryBadge: true,
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 3,
     },
     imageCarousel: {
       autoplay: true,
@@ -493,6 +543,8 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       gap: 'md',
       padding: 'md',
       background: 'none',
+      widthMode: 'contained',
+      maxWidth: 1400,
       columns: [
         { id: uid('col'), blocks: [] },
         { id: uid('col'), blocks: [] },

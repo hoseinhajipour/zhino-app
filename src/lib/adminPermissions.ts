@@ -4,9 +4,13 @@ export type AdminTabId =
   | 'overview'
   | 'appointments'
   | 'personnel'
+  | 'users'
   | 'pages'
   | 'articles'
   | 'faqs'
+  | 'contact'
+  | 'modules'
+  | 'system'
   | 'settings';
 
 export interface AdminNavItem {
@@ -19,14 +23,30 @@ const ALL_NAV: AdminNavItem[] = [
   { id: 'overview', label: 'نمای کلی', icon: 'dashboard' },
   { id: 'appointments', label: 'نوبت‌ها', icon: 'calendar_month' },
   { id: 'personnel', label: 'پرسنل و خدمات', icon: 'groups' },
+  { id: 'users', label: 'مدیریت کاربران', icon: 'manage_accounts' },
   { id: 'pages', label: 'مدیریت صفحه‌ها', icon: 'web' },
   { id: 'articles', label: 'مقالات', icon: 'article' },
   { id: 'faqs', label: 'سوالات متداول', icon: 'help' },
+  { id: 'contact', label: 'اطلاعات تماس', icon: 'contact_phone' },
+  { id: 'modules', label: 'ماژول‌ها', icon: 'extension' },
+  { id: 'system', label: 'وضعیت سیستم', icon: 'monitor_heart' },
   { id: 'settings', label: 'تنظیمات', icon: 'settings' },
 ];
 
 const TABS_BY_ROLE: Record<'admin' | 'doctor' | 'operator', AdminTabId[]> = {
-  admin: ['overview', 'appointments', 'personnel', 'pages', 'articles', 'faqs', 'settings'],
+  admin: [
+    'overview',
+    'appointments',
+    'personnel',
+    'users',
+    'pages',
+    'articles',
+    'faqs',
+    'contact',
+    'modules',
+    'system',
+    'settings',
+  ],
   operator: ['overview', 'appointments', 'personnel', 'faqs'],
   doctor: ['overview', 'appointments', 'articles', 'faqs'],
 };
@@ -43,10 +63,18 @@ export function getStaffRole(role?: UserRole | string | null): 'admin' | 'doctor
   return 'admin';
 }
 
-export function getAllowedTabs(role?: UserRole | string | null): AdminNavItem[] {
+export function getAllowedTabs(
+  role?: UserRole | string | null,
+  options?: { appointmentsModuleEnabled?: boolean }
+): AdminNavItem[] {
   const r = getStaffRole(role);
   const allowed = TABS_BY_ROLE[r];
-  return ALL_NAV.filter((item) => allowed.includes(item.id));
+  const appointmentsOn = options?.appointmentsModuleEnabled !== false;
+  return ALL_NAV.filter((item) => {
+    if (!allowed.includes(item.id)) return false;
+    if (item.id === 'appointments' && !appointmentsOn) return false;
+    return true;
+  });
 }
 
 export function canManagePersonnel(role?: UserRole | string | null): boolean {
@@ -72,6 +100,18 @@ export function canManageAllArticles(role?: UserRole | string | null): boolean {
 }
 
 export function canManageSettings(role?: UserRole | string | null): boolean {
+  return getStaffRole(role) === 'admin';
+}
+
+export function canManageUsers(role?: UserRole | string | null): boolean {
+  return getStaffRole(role) === 'admin';
+}
+
+export function canManageModules(role?: UserRole | string | null): boolean {
+  return getStaffRole(role) === 'admin';
+}
+
+export function canViewSystemStatus(role?: UserRole | string | null): boolean {
   return getStaffRole(role) === 'admin';
 }
 

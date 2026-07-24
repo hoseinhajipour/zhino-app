@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import type { PageScreen, SiteChromeSettings, UserProfile } from '../types';
+import type { ClinicContactInfo, PageScreen, SiteChromeSettings, UserProfile } from '../types';
 import { DEFAULT_SITE_CHROME, isPageScreenTarget, mergeSiteChrome } from '../lib/siteChromeDefaults';
+import { DEFAULT_CONTACT_INFO, getTelHref, mergeContactInfo } from '../lib/contactInfo';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface HeaderProps {
   currentScreen: PageScreen;
@@ -15,6 +17,7 @@ interface HeaderProps {
   darkMode?: boolean;
   onToggleTheme?: () => void;
   siteChrome?: SiteChromeSettings | null;
+  contact?: ClinicContactInfo | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,9 +32,16 @@ export const Header: React.FC<HeaderProps> = ({
   darkMode = false,
   onToggleTheme,
   siteChrome,
+  contact,
 }) => {
   const chrome = useMemo(() => mergeSiteChrome(siteChrome || DEFAULT_SITE_CHROME), [siteChrome]);
   const { identity, header, menu } = chrome;
+  const contactInfo = useMemo(
+    () => mergeContactInfo(contact || DEFAULT_CONTACT_INFO, identity),
+    [contact, identity]
+  );
+  const primaryPhone = contactInfo.phones[0];
+  const primaryTel = primaryPhone ? getTelHref(primaryPhone) : '';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
@@ -166,16 +176,18 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {header.showPhone && identity.phone1 && (
+            {header.showPhone && primaryPhone?.number && (
               <a
-                href={`tel:${identity.phoneClean}`}
+                href={primaryTel || '#'}
                 className="hidden xl:flex items-center gap-1.5 text-xs font-bold text-on-surface-variant hover:text-primary px-2"
                 dir="ltr"
               >
                 <span className="material-symbols-outlined text-base text-primary">call</span>
-                {identity.phone1}
+                {primaryPhone.number}
               </a>
             )}
+
+            <LanguageSwitcher variant="header" />
 
             {header.showThemeToggle && onToggleTheme && (
               <button
@@ -317,6 +329,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="p-5 border-t border-outline-variant/30 space-y-3 bg-surface-container-low">
+          <LanguageSwitcher variant="mobile" />
           {header.showThemeToggle && onToggleTheme && (
             <button
               onClick={onToggleTheme}
@@ -340,9 +353,12 @@ export const Header: React.FC<HeaderProps> = ({
               {header.bookingButtonLabel || (bookingEnabled ? 'رزرو نوبت' : 'رزرو نوبت')}
             </button>
           )}
-          {header.showPhone && (
+          {header.showPhone && primaryPhone?.number && (
             <div className="text-center text-xs text-on-surface-variant pt-1">
-              تلفن: <span dir="ltr" className="font-bold text-primary">{identity.phone1}</span>
+              تلفن:{' '}
+              <a href={primaryTel || '#'} dir="ltr" className="font-bold text-primary">
+                {primaryPhone.number}
+              </a>
             </div>
           )}
         </div>

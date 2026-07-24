@@ -1,6 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import type { PageScreen, SiteChromeSettings } from '../types';
+import type { ClinicContactInfo, PageScreen, SiteChromeSettings } from '../types';
 import { DEFAULT_SITE_CHROME, isPageScreenTarget, mergeSiteChrome } from '../lib/siteChromeDefaults';
+import {
+  DEFAULT_CONTACT_INFO,
+  getMapHref,
+  getTelHref,
+  listContactChannels,
+  mergeContactInfo,
+} from '../lib/contactInfo';
+import { ContactChannelIcon } from './ContactChannelIcon';
 
 interface FooterProps {
   onNavigate: (screen: PageScreen) => void;
@@ -8,6 +16,7 @@ interface FooterProps {
   onOpenBooking: () => void;
   bookingEnabled?: boolean;
   siteChrome?: SiteChromeSettings | null;
+  contact?: ClinicContactInfo | null;
 }
 
 export const Footer: React.FC<FooterProps> = ({
@@ -16,9 +25,15 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenBooking,
   bookingEnabled = true,
   siteChrome,
+  contact,
 }) => {
   const chrome = useMemo(() => mergeSiteChrome(siteChrome || DEFAULT_SITE_CHROME), [siteChrome]);
   const { identity, footer } = chrome;
+  const contactInfo = useMemo(
+    () => mergeContactInfo(contact || DEFAULT_CONTACT_INFO, identity),
+    [contact, identity]
+  );
+  const channels = useMemo(() => listContactChannels(contactInfo), [contactInfo]);
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -28,6 +43,7 @@ export const Footer: React.FC<FooterProps> = ({
   };
 
   const quickLinks = footer.quickLinks.filter((l) => l.visible !== false);
+  const primaryAddress = contactInfo.addresses[0];
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +53,18 @@ export const Footer: React.FC<FooterProps> = ({
       setEmail('');
     }
   };
+
+  const iconChannels = channels.filter((c) => {
+    if (c.id === 'whatsapp') return footer.showWhatsapp !== false;
+    if (c.id === 'phone') return footer.showPhoneIcon !== false;
+    return true;
+  });
+
+  // One phone icon is enough in the social row
+  const socialIcons = iconChannels.filter((c, i, arr) => {
+    if (c.id !== 'phone') return true;
+    return arr.findIndex((x) => x.id === 'phone') === i;
+  });
 
   return (
     <footer className="w-full bg-surface-container-low dark:bg-surface-dim border-t border-outline-variant/30 pt-16 pb-8 text-right text-on-surface">
@@ -49,35 +77,29 @@ export const Footer: React.FC<FooterProps> = ({
             onClick={() => go('home')}
           />
           <p className="text-sm text-on-surface-variant leading-relaxed">{footer.aboutText}</p>
-          <div className="flex gap-3 pt-2">
-            {footer.showWhatsapp && (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {socialIcons.map((ch, idx) => (
               <a
-                href={`https://wa.me/${identity.whatsappNumber.replace(/\D/g, '')}`}
+                key={`${ch.id}-${idx}`}
+                href={ch.href}
+                target={ch.external ? '_blank' : undefined}
+                rel={ch.external ? 'noopener noreferrer' : undefined}
+                className="w-9 h-9 rounded-full bg-surface-container-high hover:bg-primary hover:text-white text-secondary flex items-center justify-center transition-colors"
+                title={ch.label}
+              >
+                <ContactChannelIcon id={ch.id} size={18} />
+              </a>
+            ))}
+            {footer.showMapIcon !== false && primaryAddress && getMapHref(primaryAddress) && (
+              <a
+                href={getMapHref(primaryAddress)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-surface-container-high hover:bg-primary hover:text-white text-secondary flex items-center justify-center transition-colors"
-                title="واتس‌اپ"
-              >
-                <span className="material-symbols-outlined text-xl">chat</span>
-              </a>
-            )}
-            {footer.showPhoneIcon && (
-              <a
-                href={`tel:${identity.phoneClean}`}
-                className="w-9 h-9 rounded-full bg-surface-container-high hover:bg-primary hover:text-white text-secondary flex items-center justify-center transition-colors"
-                title="تماس تلفنی"
-              >
-                <span className="material-symbols-outlined text-xl">call</span>
-              </a>
-            )}
-            {footer.showMapIcon && (
-              <button
-                onClick={() => go('contact')}
-                className="w-9 h-9 rounded-full bg-surface-container-high hover:bg-primary hover:text-white text-secondary flex items-center justify-center transition-colors"
                 title="آدرس و نقشه"
               >
-                <span className="material-symbols-outlined text-xl">location_on</span>
-              </button>
+                <ContactChannelIcon id="map" size={18} />
+              </a>
             )}
           </div>
         </div>
@@ -109,23 +131,45 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="space-y-3">
           <h4 className="font-bold text-sm text-primary">تماس با کلینیک</h4>
           <div className="space-y-2 text-sm text-on-surface-variant leading-relaxed">
-            <p className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-primary text-base mt-1">location_on</span>
-              <span>{identity.address}</span>
-            </p>
-            <p className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-base shrink-0">call</span>
-              <span>تلفن:</span>
-              <span dir="ltr" className="inline-flex items-center gap-1.5 font-bold text-on-surface">
-                <span>{identity.phone1}</span>
-                {identity.phone2 && (
-                  <>
-                    <span>—</span>
-                    <span>{identity.phone2}</span>
-                  </>
-                )}
-              </span>
-            </p>
+            {contactInfo.addresses.map((addr) => (
+              <p key={addr.id} className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-primary text-base mt-1">location_on</span>
+                <span>
+                  {addr.title ? <strong className="text-on-surface">{addr.title}: </strong> : null}
+                  {addr.text}
+                </span>
+              </p>
+            ))}
+            {contactInfo.phones.map((phone) => {
+              const href = getTelHref(phone);
+              return (
+                <p key={phone.id} className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-base shrink-0">call</span>
+                  <span>{phone.label || 'تلفن'}:</span>
+                  {href ? (
+                    <a href={href} className="font-bold text-on-surface hover:text-primary" dir="ltr">
+                      {phone.number}
+                    </a>
+                  ) : (
+                    <span dir="ltr" className="font-bold text-on-surface">
+                      {phone.number}
+                    </span>
+                  )}
+                </p>
+              );
+            })}
+            {contactInfo.email && (
+              <p className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-base shrink-0">mail</span>
+                <a
+                  href={`mailto:${contactInfo.email}`}
+                  className="font-bold text-on-surface hover:text-primary"
+                  dir="ltr"
+                >
+                  {contactInfo.email}
+                </a>
+              </p>
+            )}
             <p className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-base">schedule</span>
               <span>ساعات کاری: {footer.hoursText}</span>

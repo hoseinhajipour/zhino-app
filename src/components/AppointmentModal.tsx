@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { DOCTORS, MAIN_SERVICES, CLINIC_INFO } from '../data/clinicData';
-import { Doctor, BookingConfirmation, Appointment, PageScreen } from '../types';
+import { DOCTORS, MAIN_SERVICES } from '../data/clinicData';
+import { ClinicContactInfo, Doctor, BookingConfirmation, Appointment, PageScreen } from '../types';
 import { addAppointment } from '../lib/dbService';
+import {
+  DEFAULT_CONTACT_INFO,
+  getTelHref,
+  getWhatsAppHref,
+  mergeContactInfo,
+} from '../lib/contactInfo';
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -11,6 +17,7 @@ interface AppointmentModalProps {
   onAddAppointment?: (app: Appointment) => void;
   bookingEnabled?: boolean;
   onNavigate?: (screen: PageScreen) => void;
+  contact?: ClinicContactInfo | null;
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -21,7 +28,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   onAddAppointment,
   bookingEnabled = true,
   onNavigate,
+  contact,
 }) => {
+  const contactInfo = mergeContactInfo(contact || DEFAULT_CONTACT_INFO);
+  const phone0 = contactInfo.phones[0];
+  const phone1 = contactInfo.phones[1];
+  const telHref = phone0 ? getTelHref(phone0) : '';
+  const waHref = getWhatsAppHref(contactInfo.whatsapp);
+  const addressText = contactInfo.addresses[0]?.text || '';
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedServiceId, setSelectedServiceId] = useState<string>(
     preselectedServiceId || MAIN_SERVICES[0].id
@@ -92,22 +106,25 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   <div>
                     <div className="text-xs font-bold text-on-surface">تماس تلفنی با پذیرش کلینیک</div>
                     <div dir="ltr" className="text-xs font-black text-primary inline-flex items-center gap-1.5 pt-0.5">
-                      <span>{CLINIC_INFO.phone1}</span>
-                      <span>—</span>
-                      <span>{CLINIC_INFO.phone2}</span>
+                      {phone0?.number && <span>{phone0.number}</span>}
+                      {phone0?.number && phone1?.number && <span>—</span>}
+                      {phone1?.number && <span>{phone1.number}</span>}
                     </div>
                   </div>
                 </div>
+                {telHref && (
                 <a
-                  href={`tel:${CLINIC_INFO.phoneClean}`}
+                  href={telHref}
                   className="bg-primary text-white text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 hover:bg-primary-container shadow-xs transition-all shrink-0"
                 >
                   <span>تماس فوری</span>
                   <span className="material-symbols-outlined text-sm">phone_enabled</span>
                 </a>
+                )}
               </div>
 
               {/* WhatsApp */}
+              {waHref && (
               <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
@@ -119,7 +136,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </div>
                 </div>
                 <a
-                  href={`https://wa.me/${CLINIC_INFO.whatsappNumber}`}
+                  href={waHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 hover:bg-emerald-700 shadow-xs transition-all shrink-0"
@@ -128,8 +145,10 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   <span className="material-symbols-outlined text-sm">open_in_new</span>
                 </a>
               </div>
+              )}
 
               {/* Address */}
+              {addressText && (
               <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/30 space-y-2">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center shrink-0 mt-0.5">
@@ -138,7 +157,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   <div>
                     <div className="text-xs font-bold text-on-surface">آدرس مراجعه حضوری کلینیک</div>
                     <div className="text-xs text-on-surface-variant pt-1 leading-relaxed">
-                      {CLINIC_INFO.address}
+                      {addressText}
                     </div>
                   </div>
                 </div>
@@ -157,6 +176,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Working Hours */}
               <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/20 text-xs text-on-surface-variant flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">

@@ -1,0 +1,13 @@
+{
+  "latest": "1.1.0",
+  "minCompatible": "1.0.0",
+  "channel": "stable",
+  "releasedAt": "2026-08-01T10:00:00.000Z",
+  "title": "بهبود امنیت و داشبورد",
+  "notes": "- رفع باگ نوبت‌دهی\n- بهبود وضعیت سیستم\n- آماده‌سازی به‌روزرسانی خودکار",
+  "downloadUrl": "https://updates.example.com/zhino/zhino-1.1.0.zip",
+  "checksum": "sha256:REPLACE_WITH_REAL_CHECKSUM",
+  "autoUpdateSupported": true,
+  "requiresManualSteps": false,
+  "changelogUrl": "https://updates.example.com/zhino/changelog"
+}
