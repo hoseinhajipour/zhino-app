@@ -14,6 +14,28 @@ import { CHANNEL_ACCENT, ContactChannelIcon } from '../../ContactChannelIcon';
 import { ResponsiveGrid } from '../ResponsiveGrid';
 import { useBuilderDevicePreview } from '../BuilderDevicePreviewContext';
 import { containerWidthStyle, DEFAULT_CONTENT_MAX_WIDTH } from '../../../lib/contentWidth';
+import {
+  cssBorderStyle,
+  dividerSpacingClass,
+  dividerTextSizeClass,
+  dividerTextWeightClass,
+  DIVIDER_TEXT_COLOR_CLASS,
+  resolveDividerColor,
+  resolveDividerThickness,
+  resolveDividerWidth,
+  type DividerContentMode,
+  type DividerContentPlacement,
+  type DividerEndCap,
+  type DividerLineStyle,
+  type DividerWidthMode,
+} from '../../../lib/dividerLine';
+import { resolveSpacerSides, clampSpacerPx } from '../../../lib/spacerBlock';
+import {
+  clampRadius,
+  imageAspectClass,
+  resolveImageWidth,
+} from '../../../lib/imageMediaBlock';
+import { ImageLightbox, type LightboxItem } from '../../media/ImageLightbox';
 
 export interface BlockRenderContext {
   serviceId?: string;
@@ -1213,7 +1235,7 @@ export const HeroHeaderBlock: React.FC<{
   const intervalMs = typeof props.carouselIntervalMs === 'number' ? props.carouselIntervalMs : 5000;
   const showCarousel = props.showCarousel !== false;
   const accent = HERO_ACCENT[str(props.accentColor, 'primary')] || HERO_ACCENT.primary;
-  const mediaSide = str(props.mediaSide, 'start'); // start = media on visual left in RTL (after text in DOM)
+  const mediaSide = str(props.mediaSide, 'start');
   const contentAlign = str(props.contentAlign, 'start');
   const titleSize = str(props.titleSize, 'lg');
   const padding = str(props.sectionPadding, 'md');
@@ -1226,6 +1248,25 @@ export const HeroHeaderBlock: React.FC<{
   const showFloating = props.showFloatingBadge !== false;
   const showDots = props.showCarouselDots !== false;
   const showArrows = props.showCarouselArrows !== false;
+
+  /** Compact = stacked mobile/tablet layout (also respects page-builder device toolbar). */
+  const previewDevice = useBuilderDevicePreview();
+  const [isCompact, setIsCompact] = useState(true);
+
+  useEffect(() => {
+    if (previewDevice === 'mobile' || previewDevice === 'tablet') {
+      setIsCompact(true);
+      return;
+    }
+    if (previewDevice === 'desktop') {
+      setIsCompact(false);
+      return;
+    }
+    const apply = () => setIsCompact(window.innerWidth < 1024);
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, [previewDevice]);
 
   useEffect(() => {
     if (!autoplay || slides.length < 2) return;
@@ -1240,24 +1281,32 @@ export const HeroHeaderBlock: React.FC<{
     if (slideIdx >= slides.length) setSlideIdx(0);
   }, [slides.length, slideIdx]);
 
-  const titleSizeClass =
-    titleSize === 'md'
-      ? 'text-xl sm:text-2xl md:text-4xl tracking-tight'
+  const titleSizeClass = isCompact
+    ? titleSize === 'md'
+      ? 'text-[1.15rem] leading-snug'
       : titleSize === 'xl'
-        ? 'text-[1.4rem] sm:text-3xl md:text-6xl tracking-tight'
-        : 'text-[1.35rem] sm:text-3xl md:text-5xl tracking-tight';
+        ? 'text-[1.35rem] leading-snug'
+        : 'text-[1.25rem] leading-snug'
+    : titleSize === 'md'
+      ? 'text-3xl md:text-4xl tracking-tight leading-[1.25]'
+      : titleSize === 'xl'
+        ? 'text-4xl md:text-6xl tracking-tight leading-[1.2]'
+        : 'text-4xl md:text-5xl tracking-tight leading-[1.25]';
 
-  const padClass =
-    padding === 'sm'
-      ? 'py-4 sm:py-6 md:py-8'
+  const padClass = isCompact
+    ? padding === 'sm'
+      ? 'py-3'
       : padding === 'lg'
-        ? 'py-5 sm:py-10 md:py-20'
-        : 'py-5 sm:py-8 md:py-14';
+        ? 'py-5'
+        : 'py-4'
+    : padding === 'sm'
+      ? 'py-8'
+      : padding === 'lg'
+        ? 'py-20'
+        : 'py-14';
 
   const alignClass =
-    contentAlign === 'center'
-      ? 'items-center text-center'
-      : 'items-stretch text-right';
+    contentAlign === 'center' ? 'items-center text-center' : 'items-stretch text-right';
 
   const handleCta = () => {
     const action = str(props.ctaAction, 'booking');
@@ -1284,15 +1333,17 @@ export const HeroHeaderBlock: React.FC<{
         : `bg-white dark:bg-surface-dim border-2 ${accent.border} ${accent.text} hover:bg-primary/5`;
 
   const current = slides[Math.min(slideIdx, Math.max(0, slides.length - 1))];
+  const radius = isCompact ? Math.min(mediaRadius, 20) : mediaRadius;
 
   const mediaColumn = showCarousel && current && (
-    <div className="relative w-full min-w-0 lg:max-w-xl lg:mx-0">
+    <div className={`relative w-full min-w-0 ${isCompact ? '' : 'max-w-xl'}`}>
       <div
-        className="relative overflow-hidden shadow-xl shadow-slate-900/10 border border-outline-variant/20 bg-surface-container"
-        style={{ borderRadius: Math.min(mediaRadius, 24) }}
+        className="relative overflow-hidden border border-outline-variant/20 bg-surface-container shadow-lg"
+        style={{ borderRadius: radius }}
       >
-        {/* Mobile: cinematic wide; desktop: taller card */}
-        <div className="relative aspect-[16/10] sm:aspect-[5/4] lg:aspect-[4/3]">
+        <div
+          className={`relative w-full ${isCompact ? 'aspect-[16/11]' : 'aspect-[4/3]'}`}
+        >
           {slides.map((slide, i) => (
             <img
               key={i}
@@ -1304,29 +1355,41 @@ export const HeroHeaderBlock: React.FC<{
             />
           ))}
           {showRating && str(current.rating) && (
-            <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 bg-white/95 dark:bg-surface-dim backdrop-blur px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow flex items-center gap-1 text-[10px] sm:text-xs font-extrabold text-on-surface">
-              <span className="material-symbols-outlined text-amber-500 text-sm sm:text-base leading-none">
-                star
-              </span>
+            <div
+              className={`absolute top-2.5 right-2.5 bg-white/95 dark:bg-surface-dim backdrop-blur rounded-full shadow flex items-center gap-1 font-extrabold text-on-surface ${
+                isCompact ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs top-4 right-4'
+              }`}
+            >
+              <span className="material-symbols-outlined text-amber-500 text-sm leading-none">star</span>
               <span>{str(current.rating)}</span>
             </div>
           )}
-          {(str(current.badge) || str(current.title) || str(current.description)) && (
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3.5 py-3.5 sm:p-5 pt-12 sm:pt-16 space-y-1">
+          {(str(current.badge) || str(current.title)) && (
+            <div
+              className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent ${
+                isCompact ? 'px-3 py-3 pt-10 space-y-0.5' : 'p-5 pt-16 space-y-1.5'
+              }`}
+            >
               {str(current.badge) && (
                 <span
-                  className={`inline-flex text-[9px] sm:text-[10px] font-bold text-white px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-gradient-to-l ${accent.gradient}`}
+                  className={`inline-flex font-bold text-white rounded-full bg-gradient-to-l ${accent.gradient} ${
+                    isCompact ? 'text-[9px] px-2 py-0.5' : 'text-[10px] px-2.5 py-1'
+                  }`}
                 >
                   {str(current.badge)}
                 </span>
               )}
               {str(current.title) && (
-                <h3 className="text-white text-xs sm:text-base font-black leading-snug line-clamp-2">
+                <h3
+                  className={`text-white font-black leading-snug line-clamp-2 ${
+                    isCompact ? 'text-[11px]' : 'text-base'
+                  }`}
+                >
                   {str(current.title)}
                 </h3>
               )}
-              {str(current.description) && (
-                <p className="hidden sm:block text-white/80 text-xs leading-relaxed line-clamp-2">
+              {!isCompact && str(current.description) && (
+                <p className="text-white/80 text-xs leading-relaxed line-clamp-2">
                   {str(current.description)}
                 </p>
               )}
@@ -1339,48 +1402,70 @@ export const HeroHeaderBlock: React.FC<{
               type="button"
               aria-label="قبلی"
               onClick={() => setSlideIdx((i) => (i - 1 + slides.length) % slides.length)}
-              className="absolute top-1/2 right-1.5 sm:right-2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
+              className={`absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center ${
+                isCompact ? 'w-7 h-7' : 'w-9 h-9 right-2'
+              }`}
             >
-              <span className="material-symbols-outlined text-lg sm:text-xl">chevron_right</span>
+              <span className={`material-symbols-outlined ${isCompact ? 'text-base' : 'text-xl'}`}>
+                chevron_right
+              </span>
             </button>
             <button
               type="button"
               aria-label="بعدی"
               onClick={() => setSlideIdx((i) => (i + 1) % slides.length)}
-              className="absolute top-1/2 left-1.5 sm:left-2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center"
+              className={`absolute top-1/2 left-1.5 -translate-y-1/2 rounded-full bg-white/90 text-on-surface shadow flex items-center justify-center ${
+                isCompact ? 'w-7 h-7' : 'w-9 h-9 left-2'
+              }`}
             >
-              <span className="material-symbols-outlined text-lg sm:text-xl">chevron_left</span>
+              <span className={`material-symbols-outlined ${isCompact ? 'text-base' : 'text-xl'}`}>
+                chevron_left
+              </span>
             </button>
           </>
         )}
       </div>
-      {showFloating && str(current.floatingBadge) && (
-        <div className="absolute -bottom-2.5 left-2.5 sm:-bottom-3 sm:left-4 bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-lg rounded-xl sm:rounded-2xl px-2.5 py-1.5 sm:px-3 sm:py-2.5 flex items-center gap-1.5 sm:gap-2 z-10 max-w-[85%]">
-          <span
-            className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl ${accent.soft} flex items-center justify-center shrink-0`}
-          >
-            <span className="material-symbols-outlined text-base sm:text-xl">
+
+      {showFloating && str(current.floatingBadge) && !isCompact && (
+        <div className="absolute -bottom-3 left-4 bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-lg rounded-2xl px-3 py-2.5 flex items-center gap-2 z-10">
+          <span className={`w-9 h-9 rounded-xl ${accent.soft} flex items-center justify-center`}>
+            <span className="material-symbols-outlined text-xl">
               {str(current.floatingIcon, 'calendar_month')}
             </span>
           </span>
-          <span className="text-[10px] sm:text-[11px] font-extrabold text-on-surface truncate">
+          <span className="text-[11px] font-extrabold text-on-surface whitespace-nowrap">
             {str(current.floatingBadge)}
           </span>
         </div>
       )}
+
       {showDots && slides.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-4 sm:mt-5">
+        <div className={`flex justify-center gap-1.5 ${isCompact ? 'mt-3' : 'mt-5'}`}>
           {slides.map((_, i) => (
             <button
               key={i}
               type="button"
               aria-label={`اسلاید ${i + 1}`}
               onClick={() => setSlideIdx(i)}
-              className={`h-1.5 sm:h-2 rounded-full transition-all ${
-                i === slideIdx ? 'w-5 sm:w-6 bg-primary' : 'w-1.5 sm:w-2 bg-outline-variant/50'
-              }`}
+              className={`rounded-full transition-all ${
+                isCompact ? 'h-1.5' : 'h-2'
+              } ${i === slideIdx ? (isCompact ? 'w-4 bg-primary' : 'w-6 bg-primary') : 'w-1.5 bg-outline-variant/50'}`}
             />
           ))}
+        </div>
+      )}
+
+      {/* Mobile floating as inline chip under slider */}
+      {showFloating && str(current.floatingBadge) && isCompact && (
+        <div className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-sm px-2.5 py-1.5">
+          <span className={`w-6 h-6 rounded-full ${accent.soft} flex items-center justify-center shrink-0`}>
+            <span className="material-symbols-outlined text-sm">
+              {str(current.floatingIcon, 'calendar_month')}
+            </span>
+          </span>
+          <span className="text-[10px] font-extrabold text-on-surface truncate">
+            {str(current.floatingBadge)}
+          </span>
         </div>
       )}
     </div>
@@ -1388,23 +1473,31 @@ export const HeroHeaderBlock: React.FC<{
 
   const contentColumn = (
     <div
-      className={`flex flex-col gap-3.5 sm:gap-5 md:gap-6 ${alignClass} min-w-0 ${
-        showFloating && str(current?.floatingBadge) ? 'pt-3 sm:pt-0' : ''
+      className={`flex flex-col min-w-0 w-full ${alignClass} ${
+        isCompact ? 'gap-2.5' : 'gap-6'
       }`}
     >
       {(str(props.badge) || (showStatus && str(props.statusText))) && (
         <div
-          className={`inline-flex flex-wrap items-center gap-1.5 sm:gap-2 bg-white/90 dark:bg-surface-dim border border-outline-variant/25 shadow-sm rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 ${
-            contentAlign === 'center' ? 'mx-auto' : ''
-          }`}
+          className={`inline-flex flex-wrap items-center gap-1.5 bg-white/95 dark:bg-surface-dim border border-outline-variant/25 shadow-sm rounded-full ${
+            isCompact ? 'px-2 py-1' : 'px-3 py-1.5 gap-2'
+          } ${contentAlign === 'center' ? 'mx-auto' : ''}`}
         >
           {str(props.badge) && (
-            <span className="text-[10px] sm:text-xs font-bold text-on-surface leading-none">
+            <span
+              className={`font-bold text-on-surface leading-none ${
+                isCompact ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
               {str(props.badge)}
             </span>
           )}
           {showStatus && str(props.statusText) && (
-            <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full">
+            <span
+              className={`inline-flex items-center gap-1 font-extrabold text-emerald-700 bg-emerald-50 rounded-full ${
+                isCompact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2.5 py-1'
+              }`}
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {str(props.statusText)}
             </span>
@@ -1412,7 +1505,7 @@ export const HeroHeaderBlock: React.FC<{
         </div>
       )}
 
-      <h1 className={`font-black text-on-surface leading-[1.35] sm:leading-[1.25] ${titleSizeClass}`}>
+      <h1 className={`font-black text-on-surface ${titleSizeClass}`}>
         {renderHighlightedTitle(
           str(props.title),
           str(props.titleHighlight),
@@ -1423,9 +1516,11 @@ export const HeroHeaderBlock: React.FC<{
 
       {str(props.subtitle) && (
         <p
-          className={`text-[12px] sm:text-sm md:text-base text-on-surface-variant leading-7 sm:leading-relaxed max-w-xl ${
-            contentAlign === 'center' ? 'mx-auto' : ''
-          }`}
+          className={`text-on-surface-variant max-w-xl ${
+            isCompact
+              ? 'text-[11.5px] leading-6 opacity-90'
+              : 'text-base leading-relaxed'
+          } ${contentAlign === 'center' ? 'mx-auto' : ''}`}
         >
           {str(props.subtitle)}
         </p>
@@ -1438,16 +1533,24 @@ export const HeroHeaderBlock: React.FC<{
           const inner = (
             <>
               <span
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${accent.soft} flex items-center justify-center shrink-0`}
+                className={`rounded-full ${accent.soft} flex items-center justify-center shrink-0 ${
+                  isCompact ? 'w-7 h-7' : 'w-10 h-10'
+                }`}
               >
-                <span className="material-symbols-outlined text-lg sm:text-xl">
+                <span
+                  className={`material-symbols-outlined ${isCompact ? 'text-base' : 'text-xl'}`}
+                >
                   {str(props.ctaIcon, 'psychology')}
                 </span>
               </span>
-              <span>{str(props.ctaLabel)}</span>
+              <span className={isCompact ? 'truncate' : ''}>{str(props.ctaLabel)}</span>
             </>
           );
-          const cls = `inline-flex items-center justify-center gap-2.5 sm:gap-3 font-extrabold text-xs sm:text-sm px-4 py-2.5 sm:px-5 sm:py-3 rounded-full transition-all w-full sm:w-auto ${ctaClass}`;
+          const cls = `inline-flex items-center justify-center font-extrabold rounded-full transition-all ${ctaClass} ${
+            isCompact
+              ? 'gap-2 text-[11px] px-3.5 py-2.5 w-full'
+              : 'gap-3 text-sm px-5 py-3 w-auto'
+          }`;
           if (action === 'link' && link) {
             const external = /^https?:\/\//i.test(link);
             return (
@@ -1469,33 +1572,43 @@ export const HeroHeaderBlock: React.FC<{
       )}
 
       {showDepartments && departments.length > 0 && (
-        <div className={`space-y-2 sm:space-y-3 w-full ${contentAlign === 'center' ? 'items-center' : ''}`}>
+        <div className={`w-full ${isCompact ? 'space-y-1.5' : 'space-y-3'} ${contentAlign === 'center' ? 'items-center' : ''}`}>
           {str(props.departmentsTitle) && (
-            <p className="text-[11px] sm:text-xs font-bold text-on-surface-variant">
+            <p
+              className={`font-bold text-on-surface-variant ${
+                isCompact ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
               {str(props.departmentsTitle)}
             </p>
           )}
           <div
-            className={`flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none sm:flex-wrap sm:overflow-visible sm:pb-0 sm:mx-0 sm:px-0 ${
-              contentAlign === 'center' ? 'sm:justify-center' : 'sm:justify-start'
+            className={`flex gap-1.5 ${
+              isCompact
+                ? 'overflow-x-auto pb-0.5 scrollbar-none -mx-0.5 px-0.5'
+                : `flex-wrap ${contentAlign === 'center' ? 'justify-center' : 'justify-start'}`
             }`}
-            style={{ WebkitOverflowScrolling: 'touch' }}
+            style={isCompact ? { WebkitOverflowScrolling: 'touch' } : undefined}
           >
             {departments.map((dep, i) => {
               const label = str(dep.label);
               if (!label) return null;
               const chip = (
-                <span className="inline-flex items-center gap-1.5 bg-white dark:bg-surface-dim border border-outline-variant/30 text-on-surface text-[10px] sm:text-[11px] font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-full shadow-sm hover:border-primary/40 transition-colors whitespace-nowrap shrink-0">
-                  <span className={`material-symbols-outlined text-sm sm:text-base ${accent.text}`}>
+                <span
+                  className={`inline-flex items-center gap-1 bg-white dark:bg-surface-dim border border-outline-variant/30 text-on-surface font-bold rounded-full shadow-sm shrink-0 ${
+                    isCompact ? 'text-[10px] px-2 py-1' : 'text-[11px] px-3 py-2 gap-1.5'
+                  }`}
+                >
+                  <span className={`material-symbols-outlined ${accent.text} ${isCompact ? 'text-sm' : 'text-base'}`}>
                     {str(dep.icon, 'circle')}
                   </span>
                   {label}
                 </span>
               );
-              const link = str(dep.link).trim();
-              if (link) {
+              const depLink = str(dep.link).trim();
+              if (depLink) {
                 return (
-                  <a key={i} href={link} className="inline-flex shrink-0">
+                  <a key={i} href={depLink} className="inline-flex shrink-0">
                     {chip}
                   </a>
                 );
@@ -1517,36 +1630,65 @@ export const HeroHeaderBlock: React.FC<{
     </div>
   );
 
-  // Mobile: slider always on top. Desktop: respect mediaSide.
-  const mediaOrder = mediaSide === 'end' ? 'order-1 lg:order-2' : 'order-1 lg:order-1';
-  const contentOrder = mediaSide === 'end' ? 'order-2 lg:order-1' : 'order-2 lg:order-2';
-
   return (
-    <section className={`w-full min-w-0 overflow-x-clip ${padClass}`}>
-      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 lg:items-center">
-        {mediaColumn && <div className={`${mediaOrder} w-full min-w-0`}>{mediaColumn}</div>}
-        <div className={`${contentOrder} w-full min-w-0 px-0.5 sm:px-0`}>{contentColumn}</div>
-      </div>
+    <section className={`w-full min-w-0 overflow-x-clip ${padClass}`} data-hero-compact={isCompact ? '1' : '0'}>
+      {isCompact ? (
+        <div className="flex flex-col gap-4 w-full">
+          {mediaColumn}
+          {contentColumn}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-12 items-center w-full">
+          {mediaSide === 'end' ? (
+            <>
+              {contentColumn}
+              {mediaColumn}
+            </>
+          ) : (
+            <>
+              {mediaColumn}
+              {contentColumn}
+            </>
+          )}
+        </div>
+      )}
 
       {showStats && stats.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mt-7 sm:mt-10 md:mt-14">
+        <div
+          className={`mt-5 ${
+            isCompact
+              ? 'flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-0.5 px-0.5'
+              : 'grid grid-cols-3 gap-4 mt-14'
+          }`}
+          style={isCompact ? { WebkitOverflowScrolling: 'touch' } : undefined}
+        >
           {stats.map((stat, i) => (
             <div
               key={i}
-              className="flex items-center gap-2.5 sm:gap-3 bg-white dark:bg-surface-dim border border-outline-variant/25 rounded-2xl p-3 sm:p-4 shadow-soft"
+              className={`flex items-center bg-white dark:bg-surface-dim border border-outline-variant/25 shadow-soft ${
+                isCompact
+                  ? 'gap-2 rounded-xl p-2.5 shrink-0 min-w-[148px]'
+                  : 'gap-3 rounded-2xl p-4'
+              }`}
             >
               <span
-                className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${accent.soft} flex items-center justify-center shrink-0`}
+                className={`${accent.soft} flex items-center justify-center shrink-0 ${
+                  isCompact ? 'w-8 h-8 rounded-lg' : 'w-11 h-11 rounded-xl'
+                }`}
               >
-                <span className="material-symbols-outlined text-xl sm:text-2xl">
+                <span className={`material-symbols-outlined ${isCompact ? 'text-lg' : 'text-2xl'}`}>
                   {str(stat.icon, 'analytics')}
                 </span>
               </span>
               <div className="min-w-0">
-                <p className="text-base sm:text-lg font-black text-on-surface leading-none">
+                <p className={`font-black text-on-surface leading-none ${isCompact ? 'text-sm' : 'text-lg'}`}>
                   {str(stat.value)}
                 </p>
-                <p className="text-[10px] sm:text-[11px] text-on-surface-variant font-bold mt-1">
+                <p
+                  className={`text-on-surface-variant font-bold mt-0.5 ${
+                    isCompact ? 'text-[9px]' : 'text-[11px] mt-1'
+                  }`}
+                >
                   {str(stat.label)}
                 </p>
               </div>
@@ -1697,6 +1839,613 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
           />
         )}
       </div>
+    </section>
+  );
+};
+
+function DividerLineSegment({
+  color,
+  thickness,
+  lineStyle,
+  fadeEnds,
+  vertical,
+}: {
+  color: string;
+  thickness: number;
+  lineStyle: DividerLineStyle;
+  fadeEnds: boolean;
+  vertical?: boolean;
+}) {
+  const soft = lineStyle === 'soft' || fadeEnds;
+  if (soft) {
+    const axis = vertical ? 'to bottom' : 'to left';
+    return (
+      <div
+        className="flex-1 min-w-0 min-h-0 self-stretch"
+        style={{
+          [vertical ? 'width' : 'height']: thickness,
+          [vertical ? 'minHeight' : 'minWidth']: 8,
+          background: `linear-gradient(${axis}, transparent 0%, ${color} 22%, ${color} 78%, transparent 100%)`,
+          borderRadius: thickness,
+        }}
+        aria-hidden
+      />
+    );
+  }
+
+  const borderSide = vertical ? 'borderLeft' : 'borderTop';
+  // Double needs enough thickness to render both strokes
+  const effective =
+    lineStyle === 'double' ? Math.max(thickness, 3) : thickness;
+
+  return (
+    <div
+      className="flex-1 min-w-0 min-h-0 self-stretch"
+      style={{
+        [vertical ? 'minHeight' : 'minWidth']: 8,
+        height: vertical ? undefined : 0,
+        width: vertical ? 0 : undefined,
+        [borderSide]: `${effective}px ${cssBorderStyle(lineStyle)} ${color}`,
+      }}
+      aria-hidden
+    />
+  );
+}
+
+function DividerEndCapNode({
+  cap,
+  color,
+  thickness,
+}: {
+  cap: DividerEndCap;
+  color: string;
+  thickness: number;
+}) {
+  if (cap === 'none') return null;
+  const size = Math.max(6, thickness + 4);
+  if (cap === 'dot') {
+    return (
+      <span
+        className="shrink-0 rounded-full"
+        style={{ width: size, height: size, background: color }}
+        aria-hidden
+      />
+    );
+  }
+  if (cap === 'bar') {
+    return (
+      <span
+        className="shrink-0 rounded-sm"
+        style={{
+          width: Math.max(3, Math.round(thickness * 0.7)),
+          height: Math.max(10, thickness * 3),
+          background: color,
+        }}
+        aria-hidden
+      />
+    );
+  }
+  // diamond
+  return (
+    <span
+      className="shrink-0 rotate-45"
+      style={{ width: size * 0.7, height: size * 0.7, background: color }}
+      aria-hidden
+    />
+  );
+}
+
+export const DividerBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const widthMode = str(props.widthMode, 'full') as DividerWidthMode;
+  const thickness = resolveDividerThickness(props.thickness);
+  const lineStyle = str(props.lineStyle, 'solid') as DividerLineStyle;
+  const colorKey = str(props.color, 'outline');
+  const color = resolveDividerColor(colorKey, str(props.customColor));
+  const align = str(props.align, 'center');
+  const orientation = str(props.orientation, 'horizontal');
+  const spacing = str(props.spacing, 'md');
+  const contentMode = str(props.contentMode, 'none') as DividerContentMode;
+  const text = str(props.text);
+  const icon = str(props.icon, 'auto_awesome');
+  const iconFilled = props.iconFilled === true;
+  const iconSize = Math.min(48, Math.max(12, Number(props.iconSize) || 18));
+  const placement = str(props.contentPlacement, 'center') as DividerContentPlacement;
+  const contentGap = Math.min(48, Math.max(4, Number(props.contentGap) || 12));
+  const textSize = str(props.textSize, 'sm');
+  const textWeight = str(props.textWeight, 'bold');
+  const textColorKey = str(props.textColor, 'muted');
+  const textCustom = str(props.textCustomColor);
+  const labelSurface = str(props.labelSurface, 'auto');
+  const fadeEnds = props.fadeEnds === true;
+  const endCap = str(props.endCap, 'none') as DividerEndCap;
+  const vertical = orientation === 'vertical';
+
+  const showIcon = contentMode === 'icon' || contentMode === 'iconText';
+  const showText = (contentMode === 'text' || contentMode === 'iconText') && Boolean(text);
+  const hasContent = showIcon || showText;
+
+  const width = resolveDividerWidth(
+    widthMode,
+    Number(props.widthPercent) || 100,
+    Number(props.widthPx) || 280
+  );
+
+  const justify =
+    align === 'start' ? 'justify-start' : align === 'end' ? 'justify-end' : 'justify-center';
+
+  const textClass = [
+    dividerTextSizeClass(textSize),
+    dividerTextWeightClass(textWeight),
+    textColorKey === 'custom' ? '' : DIVIDER_TEXT_COLOR_CLASS[textColorKey] || DIVIDER_TEXT_COLOR_CLASS.muted,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const surfaceClass =
+    labelSurface === 'transparent'
+      ? 'bg-transparent'
+      : labelSurface === 'white'
+        ? 'bg-white dark:bg-surface-dim'
+        : 'bg-background';
+
+  const label = hasContent ? (
+    <span
+      className={`inline-flex items-center shrink-0 max-w-full ${surfaceClass} ${
+        placement === 'center' || placement === 'start' || placement === 'end'
+          ? 'px-2.5 py-0.5 rounded-full'
+          : ''
+      }`}
+      style={{ gap: Math.max(4, Math.round(contentGap / 2)) }}
+    >
+      {showIcon && (
+        <span
+          className="material-symbols-outlined leading-none"
+          style={{
+            fontSize: iconSize,
+            color: textColorKey === 'custom' && textCustom ? textCustom : color,
+            fontVariationSettings: iconFilled
+              ? "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24"
+              : undefined,
+          }}
+        >
+          {icon}
+        </span>
+      )}
+      {showText && (
+        <span
+          className={`${textClass} truncate`}
+          style={textColorKey === 'custom' && textCustom ? { color: textCustom } : undefined}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  ) : null;
+
+  const buildInline = (mode: 'none' | 'start' | 'center' | 'end') => (
+    <div
+      className={`flex items-center w-full min-w-0 ${vertical ? 'flex-col h-full' : 'flex-row'}`}
+      style={{ gap: mode === 'none' ? 0 : contentGap }}
+    >
+      <DividerEndCapNode cap={endCap} color={color} thickness={thickness} />
+      {mode === 'start' && label}
+      {(mode === 'none' || mode === 'center' || mode === 'end') && (
+        <DividerLineSegment
+          color={color}
+          thickness={thickness}
+          lineStyle={lineStyle}
+          fadeEnds={fadeEnds}
+          vertical={vertical}
+        />
+      )}
+      {mode === 'center' && label}
+      {(mode === 'center' || mode === 'start') && (
+        <DividerLineSegment
+          color={color}
+          thickness={thickness}
+          lineStyle={lineStyle}
+          fadeEnds={fadeEnds}
+          vertical={vertical}
+        />
+      )}
+      {mode === 'end' && label}
+      <DividerEndCapNode cap={endCap} color={color} thickness={thickness} />
+    </div>
+  );
+
+  let body: React.ReactNode;
+  if (!hasContent) {
+    body = buildInline('none');
+  } else if (placement === 'above') {
+    body = (
+      <div
+        className={`flex flex-col w-full ${
+          align === 'start' ? 'items-start' : align === 'end' ? 'items-end' : 'items-center'
+        }`}
+        style={{ gap: contentGap }}
+      >
+        {label}
+        {buildInline('none')}
+      </div>
+    );
+  } else if (placement === 'below') {
+    body = (
+      <div
+        className={`flex flex-col w-full ${
+          align === 'start' ? 'items-start' : align === 'end' ? 'items-end' : 'items-center'
+        }`}
+        style={{ gap: contentGap }}
+      >
+        {buildInline('none')}
+        {label}
+      </div>
+    );
+  } else {
+    body = buildInline(placement);
+  }
+
+  return (
+    <section
+      className={`w-full min-w-0 flex ${justify} ${dividerSpacingClass(spacing)}`}
+      role="separator"
+      aria-orientation={vertical ? 'vertical' : 'horizontal'}
+      aria-label={showText ? text : 'جداکننده'}
+    >
+      <div
+        className={vertical ? 'flex flex-col items-center' : 'w-full'}
+        style={
+          vertical
+            ? { height: widthMode === 'full' ? 160 : width, width: 'auto' }
+            : { width, maxWidth: '100%' }
+        }
+      >
+        {body}
+      </div>
+    </section>
+  );
+};
+
+export const SpacerBlock: React.FC<{
+  props: Record<string, unknown>;
+  previewMode?: boolean;
+}> = ({ props, previewMode }) => {
+  const showGuide = props.showGuide !== false;
+  const responsive = props.responsive === true;
+  const previewDevice = useBuilderDevicePreview();
+  const [viewportBand, setViewportBand] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+
+  useEffect(() => {
+    if (previewDevice === 'mobile') {
+      setViewportBand('mobile');
+      return;
+    }
+    if (previewDevice === 'tablet') {
+      setViewportBand('tablet');
+      return;
+    }
+    if (previewDevice === 'desktop') {
+      setViewportBand('desktop');
+      return;
+    }
+    const apply = () => {
+      const w = window.innerWidth;
+      if (w < 768) setViewportBand('mobile');
+      else if (w < 1024) setViewportBand('tablet');
+      else setViewportBand('desktop');
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  }, [previewDevice]);
+
+  let top: number;
+  let bottom: number;
+
+  if (responsive) {
+    const key =
+      viewportBand === 'mobile'
+        ? 'heightMobile'
+        : viewportBand === 'tablet'
+          ? 'heightTablet'
+          : 'heightDesktop';
+    const sides = resolveSpacerSides(props);
+    const fallback = Math.round((sides.top + sides.bottom) / 2) || 32;
+    const side = clampSpacerPx(Number(props[key]) > 0 ? Number(props[key]) : fallback);
+    top = side;
+    bottom = side;
+  } else {
+    const sides = resolveSpacerSides(props);
+    top = sides.top;
+    bottom = sides.bottom;
+  }
+
+  const total = top + bottom;
+  const inBuilder = Boolean(previewMode);
+
+  return (
+    <div
+      className={`w-full min-w-0 box-border ${
+        inBuilder && showGuide
+          ? 'relative border border-dashed border-primary/35 bg-primary/[0.04] rounded-lg'
+          : ''
+      }`}
+      style={{ paddingTop: top, paddingBottom: bottom }}
+      aria-hidden={!inBuilder}
+      role={inBuilder ? 'presentation' : undefined}
+      data-spacer={`${top}+${bottom}`}
+    >
+      {inBuilder && showGuide && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary/80 bg-background/90 px-2 py-0.5 rounded-full border border-primary/20">
+            <span className="material-symbols-outlined text-sm">space_bar</span>
+            فاصله {total}px
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+type GalleryImageItem = {
+  image?: string;
+  alt?: string;
+  caption?: string;
+  subtitle?: string;
+  linkUrl?: string;
+};
+
+export const SingleImageBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const image = str(props.image);
+  const alt = str(props.alt) || str(props.caption) || 'تصویر';
+  const caption = str(props.caption);
+  const subtitle = str(props.subtitle);
+  const widthMode = str(props.widthMode, 'full');
+  const aspect = str(props.aspect, 'auto');
+  const objectFit = str(props.objectFit, 'cover') === 'contain' ? 'object-contain' : 'object-cover';
+  const radius = clampRadius(props.borderRadius);
+  const align = str(props.align, 'center');
+  const shadow = props.shadow !== false;
+  const captionPosition = str(props.captionPosition, 'below');
+  const clickBehavior = str(props.clickBehavior, 'lightbox');
+  const linkUrl = str(props.linkUrl).trim();
+  const openInNewTab = props.openInNewTab !== false;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const justify =
+    align === 'start' ? 'justify-start' : align === 'end' ? 'justify-end' : 'justify-center';
+  const width = resolveImageWidth(
+    widthMode,
+    Number(props.widthPercent) || 100,
+    Number(props.widthPx) || 640
+  );
+  const aspectCls = imageAspectClass(aspect);
+  const fixedAspect = Boolean(aspectCls) || aspect === 'original';
+
+  if (!image) {
+    return (
+      <section className="rounded-2xl border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+        تصویری انتخاب نشده است.
+      </section>
+    );
+  }
+
+  const openLightbox = () => setLightboxOpen(true);
+
+  const frame = (
+    <div
+      className={`relative overflow-hidden bg-surface-container ${
+        shadow ? 'shadow-soft border border-outline-variant/25' : ''
+      } ${fixedAspect && aspectCls ? aspectCls : ''} ${
+        clickBehavior !== 'none' ? 'cursor-zoom-in group' : ''
+      }`}
+      style={{ borderRadius: radius }}
+    >
+      <img
+        src={image}
+        alt={alt}
+        className={`w-full ${
+          fixedAspect && aspectCls
+            ? `absolute inset-0 h-full ${objectFit}`
+            : aspect === 'original'
+              ? 'h-auto object-contain'
+              : `h-auto ${objectFit}`
+        } transition-transform duration-500 ${
+          clickBehavior !== 'none' ? 'group-hover:scale-[1.02]' : ''
+        }`}
+      />
+      {captionPosition === 'overlay' && (caption || subtitle) && (
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-3.5 py-3.5 pt-10 space-y-0.5 pointer-events-none">
+          {caption && <p className="text-white text-sm font-bold">{caption}</p>}
+          {subtitle && <p className="text-white/80 text-xs leading-relaxed">{subtitle}</p>}
+        </div>
+      )}
+      {clickBehavior === 'lightbox' && (
+        <span className="absolute top-2.5 left-2.5 w-8 h-8 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <span className="material-symbols-outlined text-lg">zoom_in</span>
+        </span>
+      )}
+    </div>
+  );
+
+  let media: React.ReactNode = frame;
+  if (clickBehavior === 'lightbox') {
+    media = (
+      <button type="button" onClick={openLightbox} className="block w-full text-right">
+        {frame}
+      </button>
+    );
+  } else if (clickBehavior === 'link' && linkUrl) {
+    const external = /^https?:\/\//i.test(linkUrl);
+    media = (
+      <a
+        href={linkUrl}
+        className="block w-full"
+        {...(openInNewTab || external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      >
+        {frame}
+      </a>
+    );
+  }
+
+  return (
+    <section className={`w-full min-w-0 flex ${justify}`}>
+      <figure className="min-w-0 space-y-2" style={{ width, maxWidth: '100%' }}>
+        {media}
+        {captionPosition === 'below' && (caption || subtitle) && (
+          <figcaption className="space-y-0.5 px-0.5">
+            {caption && <p className="text-sm font-bold text-on-surface">{caption}</p>}
+            {subtitle && (
+              <p className="text-xs text-on-surface-variant leading-relaxed">{subtitle}</p>
+            )}
+          </figcaption>
+        )}
+      </figure>
+      <ImageLightbox
+        open={lightboxOpen}
+        index={0}
+        items={[{ src: image, alt, caption, subtitle }]}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={() => undefined}
+      />
+    </section>
+  );
+};
+
+export const ImageGalleryBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const items = arr<GalleryImageItem>(props.items).filter((it) => str(it.image));
+  const title = str(props.title);
+  const sectionSubtitle = str(props.subtitle);
+  const aspect = str(props.aspect, 'square');
+  const objectFit = str(props.objectFit, 'cover') === 'contain' ? 'object-contain' : 'object-cover';
+  const radius = clampRadius(props.borderRadius);
+  const captionPosition = str(props.captionPosition, 'below');
+  const clickBehavior = str(props.clickBehavior, 'lightbox');
+  const gap = str(props.gap, 'md');
+  const gapClass = gap === 'sm' ? 'gap-2' : gap === 'lg' ? 'gap-5' : 'gap-3.5';
+  const aspectCls = imageAspectClass(aspect === 'auto' ? '' : aspect) || (aspect === 'auto' ? '' : 'aspect-square');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const lightboxItems: LightboxItem[] = items.map((it) => ({
+    src: str(it.image),
+    alt: str(it.alt) || str(it.caption),
+    caption: str(it.caption),
+    subtitle: str(it.subtitle),
+  }));
+
+  if (!items.length) {
+    return (
+      <section className="rounded-2xl border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+        هنوز تصویری برای گالری تعریف نشده است.
+      </section>
+    );
+  }
+
+  return (
+    <section className="w-full min-w-0 space-y-5">
+      {(title || sectionSubtitle) && (
+        <div className="text-center space-y-1.5 max-w-2xl mx-auto">
+          {title && <h2 className="text-xl md:text-2xl font-black text-on-surface">{title}</h2>}
+          {sectionSubtitle && (
+            <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+              {sectionSubtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 3 }}
+        className={gapClass}
+      >
+        {items.map((item, idx) => {
+          const src = str(item.image);
+          const cap = str(item.caption);
+          const sub = str(item.subtitle);
+          const alt = str(item.alt) || cap || `تصویر ${idx + 1}`;
+          const itemLink = str(item.linkUrl).trim();
+
+          const tile = (
+            <div
+              className={`relative overflow-hidden bg-surface-container border border-outline-variant/20 shadow-soft ${
+                aspectCls || ''
+              } ${clickBehavior !== 'none' ? 'group cursor-zoom-in' : ''}`}
+              style={{ borderRadius: radius }}
+            >
+              <img
+                src={src}
+                alt={alt}
+                className={`${
+                  aspectCls ? `absolute inset-0 w-full h-full ${objectFit}` : `w-full h-auto ${objectFit}`
+                } transition-transform duration-500 ${
+                  clickBehavior !== 'none' ? 'group-hover:scale-[1.03]' : ''
+                }`}
+              />
+              {captionPosition === 'overlay' && (cap || sub) && (
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 py-3 pt-8 space-y-0.5 pointer-events-none">
+                  {cap && <p className="text-white text-xs font-bold line-clamp-2">{cap}</p>}
+                  {sub && <p className="text-white/75 text-[10px] line-clamp-2">{sub}</p>}
+                </div>
+              )}
+              {clickBehavior === 'lightbox' && (
+                <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <span className="material-symbols-outlined text-base">zoom_in</span>
+                </span>
+              )}
+            </div>
+          );
+
+          let media: React.ReactNode = tile;
+          if (clickBehavior === 'lightbox') {
+            media = (
+              <button
+                type="button"
+                className="block w-full text-right"
+                onClick={() => {
+                  setLightboxIndex(idx);
+                  setLightboxOpen(true);
+                }}
+              >
+                {tile}
+              </button>
+            );
+          } else if (clickBehavior === 'link' && itemLink) {
+            const external = /^https?:\/\//i.test(itemLink);
+            media = (
+              <a
+                href={itemLink}
+                className="block w-full"
+                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              >
+                {tile}
+              </a>
+            );
+          }
+
+          return (
+            <figure key={idx} className="min-w-0 space-y-1.5">
+              {media}
+              {captionPosition === 'below' && (cap || sub) && (
+                <figcaption className="space-y-0.5 px-0.5">
+                  {cap && <p className="text-xs font-bold text-on-surface">{cap}</p>}
+                  {sub && <p className="text-[11px] text-on-surface-variant leading-relaxed">{sub}</p>}
+                </figcaption>
+              )}
+            </figure>
+          );
+        })}
+      </ResponsiveGrid>
+
+      <ImageLightbox
+        open={lightboxOpen}
+        index={lightboxIndex}
+        items={lightboxItems}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={setLightboxIndex}
+      />
     </section>
   );
 };
@@ -2905,6 +3654,14 @@ export function renderServiceBlock(
       return <IconListBlock props={block.props} />;
     case 'button':
       return <ButtonBlock props={block.props} ctx={ctx} />;
+    case 'divider':
+      return <DividerBlock props={block.props} />;
+    case 'spacer':
+      return <SpacerBlock props={block.props} previewMode={options?.previewMode} />;
+    case 'singleImage':
+      return <SingleImageBlock props={block.props} />;
+    case 'imageGallery':
+      return <ImageGalleryBlock props={block.props} />;
     case 'googleMap':
       return <GoogleMapBlock props={block.props} />;
     case 'tabGallery':

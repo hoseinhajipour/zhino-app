@@ -3,6 +3,10 @@ import type { ServiceBlock, ServiceBlockType } from '../../types';
 import { BLOCK_LABELS } from '../../lib/landingToBlocks';
 import { filterMaterialIcons } from '../../lib/materialIcons';
 import { MediaField } from '../media/MediaField';
+import { DividerBlockSettings } from './DividerBlockSettings';
+import { SpacerBlockSettings } from './SpacerBlockSettings';
+import { SingleImageBlockSettings } from './SingleImageBlockSettings';
+import { ImageGalleryBlockSettings } from './ImageGalleryBlockSettings';
 
 interface BlockSettingsProps {
   block: ServiceBlock;
@@ -2158,6 +2162,18 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
     case 'button':
       return <ButtonBlockSettings props={p} onChange={onChange} />;
 
+    case 'divider':
+      return <DividerBlockSettings props={p} onChange={onChange} />;
+
+    case 'spacer':
+      return <SpacerBlockSettings props={p} onChange={onChange} />;
+
+    case 'singleImage':
+      return <SingleImageBlockSettings props={p} onChange={onChange} />;
+
+    case 'imageGallery':
+      return <ImageGalleryBlockSettings props={p} onChange={onChange} />;
+
     case 'googleMap':
       return (
         <div className="space-y-3">
@@ -2351,6 +2367,10 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         'icon',
         'iconList',
         'button',
+        'divider',
+        'spacer',
+        'singleImage',
+        'imageGallery',
         'googleMap',
         'features',
         'highlights',

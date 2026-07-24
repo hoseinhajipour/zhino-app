@@ -115,7 +115,11 @@ export type ServiceBlockType =
   | 'button'
   | 'staffCarousel'
   | 'googleMap'
-  | 'tabGallery';
+  | 'tabGallery'
+  | 'divider'
+  | 'spacer'
+  | 'singleImage'
+  | 'imageGallery';
 
 export interface ServiceBlock {
   id: string;

@@ -1,40 +1,54 @@
-import React, { useState } from 'react';
-import { DOCTORS } from '../data/clinicData';
+import React, { useMemo, useState } from 'react';
 import { Doctor } from '../types';
 
 interface FreeGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectDoctor: (doctorId: string) => void;
+  doctors?: Doctor[];
 }
 
 export const FreeGuideModal: React.FC<FreeGuideModalProps> = ({
   isOpen,
   onClose,
   onSelectDoctor,
+  doctors: doctorsProp,
 }) => {
   const [ageGroup, setAgeGroup] = useState<'child' | 'teen' | 'adult' | 'couple'>('adult');
   const [mainConcern, setMainConcern] = useState<string>('anxiety');
   const [format, setFormat] = useState<'in-person' | 'online'>('in-person');
   const [recommendation, setRecommendation] = useState<Doctor | null>(null);
 
+  const doctors = useMemo(
+    () => (doctorsProp || []).filter((d) => d.active !== false),
+    [doctorsProp]
+  );
+
   if (!isOpen) return null;
+
+  const pickBySpecialty = (...keys: string[]) => {
+    for (const key of keys) {
+      const found = doctors.find((d) => (d.specialties || []).includes(key));
+      if (found) return found;
+    }
+    return doctors[0];
+  };
 
   const handleRecommend = (e: React.FormEvent) => {
     e.preventDefault();
     let doc: Doctor | undefined;
     if (ageGroup === 'child' || ageGroup === 'teen') {
-      doc = DOCTORS.find((d) => d.specialties.includes('child')) || DOCTORS[2];
+      doc = pickBySpecialty('child');
     } else if (ageGroup === 'couple') {
-      doc = DOCTORS.find((d) => d.specialties.includes('family')) || DOCTORS[1];
+      doc = pickBySpecialty('family');
     } else if (mainConcern === 'career') {
-      doc = DOCTORS.find((d) => d.specialties.includes('career')) || DOCTORS[6];
+      doc = pickBySpecialty('career', 'individual', 'cbt');
     } else if (mainConcern === 'assessment') {
-      doc = DOCTORS.find((d) => d.specialties.includes('assessment')) || DOCTORS[3];
+      doc = pickBySpecialty('assessment');
     } else {
-      doc = DOCTORS.find((d) => d.specialties.includes('cbt')) || DOCTORS[0];
+      doc = pickBySpecialty('cbt', 'individual');
     }
-    setRecommendation(doc);
+    setRecommendation(doc || null);
   };
 
   return (

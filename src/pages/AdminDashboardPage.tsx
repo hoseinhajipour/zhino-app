@@ -45,6 +45,7 @@ import { ContactInfoSettingsPanel } from '../components/admin/ContactInfoSetting
 import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
+import { ImportExportPanel } from '../components/admin/ImportExportPanel';
 import { mergeSiteChrome } from '../lib/siteChromeDefaults';
 import {
   identityPatchFromContact,
@@ -79,9 +80,11 @@ import {
   canManagePersonnel,
   canManageModules,
   canManageSettings,
+  canManageTools,
   canManageUsers,
   canViewSystemStatus,
   canViewServicesOnly,
+  getAllowedNav,
   getAllowedTabs,
   getRoleLabel,
 } from '../lib/adminPermissions';
@@ -127,18 +130,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onUpdateSitePages,
   onLogout,
 }) => {
-  const allowedNav = getAllowedTabs(currentUser?.role);
-  const [activeTab, setActiveTab] = useState<AdminTab>(allowedNav[0]?.id || 'overview');
-
-  useEffect(() => {
-    const allowed = getAllowedTabs(currentUser?.role).map((t) => t.id);
-    if (!allowed.includes(activeTab)) {
-      setActiveTab(allowed[0] || 'overview');
-    }
-    if (canViewServicesOnly(currentUser?.role)) {
-      setPersonnelSubTab('services');
-    }
-  }, [currentUser?.role, activeTab]);
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
   // --- APPOINTMENT FILTERS & ACTIONS ---
   const [appSearch, setAppSearch] = useState('');
@@ -162,6 +154,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [modulesDraft, setModulesDraft] = useState<SiteModulesSettings>(() =>
     mergeSiteModules(DEFAULT_CLINIC_SETTINGS.modules)
   );
+
+  const navOptions = { appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft) };
+  const allowedNav = getAllowedNav(currentUser?.role, navOptions);
+  const allowedTabs = getAllowedTabs(currentUser?.role, navOptions);
+
+  useEffect(() => {
+    const allowed = getAllowedTabs(currentUser?.role, {
+      appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
+    }).map((t) => t.id);
+    if (!allowed.includes(activeTab)) {
+      setActiveTab(allowed[0] || 'overview');
+    }
+    if (canViewServicesOnly(currentUser?.role)) {
+      setPersonnelSubTab('services');
+    }
+  }, [currentUser?.role, activeTab, modulesDraft]);
+
   const [savingSiteChrome, setSavingSiteChrome] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [savingModules, setSavingModules] = useState(false);
@@ -1271,6 +1280,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title: 'وضعیت سیستم',
       subtitle: 'سلامت سرور، منابع سخت‌افزاری، نسخه نرم‌افزار و به‌روزرسانی',
     },
+    'tools-io': {
+      title: 'درونریزی و برونریزی',
+      subtitle: 'پشتیبان JSON ژینو و درون‌ریزی از وردپرس با انتقال رسانه به هاست',
+    },
     settings: { title: 'تنظیمات کلینیک', subtitle: 'هویت برند، هدر، منو و فوتر سایت' },
   };
 
@@ -1314,7 +1327,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
               <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">دسترسی‌های نقش شما</h3>
               <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                {allowedNav.map((item) => (
+                {allowedTabs.map((item) => (
                   <li key={item.id} className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-teal-600 text-base">{item.icon}</span>
                     <span className="font-bold">{item.label}</span>
@@ -3099,6 +3112,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {activeTab === 'system' && canViewSystemStatus(currentUser?.role) && (
         <div className="space-y-6 animate-fade-in">
           <SystemStatusPanel />
+        </div>
+      )}
+
+      {activeTab === 'tools-io' && canManageTools(currentUser?.role) && (
+        <div className="space-y-6 animate-fade-in">
+          <ImportExportPanel />
         </div>
       )}
 

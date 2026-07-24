@@ -25,9 +25,13 @@ import {
 
 export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
   'container',
+  'divider',
+  'spacer',
   'heroHeader',
   'hero',
   'imageCarousel',
+  'singleImage',
+  'imageGallery',
   'videoPlayer',
   'icon',
   'iconList',
@@ -52,9 +56,13 @@ export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
 
 export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
   'container',
+  'divider',
+  'spacer',
   'heroHeader',
   'pageHero',
   'imageCarousel',
+  'singleImage',
+  'imageGallery',
   'videoPlayer',
   'icon',
   'iconList',
@@ -83,11 +91,15 @@ export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
 /** Widgets suited for long-form article layouts */
 export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
   'container',
+  'divider',
+  'spacer',
   'heroHeader',
   'pageHero',
   'richText',
   'htmlCode',
   'imageCarousel',
+  'singleImage',
+  'imageGallery',
   'videoPlayer',
   'icon',
   'iconList',

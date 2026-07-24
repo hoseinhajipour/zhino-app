@@ -11,7 +11,8 @@ export type AdminTabId =
   | 'contact'
   | 'modules'
   | 'system'
-  | 'settings';
+  | 'settings'
+  | 'tools-io';
 
 export interface AdminNavItem {
   id: AdminTabId;
@@ -19,7 +20,20 @@ export interface AdminNavItem {
   icon: string;
 }
 
-const ALL_NAV: AdminNavItem[] = [
+export interface AdminNavGroup {
+  id: string;
+  label: string;
+  icon: string;
+  children: AdminNavItem[];
+}
+
+export type AdminNavEntry = AdminNavItem | AdminNavGroup;
+
+export function isAdminNavGroup(entry: AdminNavEntry): entry is AdminNavGroup {
+  return Array.isArray((entry as AdminNavGroup).children);
+}
+
+const ALL_NAV: AdminNavEntry[] = [
   { id: 'overview', label: 'نمای کلی', icon: 'dashboard' },
   { id: 'appointments', label: 'نوبت‌ها', icon: 'calendar_month' },
   { id: 'personnel', label: 'پرسنل و خدمات', icon: 'groups' },
@@ -30,6 +44,12 @@ const ALL_NAV: AdminNavItem[] = [
   { id: 'contact', label: 'اطلاعات تماس', icon: 'contact_phone' },
   { id: 'modules', label: 'ماژول‌ها', icon: 'extension' },
   { id: 'system', label: 'وضعیت سیستم', icon: 'monitor_heart' },
+  {
+    id: 'tools',
+    label: 'ابزارها',
+    icon: 'handyman',
+    children: [{ id: 'tools-io', label: 'درونریزی و برونریزی', icon: 'import_export' }],
+  },
   { id: 'settings', label: 'تنظیمات', icon: 'settings' },
 ];
 
@@ -45,6 +65,7 @@ const TABS_BY_ROLE: Record<'admin' | 'doctor' | 'operator', AdminTabId[]> = {
     'contact',
     'modules',
     'system',
+    'tools-io',
     'settings',
   ],
   operator: ['overview', 'appointments', 'personnel', 'faqs'],
@@ -63,18 +84,48 @@ export function getStaffRole(role?: UserRole | string | null): 'admin' | 'doctor
   return 'admin';
 }
 
+/** Flat list of leaf tabs (for permission checks). */
 export function getAllowedTabs(
   role?: UserRole | string | null,
   options?: { appointmentsModuleEnabled?: boolean }
 ): AdminNavItem[] {
+  return flattenNav(getAllowedNav(role, options));
+}
+
+/** Sidebar structure including groups like «ابزارها». */
+export function getAllowedNav(
+  role?: UserRole | string | null,
+  options?: { appointmentsModuleEnabled?: boolean }
+): AdminNavEntry[] {
   const r = getStaffRole(role);
   const allowed = TABS_BY_ROLE[r];
   const appointmentsOn = options?.appointmentsModuleEnabled !== false;
-  return ALL_NAV.filter((item) => {
-    if (!allowed.includes(item.id)) return false;
-    if (item.id === 'appointments' && !appointmentsOn) return false;
-    return true;
-  });
+
+  const out: AdminNavEntry[] = [];
+  for (const entry of ALL_NAV) {
+    if (isAdminNavGroup(entry)) {
+      const children = entry.children.filter((c) => {
+        if (!allowed.includes(c.id)) return false;
+        if (c.id === 'appointments' && !appointmentsOn) return false;
+        return true;
+      });
+      if (children.length) out.push({ ...entry, children });
+      continue;
+    }
+    if (!allowed.includes(entry.id)) continue;
+    if (entry.id === 'appointments' && !appointmentsOn) continue;
+    out.push(entry);
+  }
+  return out;
+}
+
+export function flattenNav(entries: AdminNavEntry[]): AdminNavItem[] {
+  const items: AdminNavItem[] = [];
+  for (const e of entries) {
+    if (isAdminNavGroup(e)) items.push(...e.children);
+    else items.push(e);
+  }
+  return items;
 }
 
 export function canManagePersonnel(role?: UserRole | string | null): boolean {
@@ -112,6 +163,10 @@ export function canManageModules(role?: UserRole | string | null): boolean {
 }
 
 export function canViewSystemStatus(role?: UserRole | string | null): boolean {
+  return getStaffRole(role) === 'admin';
+}
+
+export function canManageTools(role?: UserRole | string | null): boolean {
   return getStaffRole(role) === 'admin';
 }
 

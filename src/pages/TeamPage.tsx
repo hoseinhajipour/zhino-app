@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { DOCTORS } from '../data/clinicData';
+import React, { useMemo, useState } from 'react';
 import { Doctor, PageScreen } from '../types';
 import { useAppNavigation } from '../context/AppContext';
 
+const SPECIALTY_LABELS: Record<string, string> = {
+  individual: 'مشاوره فردی',
+  family: 'خانواده و ازدواج',
+  child: 'کودک و نوجوان',
+  assessment: 'ارزیابی و سنجش',
+  cbt: 'درمان شناختی-رفتاری (CBT)',
+  career: 'تحصیلی و شغلی',
+};
+
 interface TeamPageProps {
+  doctors?: Doctor[];
   onNavigate?: (screen: PageScreen) => void;
-  onOpenBooking?: () => void;
+  onOpenBooking?: (doctorId?: string, serviceId?: string) => void;
   onOpenDoctorModal?: (doctorId: string) => void;
   onOpenGuide?: () => void;
   bookingEnabled?: boolean;
@@ -23,33 +32,46 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
 
-  const filteredDoctors = DOCTORS.filter((doc) => {
-    // Search query filter
+  const activeDoctors = useMemo(
+    () => (props.doctors || []).filter((doc) => doc.active !== false),
+    [props.doctors]
+  );
+
+  const specialtyOptions = useMemo(() => {
+    const ids = new Set<string>();
+    activeDoctors.forEach((doc) => {
+      (doc.specialties || []).forEach((s) => ids.add(s));
+    });
+    return Array.from(ids).sort((a, b) =>
+      (SPECIALTY_LABELS[a] || a).localeCompare(SPECIALTY_LABELS[b] || b, 'fa')
+    );
+  }, [activeDoctors]);
+
+  const filteredDoctors = activeDoctors.filter((doc) => {
+    const q = searchQuery.trim();
     const matchesSearch =
-      doc.name.includes(searchQuery) ||
-      doc.title.includes(searchQuery) ||
-      doc.bio.includes(searchQuery) ||
-      doc.tags.some((t) => t.includes(searchQuery));
+      !q ||
+      doc.name.includes(q) ||
+      doc.title.includes(q) ||
+      doc.bio.includes(q) ||
+      (doc.tags || []).some((t) => t.includes(q)) ||
+      (doc.specialties || []).some((s) => (SPECIALTY_LABELS[s] || s).includes(q));
 
-    // Specialty filter
     const matchesSpecialty =
-      selectedSpecialty === 'all' || doc.specialties.includes(selectedSpecialty);
+      selectedSpecialty === 'all' || (doc.specialties || []).includes(selectedSpecialty);
 
-    // Gender filter
     const matchesGender = selectedGender === 'all' || doc.gender === selectedGender;
 
-    // Format filter
     const matchesFormat =
       selectedFormat === 'all' ||
-      (selectedFormat === 'online' && doc.sessionTypes.includes('online')) ||
-      (selectedFormat === 'in-person' && doc.sessionTypes.includes('in-person'));
+      (selectedFormat === 'online' && (doc.sessionTypes || []).includes('online')) ||
+      (selectedFormat === 'in-person' && (doc.sessionTypes || []).includes('in-person'));
 
     return matchesSearch && matchesSpecialty && matchesGender && matchesFormat;
   });
 
   return (
     <div className="space-y-12 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6">
-      {/* Page Title */}
       <section className="bg-surface-container-low p-8 md:p-12 rounded-[40px] border border-outline-variant/30 text-center space-y-4">
         <span className="bg-primary/10 text-primary text-xs font-bold px-4 py-1.5 rounded-full inline-block">
           دیرکتوری تخصصی کادر درمان
@@ -58,11 +80,13 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
           درمانگران و مشاوران کلینیک ژینو
         </h1>
         <p className="text-base text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-          با کادر متخصصین روانشناسی، مشاوران ازدواج و ارزیابان بالینی ما آشنا شوید و درمانگر متناسب با دغدغه خود را انتخاب کنید.
+          با کادر متخصصین روانشناسی، مشاوران ازدواج و ارزیابان بالینی ما آشنا شوید و درمانگر متناسب با
+          دغدغه خود را انتخاب کنید.
         </p>
 
         <div className="pt-2">
           <button
+            type="button"
             onClick={onOpenGuide}
             className="bg-secondary text-white font-bold px-6 py-2.5 rounded-full text-xs shadow hover:bg-secondary/90 transition-all inline-flex items-center gap-2"
           >
@@ -72,10 +96,8 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
         </div>
       </section>
 
-      {/* Filter & Search Controls */}
       <section className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Search Box */}
           <div className="relative">
             <input
               type="text"
@@ -89,7 +111,6 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
             </span>
           </div>
 
-          {/* Specialty Dropdown */}
           <div>
             <select
               value={selectedSpecialty}
@@ -97,15 +118,14 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-primary outline-none text-on-surface"
             >
               <option value="all">همه حوزه‌های تخصصی</option>
-              <option value="cbt">مشاوره فردی & CBT</option>
-              <option value="child">کودک و بازی‌درمانی</option>
-              <option value="family">ازدواج و زوج‌درمانی</option>
-              <option value="assessment">روان‌سنجی و تست‌ها</option>
-              <option value="career">تحصیلی و شغلی</option>
+              {specialtyOptions.map((id) => (
+                <option key={id} value={id}>
+                  {SPECIALTY_LABELS[id] || id}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* Gender Filter */}
           <div>
             <select
               value={selectedGender}
@@ -118,7 +138,6 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
             </select>
           </div>
 
-          {/* Session Format */}
           <div>
             <select
               value={selectedFormat}
@@ -132,10 +151,17 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
           </div>
         </div>
 
-        {(searchQuery || selectedSpecialty !== 'all' || selectedGender !== 'all' || selectedFormat !== 'all') && (
+        {(searchQuery ||
+          selectedSpecialty !== 'all' ||
+          selectedGender !== 'all' ||
+          selectedFormat !== 'all') && (
           <div className="flex justify-between items-center text-xs text-on-surface-variant pt-2 border-t border-outline-variant/20">
-            <span>تعداد نتایج یافت شده: <strong className="text-primary">{filteredDoctors.length}</strong> متخصص</span>
+            <span>
+              تعداد نتایج یافت شده: <strong className="text-primary">{filteredDoctors.length}</strong>{' '}
+              متخصص
+            </span>
             <button
+              type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedSpecialty('all');
@@ -150,7 +176,6 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
         )}
       </section>
 
-      {/* Directory Cards Grid */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredDoctors.length > 0 ? (
           filteredDoctors.map((doc: Doctor) => (
@@ -166,7 +191,7 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute top-4 right-4 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold shadow-xs">
-                    {doc.sessionTypes.includes('online') ? 'حضوری و آنلاین' : 'حضوری'}
+                    {(doc.sessionTypes || []).includes('online') ? 'حضوری و آنلاین' : 'حضوری'}
                   </div>
                 </div>
 
@@ -180,7 +205,7 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
                   </p>
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {doc.tags.map((tag) => (
+                    {(doc.tags || []).map((tag) => (
                       <span
                         key={tag}
                         className="bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-0.5 rounded-lg text-xs"
@@ -194,6 +219,7 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
 
               <div className="p-6 pt-0 flex gap-2">
                 <button
+                  type="button"
                   onClick={() => onOpenDoctorModal(doc.id)}
                   className="flex-1 py-2.5 rounded-xl border border-primary text-primary font-bold text-xs hover:bg-primary/5 transition-colors"
                 >
@@ -201,7 +227,8 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
                 </button>
                 {bookingEnabled && (
                   <button
-                    onClick={() => onOpenBooking()}
+                    type="button"
+                    onClick={() => onOpenBooking(doc.id)}
                     className="flex-1 bg-primary text-white font-bold text-xs py-2.5 rounded-xl hover:bg-primary-container transition-colors shadow"
                   >
                     رزرو نوبت
@@ -215,8 +242,16 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
             <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-2">
               search_off
             </span>
-            <h3 className="text-lg font-bold text-on-surface">متخصصی با مشخصات انتخابی یافت نشد.</h3>
-            <p className="text-xs text-on-surface-variant mt-1">لطفاً فیلترهای جستجو را پاک کنید یا عبارت دیگری وارد نمائید.</p>
+            <h3 className="text-lg font-bold text-on-surface">
+              {activeDoctors.length === 0
+                ? 'هنوز پرسنلی برای نمایش فعال نشده است.'
+                : 'متخصصی با مشخصات انتخابی یافت نشد.'}
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1">
+              {activeDoctors.length === 0
+                ? 'از بخش پرسنل در پنل مدیریت، درمانگران را تعریف و فعال کنید.'
+                : 'لطفاً فیلترهای جستجو را پاک کنید یا عبارت دیگری وارد نمائید.'}
+            </p>
           </div>
         )}
       </section>

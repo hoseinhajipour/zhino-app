@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { DOCTORS, MAIN_SERVICES } from '../data/clinicData';
-import { ClinicContactInfo, Doctor, BookingConfirmation, Appointment, PageScreen } from '../types';
+import React, { useMemo, useState } from 'react';
+import { MAIN_SERVICES as DEFAULT_SERVICES } from '../data/clinicData';
+import {
+  ClinicContactInfo,
+  Doctor,
+  BookingConfirmation,
+  Appointment,
+  PageScreen,
+  ServiceItem,
+} from '../types';
 import { addAppointment } from '../lib/dbService';
 import {
   DEFAULT_CONTACT_INFO,
@@ -18,6 +25,8 @@ interface AppointmentModalProps {
   bookingEnabled?: boolean;
   onNavigate?: (screen: PageScreen) => void;
   contact?: ClinicContactInfo | null;
+  doctors?: Doctor[];
+  services?: ServiceItem[];
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
@@ -29,6 +38,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   bookingEnabled = true,
   onNavigate,
   contact,
+  doctors: doctorsProp,
+  services: servicesProp,
 }) => {
   const contactInfo = mergeContactInfo(contact || DEFAULT_CONTACT_INFO);
   const phone0 = contactInfo.phones[0];
@@ -36,31 +47,50 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const telHref = phone0 ? getTelHref(phone0) : '';
   const waHref = getWhatsAppHref(contactInfo.whatsapp);
   const addressText = contactInfo.addresses[0]?.text || '';
+
+  const doctors = useMemo(
+    () => (doctorsProp || []).filter((d) => d.active !== false),
+    [doctorsProp]
+  );
+  const services = useMemo(
+    () =>
+      (servicesProp && servicesProp.length > 0 ? servicesProp : DEFAULT_SERVICES).filter(
+        (s) => s.active !== false
+      ),
+    [servicesProp]
+  );
+
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(
-    preselectedServiceId || MAIN_SERVICES[0].id
-  );
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(
-    preselectedDoctorId || DOCTORS[0].id
-  );
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [sessionType, setSessionType] = useState<'in-person' | 'online'>('in-person');
   const [selectedDate, setSelectedDate] = useState<string>('1403/05/01');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('16:00');
-  
+
   const [patientName, setPatientName] = useState('');
+
   const [patientPhone, setPatientPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
 
   React.useEffect(() => {
-    if (isOpen) {
-      if (preselectedDoctorId) setSelectedDoctorId(preselectedDoctorId);
-      if (preselectedServiceId) setSelectedServiceId(preselectedServiceId);
-      setStep(1);
-      setConfirmation(null);
-    }
-  }, [isOpen, preselectedDoctorId, preselectedServiceId]);
+    if (!isOpen) return;
+    const fallbackDoctor = doctors[0]?.id || '';
+    const fallbackService = services[0]?.id || '';
+    setSelectedDoctorId(
+      preselectedDoctorId && doctors.some((d) => d.id === preselectedDoctorId)
+        ? preselectedDoctorId
+        : fallbackDoctor
+    );
+    setSelectedServiceId(
+      preselectedServiceId && services.some((s) => s.id === preselectedServiceId)
+        ? preselectedServiceId
+        : fallbackService
+    );
+    setStep(1);
+    setConfirmation(null);
+  }, [isOpen, preselectedDoctorId, preselectedServiceId, doctors, services]);
 
   if (!isOpen) return null;
 
@@ -215,11 +245,36 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
 
   const timeSlots = ['۱۰:۰۰', '۱۱:۳۰', '۱۴:۰۰', '۱۶:۰۰', '۱۷:۳۰', '۱۹:۰۰'];
 
-  const selectedDoctor = DOCTORS.find((d) => d.id === selectedDoctorId) || DOCTORS[0];
-  const selectedService = MAIN_SERVICES.find((s) => s.id === selectedServiceId) || MAIN_SERVICES[0];
+  const selectedDoctor = doctors.find((d) => d.id === selectedDoctorId) || doctors[0];
+  const selectedService = services.find((s) => s.id === selectedServiceId) || services[0];
+
+  if (!selectedDoctor || !selectedService) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="bg-white dark:bg-surface-dim w-full max-w-md rounded-3xl shadow-2xl p-6 text-right space-y-4">
+          <h3 className="text-lg font-black text-on-surface">رزرو نوبت در دسترس نیست</h3>
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            هنوز درمانگر یا خدمت فعالی در سیستم تعریف نشده است. لطفاً از بخش پرسنل و خدمات در پنل مدیریت
+            موارد را فعال کنید.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full bg-primary text-white font-bold py-2.5 rounded-xl"
+          >
+            بستن
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleBook = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedDoctor || !selectedService) {
+      alert('لطفاً درمانگر و خدمت را انتخاب کنید.');
+      return;
+    }
     if (!patientName.trim() || !patientPhone.trim()) {
       alert('لطفاً نام و شماره همراه خود را وارد کنید.');
       return;
@@ -309,7 +364,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <div>
                 <label className="block text-sm font-bold text-on-surface mb-2">نوع خدمت مورد نظر:</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {MAIN_SERVICES.map((serv) => (
+                  {services.map((serv) => (
                     <button
                       key={serv.id}
                       type="button"
@@ -330,7 +385,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <div>
                 <label className="block text-sm font-bold text-on-surface mb-2">انتخاب درمانگر:</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto p-1">
-                  {DOCTORS.map((doc) => (
+                  {doctors.map((doc) => (
                     <button
                       key={doc.id}
                       type="button"

@@ -24,6 +24,7 @@ import { uploadsRouter, uploadsDir } from './routes/uploads';
 import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
 import { systemRouter } from './routes/system';
+import { backupRouter } from './routes/backup';
 import { isInstallLocked, writeInstallLock } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
 
@@ -33,8 +34,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const PORT = Number(process.env.PORT || 3001);
 const app = express();
 
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use('/uploads', express.static(uploadsDir));
 
@@ -52,6 +53,7 @@ app.use('/api/pages', pagesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/system', systemRouter);
+app.use('/api/backup', backupRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, installed: isInstallLocked() });

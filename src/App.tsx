@@ -618,8 +618,9 @@ export function App() {
 
           {currentScreen === 'team' && (
             <TeamPage
+              doctors={doctors}
               onNavigate={handleNavigate}
-              onOpenBooking={() => handleOpenBooking()}
+              onOpenBooking={handleOpenBooking}
               onOpenDoctorModal={handleOpenDoctorProfile}
               onOpenGuide={() => setGuideModalOpen(true)}
               bookingEnabled={settings.bookingEnabled}
@@ -811,6 +812,8 @@ export function App() {
         bookingEnabled={settings.bookingEnabled}
         onNavigate={handleNavigate}
         contact={contactInfo}
+        doctors={doctors}
+        services={services}
       />
 
       <DoctorProfileModal
@@ -824,6 +827,7 @@ export function App() {
         isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
         onSelectDoctor={(docId) => handleOpenBooking(docId)}
+        doctors={doctors}
       />
 
       <AuthModal
