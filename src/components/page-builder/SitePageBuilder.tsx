@@ -8,7 +8,9 @@ import {
   RESERVED_PAGE_SLUGS,
   slugifyPageTitle,
 } from '../../lib/sitePageDefaults';
+import { analyzePageSeo, buildSeoPayload } from '../../lib/seoAnalyzer';
 import { MediaField } from '../media/MediaField';
+import { SeoAnalyzerPanel } from '../admin/SeoAnalyzerPanel';
 import { PageBuilderEditor, SITE_WIDGET_TYPES } from './PageBuilderEditor';
 
 interface SitePageBuilderProps {
@@ -20,6 +22,7 @@ interface SitePageBuilderProps {
   contact?: ClinicContactInfo | null;
   /** Other pages — used to validate unique slug */
   existingPages?: SitePage[];
+  seoOptimizerEnabled?: boolean;
   onClose: () => void;
   onSaved: (updated: SitePage) => void;
 }
@@ -45,6 +48,7 @@ export const SitePageBuilder: React.FC<SitePageBuilderProps> = ({
   faqs,
   contact,
   existingPages = [],
+  seoOptimizerEnabled = false,
   onClose,
   onSaved,
 }) => {
@@ -57,6 +61,7 @@ export const SitePageBuilder: React.FC<SitePageBuilderProps> = ({
   }));
   const [slugManual, setSlugManual] = useState(Boolean(page.slug && page.slug !== '/'));
   const initialBlocks = useMemo(() => getDefaultBlocksForPage(page), [page]);
+  const [liveBlocks, setLiveBlocks] = useState<ServiceBlock[]>(initialBlocks);
 
   const patch = (partial: Partial<SitePage>) => setDraft((prev) => ({ ...prev, ...partial }));
 
@@ -115,6 +120,11 @@ export const SitePageBuilder: React.FC<SitePageBuilderProps> = ({
       pageBuilder: { version: 1, blocks },
       updatedAt: new Date().toISOString(),
     };
+
+    if (seoOptimizerEnabled) {
+      const analysis = analyzePageSeo(updated, blocks);
+      updated.seo = buildSeoPayload(draft.seo, analysis);
+    }
 
     await saveSitePage(updated);
     onSaved(updated);
@@ -265,6 +275,18 @@ export const SitePageBuilder: React.FC<SitePageBuilderProps> = ({
           </select>
         </label>
       )}
+
+      {seoOptimizerEnabled && (
+        <SeoAnalyzerPanel
+          seo={draft.seo}
+          onChange={(seo) => patch({ seo })}
+          title={draft.title}
+          slug={system ? draft.slug : publicSlug}
+          excerpt={draft.excerpt}
+          coverImage={draft.coverImage}
+          blocks={liveBlocks}
+        />
+      )}
     </div>
   );
 
@@ -282,10 +304,12 @@ export const SitePageBuilder: React.FC<SitePageBuilderProps> = ({
       contextId={page.id}
       onClose={onClose}
       onSave={handleSave}
+      onBlocksChange={setLiveBlocks}
       metaPanel={metaPanel}
       metaPanelLabel="تنظیمات صفحه"
       saveLabel="ذخیره صفحه"
       defaultRightTab="meta"
+      previewHref={previewPath}
     />
   );
 };

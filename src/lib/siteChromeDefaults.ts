@@ -17,6 +17,8 @@ export const BUILTIN_NAV_TARGETS: Array<{ value: string; label: string }> = [
   { value: 'blog', label: 'مقالات' },
   { value: 'faq', label: 'سوالات متداول' },
   { value: 'contact', label: 'تماس با ما' },
+  { value: 'login', label: 'ورود / عضویت' },
+  { value: 'user-panel', label: 'پنل کاربری' },
   { value: 'admin', label: 'داشبورد ادمین' },
 ];
 
@@ -120,6 +122,7 @@ const PAGE_SCREENS = new Set<string>([
   'faq',
   'admin',
   'user-panel',
+  'login',
   'custom-page',
 ]);
 
@@ -243,6 +246,12 @@ function ensureGoogleFontLoaded(googleQuery: string) {
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${googleQuery}&display=swap`;
   document.head.appendChild(link);
+}
+
+/** Load a site font by id (for per-block title typography). */
+export function ensureSiteFontLoaded(fontId?: string) {
+  const font = getSiteFontOption(fontId);
+  if (font.google) ensureGoogleFontLoaded(font.google);
 }
 
 function lightenHex(hex: string, amount = 0.18): string {

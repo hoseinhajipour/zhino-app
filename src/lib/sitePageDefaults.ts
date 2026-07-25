@@ -278,6 +278,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
           props: {
             title: 'ارسال پیام به پذیرش',
             subtitle: 'پیام شما در کوتاه‌ترین زمان بررسی می‌شود.',
+            formId: 'form-contact',
           },
         },
       ]);

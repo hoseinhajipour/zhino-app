@@ -15,7 +15,9 @@ import {
   getArticleInitialBlocks,
   slugifyArticleTitle,
 } from '../../lib/articleDefaults';
+import { analyzeArticleSeo, buildSeoPayload } from '../../lib/seoAnalyzer';
 import { CoverImageUploader } from '../CoverImageUploader';
+import { SeoAnalyzerPanel } from '../admin/SeoAnalyzerPanel';
 import { ARTICLE_WIDGET_TYPES, PageBuilderEditor } from './PageBuilderEditor';
 
 interface ArticleEditorPageProps {
@@ -27,6 +29,8 @@ interface ArticleEditorPageProps {
   articles: Article[];
   faqs?: FAQItem[];
   contact?: ClinicContactInfo | null;
+  /** When seoOptimizer module is enabled */
+  seoOptimizerEnabled?: boolean;
   onClose: () => void;
   onSaved: (article: Article) => void;
 }
@@ -43,12 +47,14 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
   articles,
   faqs,
   contact,
+  seoOptimizerEnabled = false,
   onClose,
   onSaved,
 }) => {
   const [draft, setDraft] = useState<Article>(article);
   const [slugManual, setSlugManual] = useState(Boolean(article.slug));
   const initialBlocks = useMemo(() => getArticleInitialBlocks(article), [article]);
+  const [liveBlocks, setLiveBlocks] = useState<ServiceBlock[]>(initialBlocks);
 
   const activeCategories = categories.filter((c) => c.active !== false);
   const patch = (partial: Partial<Article>) => setDraft((prev) => ({ ...prev, ...partial }));
@@ -81,6 +87,13 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
     const author =
       doctors.find((d) => d.id === draft.authorId) || doctors[0];
 
+    const pageBuilder = buildArticlePageBuilder(blocks);
+    let seo = draft.seo;
+    if (seoOptimizerEnabled) {
+      const analysis = analyzeArticleSeo({ ...draft, title, slug, pageBuilder }, blocks);
+      seo = buildSeoPayload(draft.seo, analysis);
+    }
+
     const saved: Article = {
       ...draft,
       title,
@@ -95,7 +108,8 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
       status: draft.status,
       tags: draft.tags,
       readTime: draft.readTime || '۵ دقیقه',
-      pageBuilder: buildArticlePageBuilder(blocks),
+      pageBuilder,
+      seo,
       // Keep legacy content for older renders until fully migrated
       content: draft.content || '',
       publishedAt: isNew ? 'امروز' : draft.publishedAt,
@@ -277,6 +291,20 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
           className={fieldClass}
         />
       </label>
+
+      {seoOptimizerEnabled && (
+        <SeoAnalyzerPanel
+          seo={draft.seo}
+          onChange={(seo) => patch({ seo })}
+          title={draft.title}
+          slug={draft.slug}
+          excerpt={draft.summary}
+          coverImage={draft.coverImage}
+          tags={draft.tags}
+          content={draft.content}
+          blocks={liveBlocks}
+        />
+      )}
     </div>
   );
 
@@ -294,10 +322,12 @@ export const ArticleEditorPage: React.FC<ArticleEditorPageProps> = ({
       contextId={draft.id}
       onClose={onClose}
       onSave={handleSave}
+      onBlocksChange={setLiveBlocks}
       metaPanel={metaPanel}
       metaPanelLabel="تنظیمات مقاله"
       saveLabel="ذخیره مقاله"
       defaultRightTab="meta"
+      previewHref={draft.slug ? `/blog/${encodeURIComponent(draft.slug)}` : null}
     />
   );
 };

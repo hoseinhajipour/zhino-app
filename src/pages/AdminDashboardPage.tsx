@@ -44,6 +44,7 @@ import { SiteChromeSettingsPanel } from '../components/admin/SiteChromeSettingsP
 import { ContactInfoSettingsPanel } from '../components/admin/ContactInfoSettingsPanel';
 import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
 import { FreeGuideSettingsPanel } from '../components/admin/FreeGuideSettingsPanel';
+import { FormsAdminPanel } from '../components/admin/FormsAdminPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { ImportExportPanel } from '../components/admin/ImportExportPanel';
@@ -52,7 +53,9 @@ import {
   identityPatchFromContact,
   mergeContactInfo,
 } from '../lib/contactInfo';
-import { isAppointmentsModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import { isAppointmentsModuleEnabled, isSeoOptimizerModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
+import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
 import type {
   ClinicContactInfo,
@@ -77,6 +80,8 @@ import {
   AdminTabId,
   canAccessPersonnelTab,
   canApproveFaqs,
+  canManageFormDefinitions,
+  canManageFormSubmissions,
   canDeleteAppointments,
   canDeleteServices,
   canEditAllAppointments,
@@ -171,6 +176,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   );
 
   const navOptions = { appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft) };
+  const seoOptimizerEnabled = isSeoOptimizerModuleEnabled(modulesDraft);
   const allowedNav = getAllowedNav(currentUser?.role, navOptions);
   const allowedTabs = getAllowedTabs(currentUser?.role, navOptions);
 
@@ -194,6 +200,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
   const [savingMaintenance, setSavingMaintenance] = useState(false);
+  const [developmentMode, setDevelopmentMode] = useState(false);
+  const [savingDevelopment, setSavingDevelopment] = useState(false);
   const [isTestingGateway, setIsTestingGateway] = useState(false);
   const [testGatewayResult, setTestGatewayResult] = useState<string | null>(null);
 
@@ -245,6 +253,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
         setMaintenanceMode(!!st.maintenanceMode);
         setMaintenanceMessage(st.maintenanceMessage || '');
+        setDevelopmentMode(!!st.developmentMode);
         setResBookingEnabled(st.bookingEnabled ?? true);
         setZpEnabled(st.zarinpal.enabled);
         setZpIsSandbox(st.zarinpal.isSandbox);
@@ -750,6 +759,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره حالت تعمیر' });
     } finally {
       setSavingMaintenance(false);
+    }
+  };
+
+  const handleSaveDevelopment = async () => {
+    setSavingDevelopment(true);
+    setSettingsSaveMsg(null);
+    const updated: ClinicSettings = {
+      ...settings,
+      developmentMode,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: developmentMode
+          ? 'حالت توسعه فعال شد — پیشنهاد ورود سریع و حساب‌های دمو در صفحات لاگین نمایش داده می‌شود.'
+          : 'حالت توسعه خاموش شد — پیشنهادهای ورود دمو دیگر نمایش داده نمی‌شوند.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره حالت توسعه' });
+    } finally {
+      setSavingDevelopment(false);
     }
   };
 
@@ -1397,6 +1430,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     },
     articles: { title: 'مقالات و بلاگ', subtitle: 'تولید و انتشار محتوای مجله کلینیک' },
     faqs: { title: 'سوالات متداول', subtitle: 'پاسخ‌گویی و تأیید پرسش‌های مراجعین' },
+    forms: {
+      title: 'فرم‌ها',
+      subtitle: 'تعریف فرم‌های سایت و مشاهده ارسال‌های ثبت‌شده',
+    },
     contact: {
       title: 'اطلاعات تماس',
       subtitle: 'تلفن‌ها، پیام‌رسان‌ها، ایمیل و آدرس‌های کلینیک',
@@ -2593,6 +2630,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-black text-sm text-on-surface">{page.title}</h3>
+                        {seoOptimizerEnabled && (
+                          <SeoScoreBadge
+                            score={analyzePageSeo(page).score}
+                            size="sm"
+                          />
+                        )}
                         {system ? (
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg">
                             اصلی
@@ -2971,6 +3014,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     >
                       {art.status === 'published' ? 'منتشر شده' : 'پیش‌نویس'}
                     </span>
+                    {seoOptimizerEnabled && (
+                      <span className="absolute top-3 left-3">
+                        <SeoScoreBadge score={analyzeArticleSeo(art).score} size="sm" />
+                      </span>
+                    )}
                   </div>
 
                   <div className="p-5 space-y-3">
@@ -3238,6 +3286,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* TAB: FORMS */}
+      {/* ========================================================================= */}
+      {activeTab === 'forms' &&
+        (canManageFormDefinitions(currentUser?.role) ||
+          canManageFormSubmissions(currentUser?.role)) && (
+          <FormsAdminPanel role={currentUser?.role} />
+        )}
+
+      {/* ========================================================================= */}
       {/* TAB: CONTACT INFO */}
       {/* ========================================================================= */}
       {activeTab === 'contact' && canManageSettings(currentUser?.role) && (
@@ -3379,6 +3436,69 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   placeholder="سایت موقتاً در دست به‌روزرسانی است. از صبوری شما متشکریم…"
                   className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none focus:ring-2 focus:ring-primary/30"
                 />
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+                    developmentMode
+                      ? 'bg-sky-100 text-sky-700'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="material-symbols-outlined">code</span>
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-on-surface">حالت توسعه (Development)</h2>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    نمایش ورود سریع آزمایشی و اطلاعات حساب‌های دمو در صفحات لاگین
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={savingDevelopment}
+                onClick={() => void handleSaveDevelopment()}
+                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">save</span>
+                {savingDevelopment ? 'در حال ذخیره…' : 'ذخیره'}
+              </button>
+            </div>
+            <div className="p-5">
+              <label
+                className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+                  developmentMode
+                    ? 'border-sky-300 bg-sky-50/80 dark:bg-sky-950/20'
+                    : 'border-outline-variant/40 bg-surface-container-low/40'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-outline-variant"
+                  checked={developmentMode}
+                  onChange={(e) => setDevelopmentMode(e.target.checked)}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-on-surface">فعال‌سازی حالت توسعه</p>
+                  <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
+                    اگر فعال باشد، در صفحات ورود پیشنهاد «ورود سریع»، حساب دموی مراجع و نام کاربری/رمز
+                    ادمین آزمایشی نمایش داده می‌شود. در محیط واقعی این گزینه را خاموش نگه دارید.
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
+                    developmentMode
+                      ? 'bg-sky-200 text-sky-900'
+                      : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {developmentMode ? 'فعال' : 'غیرفعال'}
+                </span>
               </label>
             </div>
           </div>
@@ -4540,6 +4660,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           articles={articles}
           faqs={faqs}
           contact={settings.contact}
+          seoOptimizerEnabled={seoOptimizerEnabled}
           onClose={() => {
             setArticleEditor(null);
             setArticleEditorIsNew(false);
@@ -4580,6 +4701,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           faqs={faqs}
           contact={settings.contact}
           existingPages={sitePages}
+          seoOptimizerEnabled={seoOptimizerEnabled}
           onClose={() => setPageBuilderSitePage(null)}
           onSaved={(updated) => {
             const next = sitePages.some((p) => p.id === updated.id)

@@ -1,7 +1,9 @@
 import React from 'react';
 import type { ServiceBlock } from '../../types';
+import { getBlockScrollAnimation } from '../../lib/blockScrollAnimation';
 import { BLOCK_LABELS } from '../../lib/landingToBlocks';
 import { BlockRenderContext, renderServiceBlock } from './blocks/ServiceBlocks';
+import { ScrollReveal } from './ScrollReveal';
 
 interface BlockRendererProps {
   blocks: ServiceBlock[];
@@ -38,6 +40,18 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     <div className="space-y-10 md:space-y-14 pb-8 text-right">
       {blocks.map((block) => {
         const selected = previewMode && selectedBlockId === block.id && !selectedColumnId;
+        const anim = getBlockScrollAnimation(block.props);
+        const content = renderServiceBlock(block, ctx, {
+          previewMode,
+          selectedBlockId,
+          selectedColumnId,
+          onSelectBlock,
+          onSelectColumn,
+          onContextMenuBlock,
+          onUpdateBlockProps,
+          onMoveNestedBlock,
+        });
+
         return (
           <div
             key={block.id}
@@ -68,16 +82,13 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 {BLOCK_LABELS[block.type] || 'بلوک انتخاب‌شده'}
               </div>
             )}
-            {renderServiceBlock(block, ctx, {
-              previewMode,
-              selectedBlockId,
-              selectedColumnId,
-              onSelectBlock,
-              onSelectColumn,
-              onContextMenuBlock,
-              onUpdateBlockProps,
-              onMoveNestedBlock,
-            })}
+            {previewMode ? (
+              content
+            ) : (
+              <ScrollReveal enabled={anim.enabled} type={anim.type}>
+                {content}
+              </ScrollReveal>
+            )}
           </div>
         );
       })}

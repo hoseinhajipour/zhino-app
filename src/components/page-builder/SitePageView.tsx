@@ -109,6 +109,8 @@ export const SitePageView: React.FC<SitePageViewProps> = ({
           onNavigate,
           onSelectOtherService: onSelectService,
           onSelectArticle,
+          pageId: resolved.id,
+          pageSlug: resolved.slug,
         }}
       />
     </div>

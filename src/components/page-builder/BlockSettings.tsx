@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import type { ServiceBlock, ServiceBlockType } from '../../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { FormDefinition, ServiceBlock, ServiceBlockType } from '../../types';
 import { BLOCK_LABELS } from '../../lib/landingToBlocks';
+import { DEFAULT_CONTACT_FORM_ID } from '../../lib/formDefaults';
+import { subscribeForms } from '../../lib/dbService';
 import type { ContainerColumn } from '../../lib/containerColumn';
 import { filterMaterialIcons } from '../../lib/materialIcons';
 import { MediaField } from '../media/MediaField';
@@ -8,8 +10,18 @@ import { DividerBlockSettings } from './DividerBlockSettings';
 import { SpacerBlockSettings } from './SpacerBlockSettings';
 import { SingleImageBlockSettings } from './SingleImageBlockSettings';
 import { ImageGalleryBlockSettings } from './ImageGalleryBlockSettings';
+import { VerticalImageGalleryBlockSettings } from './VerticalImageGalleryBlockSettings';
 import { RichTextEditor } from './RichTextEditor';
 import { ContainerBlockSettings } from './ContainerBlockSettings';
+import {
+  defaultHeroWidthValue,
+  normalizeHeroWidthMode,
+  readHeroWidthForDevice,
+  setHeroWidthForDevice,
+  type HeroDevice,
+  type HeroWidthMode,
+} from '../../lib/heroHeaderLayout';
+import { SITE_FONT_OPTIONS } from '../../lib/siteChromeDefaults';
 
 interface BlockSettingsProps {
   block: ServiceBlock;
@@ -123,6 +135,147 @@ function ResponsiveColumnsFields({
   );
 }
 
+function TitleTypographyFields({
+  props,
+  onChange,
+  itemTitleLabel = 'عنوان کارت‌ها',
+  itemTitleDefault = 'md',
+}: {
+  props: Record<string, unknown>;
+  onChange: (props: Record<string, unknown>) => void;
+  itemTitleLabel?: string;
+  itemTitleDefault?: 'sm' | 'md' | 'lg';
+}) {
+  const set = (key: string, value: unknown) => onChange({ ...props, [key]: value });
+  const fontOptions = (
+    <>
+      <option value="inherit">فونت سایت (پیش‌فرض)</option>
+      {SITE_FONT_OPTIONS.map((f) => (
+        <option key={f.id} value={f.id}>
+          {f.label}
+        </option>
+      ))}
+    </>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+        <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-primary text-base">title</span>
+          عنوان بخش
+        </p>
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-on-surface-variant">اندازه فونت</span>
+          <select
+            value={String(props.titleSize || 'lg')}
+            onChange={(e) => set('titleSize', e.target.value)}
+            className={fieldClass}
+          >
+            <option value="sm">کوچک</option>
+            <option value="md">متوسط</option>
+            <option value="lg">بزرگ (پیش‌فرض)</option>
+            <option value="xl">خیلی بزرگ</option>
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-on-surface-variant">نوع فونت</span>
+          <select
+            value={String(props.titleFontFamily || 'inherit')}
+            onChange={(e) => set('titleFontFamily', e.target.value)}
+            className={fieldClass}
+          >
+            {fontOptions}
+          </select>
+        </label>
+      </div>
+
+      <div className="space-y-2 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+        <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-primary text-base">text_fields</span>
+          {itemTitleLabel}
+        </p>
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-on-surface-variant">اندازه فونت</span>
+          <select
+            value={String(props.itemTitleSize || itemTitleDefault)}
+            onChange={(e) => set('itemTitleSize', e.target.value)}
+            className={fieldClass}
+          >
+            <option value="sm">کوچک</option>
+            <option value="md">متوسط</option>
+            <option value="lg">بزرگ</option>
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[11px] font-bold text-on-surface-variant">نوع فونت</span>
+          <select
+            value={String(props.itemTitleFontFamily || 'inherit')}
+            onChange={(e) => set('itemTitleFontFamily', e.target.value)}
+            className={fieldClass}
+          >
+            {fontOptions}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function CardSectionSettingsShell({
+  props,
+  onChange,
+  content,
+  itemTitleLabel,
+  itemTitleDefault,
+}: {
+  props: Record<string, unknown>;
+  onChange: (props: Record<string, unknown>) => void;
+  content: React.ReactNode;
+  itemTitleLabel?: string;
+  itemTitleDefault?: 'sm' | 'md' | 'lg';
+}) {
+  const [tab, setTab] = useState<'content' | 'typography'>('content');
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/20">
+        {(
+          [
+            { id: 'content' as const, label: 'محتوا', icon: 'edit_note' },
+            { id: 'typography' as const, label: 'فونت عناوین', icon: 'text_format' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`flex items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-black transition-all ${
+              tab === t.id
+                ? 'bg-white dark:bg-surface-dim text-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'content' ? (
+        content
+      ) : (
+        <TitleTypographyFields
+          props={props}
+          onChange={onChange}
+          itemTitleLabel={itemTitleLabel}
+          itemTitleDefault={itemTitleDefault}
+        />
+      )}
+    </div>
+  );
+}
+
 function TextInput({
   label,
   value,
@@ -153,6 +306,63 @@ function TextInput({
         />
       )}
     </label>
+  );
+}
+
+function ContactFormBlockSettings({
+  props,
+  set,
+}: {
+  props: Record<string, unknown>;
+  set: (key: string, value: unknown) => void;
+}) {
+  const [forms, setForms] = useState<FormDefinition[]>([]);
+
+  useEffect(() => {
+    return subscribeForms(setForms);
+  }, []);
+
+  const enabledForms = useMemo(
+    () => forms.filter((f) => f.enabled !== false),
+    [forms]
+  );
+
+  const formId = String(props.formId || DEFAULT_CONTACT_FORM_ID);
+
+  return (
+    <>
+      <label className="block space-y-1">
+        <span className="text-[11px] font-bold text-on-surface-variant">فرم انتخاب‌شده</span>
+        <select
+          className={fieldClass}
+          value={formId}
+          onChange={(e) => set('formId', e.target.value)}
+        >
+          {enabledForms.length === 0 && (
+            <option value={DEFAULT_CONTACT_FORM_ID}>فرم تماس (پیش‌فرض)</option>
+          )}
+          {enabledForms.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+        <span className="text-[10px] text-on-surface-variant leading-relaxed block">
+          فیلدها، ایمیل و پیامک اعلان در داشبورد ادمین → فرم‌ها تعریف می‌شوند.
+        </span>
+      </label>
+      <TextInput
+        label="عنوان نمایشی (اختیاری — خالی = نام فرم)"
+        value={String(props.title || '')}
+        onChange={(v) => set('title', v)}
+      />
+      <TextInput
+        label="زیرعنوان (اختیاری)"
+        value={String(props.subtitle || '')}
+        onChange={(v) => set('subtitle', v)}
+        multiline
+      />
+    </>
   );
 }
 
@@ -633,6 +843,8 @@ function HeroHeaderBlockSettings({
   onChange: (props: Record<string, unknown>) => void;
 }) {
   const set = (key: string, value: unknown) => onChange({ ...props, [key]: value });
+  const [tab, setTab] = useState<'content' | 'size'>('content');
+  const [widthDevice, setWidthDevice] = useState<HeroDevice>('desktop');
   const slides = (
     Array.isArray(props.slides) ? props.slides : []
   ) as Array<{
@@ -651,8 +863,336 @@ function HeroHeaderBlockSettings({
     Array.isArray(props.stats) ? props.stats : []
   ) as Array<{ icon?: string; value?: string; label?: string }>;
   const ctaAction = String(props.ctaAction || 'booking');
+  const widthCfg = readHeroWidthForDevice(props, widthDevice);
+  const bgMode = String(props.background || 'none');
 
   return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/20">
+        {(
+          [
+            { id: 'content' as const, label: 'محتوا', icon: 'edit_note' },
+            { id: 'size' as const, label: 'اندازه و ظاهر', icon: 'aspect_ratio' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`flex items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-black transition-all ${
+              tab === t.id
+                ? 'bg-white dark:bg-surface-dim text-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'size' && (
+        <div className="space-y-4">
+          <div className="space-y-2 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+            <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-base">width</span>
+              عرض ویجت
+            </p>
+            <p className="text-[10px] text-on-surface-variant leading-relaxed">
+              پیش‌فرض تمام‌عرض است. برای هر دستگاه می‌توانید تمام‌عرض، درصد یا پیکسل مشخص کنید.
+            </p>
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-surface-container-lowest/80">
+              {(
+                [
+                  { id: 'mobile' as const, label: 'موبایل', icon: 'smartphone' },
+                  { id: 'tablet' as const, label: 'تبلت', icon: 'tablet' },
+                  { id: 'desktop' as const, label: 'دسکتاپ', icon: 'desktop_windows' },
+                ] as const
+              ).map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setWidthDevice(d.id)}
+                  className={`flex flex-col items-center gap-0.5 rounded-md py-1.5 text-[10px] font-bold transition-all ${
+                    widthDevice === d.id
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-on-surface-variant hover:bg-white/60'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">{d.icon}</span>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">حالت عرض</span>
+              <select
+                value={widthCfg.mode}
+                onChange={(e) => {
+                  const mode = e.target.value as HeroWidthMode;
+                  onChange(
+                    setHeroWidthForDevice(props, widthDevice, {
+                      mode,
+                      percent: widthCfg.percent || 100,
+                      px: widthCfg.px || defaultHeroWidthValue('px', widthDevice),
+                    })
+                  );
+                }}
+                className={fieldClass}
+              >
+                <option value="full">تمام‌عرض</option>
+                <option value="percent">درصدی (%)</option>
+                <option value="px">پیکسل (px)</option>
+              </select>
+            </label>
+
+            {widthCfg.mode === 'percent' && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">
+                  درصد عرض ({widthCfg.percent}٪)
+                </span>
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  value={widthCfg.percent}
+                  onChange={(e) =>
+                    onChange(
+                      setHeroWidthForDevice(props, widthDevice, {
+                        percent: Number(e.target.value),
+                      })
+                    )
+                  }
+                  className="w-full"
+                />
+              </label>
+            )}
+
+            {widthCfg.mode === 'px' && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">عرض (پیکسل)</span>
+                <input
+                  type="number"
+                  min={120}
+                  max={2400}
+                  step={10}
+                  value={widthCfg.px}
+                  onChange={(e) =>
+                    onChange(
+                      setHeroWidthForDevice(props, widthDevice, {
+                        px: Number(e.target.value),
+                      })
+                    )
+                  }
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+            )}
+
+            {widthCfg.mode !== 'full' && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">تراز افقی ویجت</span>
+                <select
+                  value={String(props.widthAlign || 'center')}
+                  onChange={(e) => set('widthAlign', e.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="start">راست</option>
+                  <option value="center">وسط</option>
+                  <option value="end">چپ</option>
+                </select>
+              </label>
+            )}
+
+            {widthDevice !== 'desktop' &&
+              normalizeHeroWidthMode(props.widthMode) !== widthCfg.mode && (
+                <p className="text-[10px] text-on-surface-variant">
+                  دسکتاپ: {normalizeHeroWidthMode(props.widthMode) === 'full' ? 'تمام‌عرض' : normalizeHeroWidthMode(props.widthMode)}
+                </p>
+              )}
+          </div>
+
+          <div className="space-y-2 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+            <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-base">palette</span>
+              پس‌زمینه
+            </p>
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">نوع پس‌زمینه</span>
+              <select
+                value={bgMode}
+                onChange={(e) => set('background', e.target.value)}
+                className={fieldClass}
+              >
+                <option value="none">شفاف</option>
+                <option value="color">رنگ</option>
+                <option value="image">تصویر</option>
+              </select>
+            </label>
+            {bgMode === 'color' && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">رنگ پس‌زمینه</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={
+                      /^#[0-9A-Fa-f]{6}$/.test(String(props.backgroundColor || ''))
+                        ? String(props.backgroundColor)
+                        : '#ffffff'
+                    }
+                    onChange={(e) => set('backgroundColor', e.target.value)}
+                    className="h-9 w-12 rounded-lg border border-outline-variant/30 bg-transparent cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={String(props.backgroundColor || '#ffffff')}
+                    onChange={(e) => set('backgroundColor', e.target.value)}
+                    className={fieldClass}
+                    dir="ltr"
+                  />
+                </div>
+              </label>
+            )}
+            {bgMode === 'image' && (
+              <div className="space-y-2">
+                <MediaField
+                  label="تصویر پس‌زمینه"
+                  value={String(props.backgroundImage || '')}
+                  onChange={(v) => set('backgroundImage', v)}
+                  accept="image"
+                  aspect="video"
+                />
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-on-surface-variant">
+                    تیرگی لایه ({Number(props.backgroundOverlay ?? 35)}٪)
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={80}
+                    value={Number(props.backgroundOverlay ?? 35)}
+                    onChange={(e) => set('backgroundOverlay', Number(e.target.value))}
+                    className="w-full"
+                  />
+                </label>
+              </div>
+            )}
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">
+                گردی گوشه ({Number.isFinite(Number(props.borderRadius)) ? Number(props.borderRadius) : 0}px)
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={48}
+                value={Number.isFinite(Number(props.borderRadius)) ? Number(props.borderRadius) : 0}
+                onChange={(e) => set('borderRadius', Number(e.target.value))}
+                className="w-full"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-2 p-3 rounded-xl border border-outline-variant/20 bg-surface-container-low/40">
+            <p className="text-[11px] font-black text-on-surface flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-base">padding</span>
+              پدینگ و مارجین
+            </p>
+            <p className="text-[10px] text-on-surface-variant leading-relaxed">
+              اگر پدینگ عمودی خالی بماند، فاصله از تنظیم «فاصله عمودی بخش» در تب محتوا استفاده می‌شود.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">پدینگ بالا</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  placeholder="خودکار"
+                  value={props.paddingTop === undefined || props.paddingTop === '' ? '' : Number(props.paddingTop)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    set('paddingTop', v === '' ? undefined : Number(v));
+                  }}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">پدینگ پایین</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  placeholder="خودکار"
+                  value={
+                    props.paddingBottom === undefined || props.paddingBottom === ''
+                      ? ''
+                      : Number(props.paddingBottom)
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    set('paddingBottom', v === '' ? undefined : Number(v));
+                  }}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">پدینگ افقی</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={Number(props.paddingX) || 0}
+                  onChange={(e) => set('paddingX', Number(e.target.value))}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">مارجین افقی</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={Number(props.marginX) || 0}
+                  onChange={(e) => set('marginX', Number(e.target.value))}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">مارجین بالا</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  value={Number(props.marginTop) || 0}
+                  onChange={(e) => set('marginTop', Number(e.target.value))}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">مارجین پایین</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  value={Number(props.marginBottom) || 0}
+                  onChange={(e) => set('marginBottom', Number(e.target.value))}
+                  className={fieldClass}
+                  dir="ltr"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'content' && (
     <div className="space-y-4">
       <p className="text-[11px] font-black text-on-surface border-b border-outline-variant/20 pb-2">
         محتوا و متن
@@ -1053,6 +1593,8 @@ function HeroHeaderBlockSettings({
         + افزودن آمار
       </button>
     </div>
+      )}
+    </div>
   );
 }
 
@@ -1255,56 +1797,72 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         desc: string;
       }[];
       return (
-        <div className="space-y-3">
-          <TextInput label="عنوان بخش" value={String(p.title || '')} onChange={(v) => set('title', v)} />
-          {block.type === 'symptoms' && (
-            <TextInput
-              label="زیرعنوان"
-              value={String(p.subtitle || '')}
-              onChange={(v) => set('subtitle', v)}
-              multiline
-            />
-          )}
-          {items.map((item, idx) => (
-            <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[11px] font-bold">کارت {idx + 1}</span>
-                <button
-                  type="button"
-                  className="text-rose-500 text-[10px] font-bold"
-                  onClick={() => set('items', items.filter((_, i) => i !== idx))}
-                >
-                  حذف
-                </button>
-              </div>
-              <TextInput
-                label="آیکون"
-                value={item.icon}
-                onChange={(v) => set('items', updateItemArray(items, idx, { icon: v }))}
+        <CardSectionSettingsShell
+          props={p}
+          onChange={onChange}
+          itemTitleDefault={block.type === 'features' ? 'sm' : 'md'}
+          content={
+            <div className="space-y-3">
+              <TextInput label="عنوان بخش" value={String(p.title || '')} onChange={(v) => set('title', v)} />
+              {block.type === 'symptoms' && (
+                <TextInput
+                  label="زیرعنوان"
+                  value={String(p.subtitle || '')}
+                  onChange={(v) => set('subtitle', v)}
+                  multiline
+                />
+              )}
+              <ResponsiveColumnsFields
+                props={p}
+                onChange={onChange}
+                defaults={
+                  block.type === 'symptoms'
+                    ? { mobile: 1, tablet: 2, desktop: 3 }
+                    : { mobile: 1, tablet: 2, desktop: 4 }
+                }
               />
-              <TextInput
-                label="عنوان"
-                value={item.title}
-                onChange={(v) => set('items', updateItemArray(items, idx, { title: v }))}
-              />
-              <TextInput
-                label="توضیح"
-                value={item.desc}
-                onChange={(v) => set('items', updateItemArray(items, idx, { desc: v }))}
-                multiline
-              />
+              {items.map((item, idx) => (
+                <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[11px] font-bold">کارت {idx + 1}</span>
+                    <button
+                      type="button"
+                      className="text-rose-500 text-[10px] font-bold"
+                      onClick={() => set('items', items.filter((_, i) => i !== idx))}
+                    >
+                      حذف
+                    </button>
+                  </div>
+                  <TextInput
+                    label="آیکون"
+                    value={item.icon}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { icon: v }))}
+                  />
+                  <TextInput
+                    label="عنوان"
+                    value={item.title}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { title: v }))}
+                  />
+                  <TextInput
+                    label="توضیح"
+                    value={item.desc}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { desc: v }))}
+                    multiline
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
+                onClick={() =>
+                  set('items', [...items, { icon: 'psychology', title: 'عنوان', desc: 'توضیح' }])
+                }
+              >
+                + افزودن کارت
+              </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
-            onClick={() =>
-              set('items', [...items, { icon: 'psychology', title: 'عنوان', desc: 'توضیح' }])
-            }
-          >
-            + افزودن کارت
-          </button>
-        </div>
+          }
+        />
       );
     }
 
@@ -1315,52 +1873,72 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         desc: string;
       }[];
       return (
-        <div className="space-y-3">
-          <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
-          <TextInput label="برچسب بالا" value={String(p.eyebrow || '')} onChange={(v) => set('eyebrow', v)} />
-          {steps.map((step, idx) => (
-            <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[11px] font-bold">گام {idx + 1}</span>
-                <button
-                  type="button"
-                  className="text-rose-500 text-[10px] font-bold"
-                  onClick={() => set('steps', steps.filter((_, i) => i !== idx))}
-                >
-                  حذف
-                </button>
-              </div>
+        <CardSectionSettingsShell
+          props={p}
+          onChange={onChange}
+          itemTitleLabel="عنوان گام‌ها"
+          content={
+            <div className="space-y-3">
+              <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
               <TextInput
-                label="شماره"
-                value={step.number}
-                onChange={(v) => set('steps', updateItemArray(steps, idx, { number: v }))}
+                label="برچسب بالا"
+                value={String(p.eyebrow || '')}
+                onChange={(v) => set('eyebrow', v)}
               />
-              <TextInput
-                label="عنوان"
-                value={step.title}
-                onChange={(v) => set('steps', updateItemArray(steps, idx, { title: v }))}
+              <ResponsiveColumnsFields
+                props={p}
+                onChange={onChange}
+                defaults={{ mobile: 1, tablet: 2, desktop: 4 }}
               />
-              <TextInput
-                label="توضیح"
-                value={step.desc}
-                onChange={(v) => set('steps', updateItemArray(steps, idx, { desc: v }))}
-                multiline
-              />
+              {steps.map((step, idx) => (
+                <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[11px] font-bold">گام {idx + 1}</span>
+                    <button
+                      type="button"
+                      className="text-rose-500 text-[10px] font-bold"
+                      onClick={() => set('steps', steps.filter((_, i) => i !== idx))}
+                    >
+                      حذف
+                    </button>
+                  </div>
+                  <TextInput
+                    label="شماره"
+                    value={step.number}
+                    onChange={(v) => set('steps', updateItemArray(steps, idx, { number: v }))}
+                  />
+                  <TextInput
+                    label="عنوان"
+                    value={step.title}
+                    onChange={(v) => set('steps', updateItemArray(steps, idx, { title: v }))}
+                  />
+                  <TextInput
+                    label="توضیح"
+                    value={step.desc}
+                    onChange={(v) => set('steps', updateItemArray(steps, idx, { desc: v }))}
+                    multiline
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
+                onClick={() =>
+                  set('steps', [
+                    ...steps,
+                    {
+                      number: String(steps.length + 1).padStart(2, '۰'),
+                      title: 'گام',
+                      desc: 'توضیح',
+                    },
+                  ])
+                }
+              >
+                + افزودن گام
+              </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
-            onClick={() =>
-              set('steps', [
-                ...steps,
-                { number: String(steps.length + 1).padStart(2, '۰'), title: 'گام', desc: 'توضیح' },
-              ])
-            }
-          >
-            + افزودن گام
-          </button>
-        </div>
+          }
+        />
       );
     }
 
@@ -1517,56 +2095,73 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         rating: number;
       }[];
       return (
-        <div className="space-y-3">
-          <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
-          <TextInput label="زیرعنوان" value={String(p.subtitle || '')} onChange={(v) => set('subtitle', v)} />
-          {items.map((item, idx) => (
-            <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[11px] font-bold">نظر {idx + 1}</span>
-                <button
-                  type="button"
-                  className="text-rose-500 text-[10px] font-bold"
-                  onClick={() => set('items', items.filter((_, i) => i !== idx))}
-                >
-                  حذف
-                </button>
-              </div>
+        <CardSectionSettingsShell
+          props={p}
+          onChange={onChange}
+          itemTitleLabel="نام مراجع"
+          itemTitleDefault="sm"
+          content={
+            <div className="space-y-3">
+              <TextInput label="عنوان" value={String(p.title || '')} onChange={(v) => set('title', v)} />
               <TextInput
-                label="نام"
-                value={item.name}
-                onChange={(v) => set('items', updateItemArray(items, idx, { name: v }))}
+                label="زیرعنوان"
+                value={String(p.subtitle || '')}
+                onChange={(v) => set('subtitle', v)}
               />
-              <TextInput
-                label="نقش"
-                value={item.role}
-                onChange={(v) => set('items', updateItemArray(items, idx, { role: v }))}
+              <ResponsiveColumnsFields
+                props={p}
+                onChange={onChange}
+                defaults={{ mobile: 1, tablet: 2, desktop: 2 }}
               />
-              <TextInput
-                label="نظر"
-                value={item.comment}
-                onChange={(v) => set('items', updateItemArray(items, idx, { comment: v }))}
-                multiline
-              />
-              <TextInput
-                label="امتیاز (۱–۵)"
-                value={String(item.rating || 5)}
-                onChange={(v) =>
-                  set('items', updateItemArray(items, idx, { rating: Number(v) || 5 }))
+              {items.map((item, idx) => (
+                <div key={idx} className="p-3 rounded-xl border border-outline-variant/20 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-[11px] font-bold">نظر {idx + 1}</span>
+                    <button
+                      type="button"
+                      className="text-rose-500 text-[10px] font-bold"
+                      onClick={() => set('items', items.filter((_, i) => i !== idx))}
+                    >
+                      حذف
+                    </button>
+                  </div>
+                  <TextInput
+                    label="نام"
+                    value={item.name}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { name: v }))}
+                  />
+                  <TextInput
+                    label="نقش"
+                    value={item.role}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { role: v }))}
+                  />
+                  <TextInput
+                    label="نظر"
+                    value={item.comment}
+                    onChange={(v) => set('items', updateItemArray(items, idx, { comment: v }))}
+                    multiline
+                  />
+                  <TextInput
+                    label="امتیاز (۱–۵)"
+                    value={String(item.rating || 5)}
+                    onChange={(v) =>
+                      set('items', updateItemArray(items, idx, { rating: Number(v) || 5 }))
+                    }
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
+                onClick={() =>
+                  set('items', [...items, { name: 'مراجع', role: 'مراجع', comment: '...', rating: 5 }])
                 }
-              />
+              >
+                + افزودن نظر
+              </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold"
-            onClick={() =>
-              set('items', [...items, { name: 'مراجع', role: 'مراجع', comment: '...', rating: 5 }])
-            }
-          >
-            + افزودن نظر
-          </button>
-        </div>
+          }
+        />
       );
     }
 
@@ -1884,13 +2479,7 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
     case 'contactForm':
       return (
         <div className="space-y-3">
-          <TextInput label="عنوان فرم" value={String(p.title || '')} onChange={(v) => set('title', v)} />
-          <TextInput
-            label="زیرعنوان"
-            value={String(p.subtitle || '')}
-            onChange={(v) => set('subtitle', v)}
-            multiline
-          />
+          <ContactFormBlockSettings props={p} set={set} />
         </div>
       );
 
@@ -2192,6 +2781,9 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
 
     case 'imageGallery':
       return <ImageGalleryBlockSettings props={p} onChange={onChange} />;
+
+    case 'verticalImageGallery':
+      return <VerticalImageGalleryBlockSettings props={p} onChange={onChange} />;
 
     case 'googleMap':
       return (

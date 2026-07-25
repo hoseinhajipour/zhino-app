@@ -6,15 +6,16 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (user: UserProfile) => void;
+  /** From clinic settings — shows demo quick-login when true */
+  developmentMode?: boolean;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  developmentMode = false,
 }) => {
-  const isDevMode = typeof import.meta !== 'undefined' && (import.meta as any).env ? Boolean((import.meta as any).env.DEV) : process.env.NODE_ENV !== 'production';
-
   if (!isOpen) return null;
 
   const [authCategory, setAuthCategory] = useState<'patient' | 'staff'>('patient');
@@ -145,7 +146,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg(
         err instanceof Error
           ? err.message
-          : 'نام کاربری یا رمز عبور اشتباه است. (رمز پیش‌فرض: zhino1403)'
+          : developmentMode
+            ? 'نام کاربری یا رمز عبور اشتباه است. (رمز پیش‌فرض: zhino1403)'
+            : 'نام کاربری یا رمز عبور اشتباه است.'
       );
     } finally {
       setIsLoading(false);
@@ -213,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Quick Demo Login Bar (Dev Mode Only) */}
-        {isDevMode && (
+        {developmentMode && (
           <div className="bg-surface-container-low p-3.5 rounded-2xl border border-outline-variant/30 text-xs space-y-2 animate-fade-in">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-bold text-primary">
@@ -440,7 +443,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={staffPassword}
                 onChange={(e) => setStaffPassword(e.target.value)}
-                placeholder="•••••••• (اطلاعات پیش‌فرض: zhino1403)"
+                placeholder={developmentMode ? '•••••••• (اطلاعات پیش‌فرض: zhino1403)' : '••••••••'}
                 dir="ltr"
                 className="w-full p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none text-left focus:ring-2 focus:ring-primary/20"
               />

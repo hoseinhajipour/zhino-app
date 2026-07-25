@@ -24,7 +24,7 @@ export const BLOCK_LABELS: Record<string, string> = {
   otherServices: 'سایر خدمات (چیپ)',
   servicesGrid: 'شبکه خدمات',
   contactCards: 'کارت‌های تماس',
-  contactForm: 'فرم تماس',
+  contactForm: 'فرم',
   articlesGrid: 'فهرست مقالات',
   imageCarousel: 'کروسل تصویر',
   videoPlayer: 'پخش‌کننده ویدئو',
@@ -39,6 +39,7 @@ export const BLOCK_LABELS: Record<string, string> = {
   spacer: 'فاصله',
   singleImage: 'تصویر تکی',
   imageGallery: 'گالری تصاویر',
+  verticalImageGallery: 'گالری تصاویر عمودی',
 };
 
 export const BLOCK_ICONS: Record<string, string> = {
@@ -75,6 +76,7 @@ export const BLOCK_ICONS: Record<string, string> = {
   spacer: 'space_bar',
   singleImage: 'image',
   imageGallery: 'photo_library',
+  verticalImageGallery: 'view_column',
 };
 
 /** Widgets safe to nest inside container columns */
@@ -96,6 +98,7 @@ export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = [
   'spacer',
   'singleImage',
   'imageGallery',
+  'verticalImageGallery',
 ];
 
 export const WIDGET_GROUPS: Array<{
@@ -111,7 +114,7 @@ export const WIDGET_GROUPS: Array<{
   {
     id: 'media',
     label: 'رسانه',
-    types: ['imageCarousel', 'singleImage', 'imageGallery', 'videoPlayer', 'icon', 'googleMap', 'tabGallery'],
+    types: ['imageCarousel', 'singleImage', 'imageGallery', 'verticalImageGallery', 'videoPlayer', 'icon', 'googleMap', 'tabGallery'],
   },
   {
     id: 'content',
@@ -165,6 +168,13 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
         title: landing.symptomsTitle,
         subtitle: landing.symptomsSubtitle,
         items: landing.symptoms,
+        columnsMobile: 1,
+        columnsTablet: 2,
+        columnsDesktop: 3,
+        titleSize: 'lg',
+        titleFontFamily: 'inherit',
+        itemTitleSize: 'md',
+        itemTitleFontFamily: 'inherit',
       },
     },
     {
@@ -174,6 +184,13 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
         title: 'مراحل مشاوره و درمان در کلینیک ژینو',
         eyebrow: 'فرآیند دریافت خدمت',
         steps: landing.processSteps,
+        columnsMobile: 1,
+        columnsTablet: 2,
+        columnsDesktop: 4,
+        titleSize: 'lg',
+        titleFontFamily: 'inherit',
+        itemTitleSize: 'md',
+        itemTitleFontFamily: 'inherit',
       },
     },
     {
@@ -182,6 +199,13 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
       props: {
         title: landing.featuresTitle,
         items: landing.features,
+        columnsMobile: 1,
+        columnsTablet: 2,
+        columnsDesktop: 4,
+        titleSize: 'lg',
+        titleFontFamily: 'inherit',
+        itemTitleSize: 'sm',
+        itemTitleFontFamily: 'inherit',
       },
     },
     {
@@ -201,6 +225,13 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
         title: 'نظرات و تجربیات مراجعین این خدمت',
         subtitle: 'بازخورد واقعی مراجعین کلینیک روانشناسی ژینو',
         items: landing.testimonials,
+        columnsMobile: 1,
+        columnsTablet: 2,
+        columnsDesktop: 2,
+        titleSize: 'lg',
+        titleFontFamily: 'inherit',
+        itemTitleSize: 'sm',
+        itemTitleFontFamily: 'inherit',
       },
     },
     {
@@ -327,6 +358,21 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       accentColor: 'primary',
       sectionPadding: 'md',
       mediaRadius: 32,
+      widthMode: 'full',
+      widthModeMobile: 'full',
+      widthModeTablet: 'full',
+      widthPercent: 100,
+      widthPx: 1200,
+      widthAlign: 'center',
+      background: 'none',
+      backgroundColor: '#ffffff',
+      backgroundImage: '',
+      backgroundOverlay: 35,
+      borderRadius: 0,
+      paddingX: 0,
+      marginTop: 0,
+      marginBottom: 0,
+      marginX: 0,
       showCta: true,
       ctaLabel: 'راهنمای آنلاین انتخاب درمانگر',
       ctaIcon: 'psychology',
@@ -390,6 +436,13 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       title: 'چه زمانی مراجعه ضرورت دارد؟',
       subtitle: 'اگر با این چالش‌ها روبه‌رو هستید...',
       items: [{ icon: 'psychology', title: 'عنوان', desc: 'توضیح کوتاه' }],
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 3,
+      titleSize: 'lg',
+      titleFontFamily: 'inherit',
+      itemTitleSize: 'md',
+      itemTitleFontFamily: 'inherit',
     },
     process: {
       title: 'مراحل دریافت خدمت',
@@ -398,10 +451,24 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
         { number: '۰۱', title: 'گام اول', desc: 'توضیح' },
         { number: '۰۲', title: 'گام دوم', desc: 'توضیح' },
       ],
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 4,
+      titleSize: 'lg',
+      titleFontFamily: 'inherit',
+      itemTitleSize: 'md',
+      itemTitleFontFamily: 'inherit',
     },
     features: {
       title: 'چرا کلینیک ژینو؟',
       items: [{ icon: 'security', title: 'ویژگی', desc: 'توضیح' }],
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 4,
+      titleSize: 'lg',
+      titleFontFamily: 'inherit',
+      itemTitleSize: 'sm',
+      itemTitleFontFamily: 'inherit',
     },
     doctors: {
       title: 'تیم متخصصین این خدمت',
@@ -435,6 +502,13 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       title: 'نظرات مراجعین',
       subtitle: 'بازخورد واقعی',
       items: [{ name: 'مراجع', role: 'مراجع کلینیک', comment: 'تجربه خوب', rating: 5 }],
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 2,
+      titleSize: 'lg',
+      titleFontFamily: 'inherit',
+      itemTitleSize: 'sm',
+      itemTitleFontFamily: 'inherit',
     },
     faqs: {
       title: 'سوالات متداول',
@@ -498,8 +572,9 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       email: 'info@zhinoclinic.ir',
     },
     contactForm: {
-      title: 'ارسال پیام',
-      subtitle: 'پیام شما بررسی می‌شود',
+      title: '',
+      subtitle: '',
+      formId: 'form-contact',
     },
     articlesGrid: {
       title: 'مقالات',
@@ -793,6 +868,46 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
           caption: 'محیط آرام کلینیک',
           subtitle: '',
           linkUrl: '',
+        },
+      ],
+    },
+    verticalImageGallery: {
+      title: '',
+      subtitle: '',
+      columnsMobile: 1,
+      columnsTablet: 2,
+      columnsDesktop: 2,
+      gap: 'md',
+      borderRadius: 20,
+      shadow: true,
+      columnAnimate: true,
+      animateSpeed: 28,
+      maxHeight: 560,
+      clickBehavior: 'lightbox',
+      items: [
+        {
+          image:
+            'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&q=80&w=800',
+          alt: '',
+          caption: '',
+        },
+        {
+          image:
+            'https://images.unsplash.com/photo-1587654780291-39c9404d745b?auto=format&fit=crop&q=80&w=800',
+          alt: '',
+          caption: '',
+        },
+        {
+          image:
+            'https://images.unsplash.com/photo-1567057419565-4349c49d8a04?auto=format&fit=crop&q=80&w=800',
+          alt: '',
+          caption: '',
+        },
+        {
+          image:
+            'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&q=80&w=600&h=900',
+          alt: '',
+          caption: '',
         },
       ],
     },

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Article, ClinicContactInfo, Doctor, FAQItem, ServiceBlock, ServiceBlockType, ServiceItem } from '../../types';
 import {
   BLOCK_ICONS,
@@ -7,8 +7,10 @@ import {
   WIDGET_GROUPS,
   createEmptyBlock,
 } from '../../lib/landingToBlocks';
+import { AnimateBlockSettings } from './AnimateBlockSettings';
 import { BlockRenderer } from './BlockRenderer';
 import { BlockSettings } from './BlockSettings';
+import { ContainerResponsiveSettings } from './ContainerResponsiveSettings';
 import {
   BuilderContextMenu,
   type BuilderContextMenuState,
@@ -37,6 +39,7 @@ export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
   'imageCarousel',
   'singleImage',
   'imageGallery',
+  'verticalImageGallery',
   'videoPlayer',
   'icon',
   'iconList',
@@ -68,6 +71,7 @@ export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
   'imageCarousel',
   'singleImage',
   'imageGallery',
+  'verticalImageGallery',
   'videoPlayer',
   'icon',
   'iconList',
@@ -105,6 +109,7 @@ export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
   'imageCarousel',
   'singleImage',
   'imageGallery',
+  'verticalImageGallery',
   'videoPlayer',
   'icon',
   'iconList',
@@ -142,6 +147,10 @@ interface PageBuilderEditorProps {
   metaPanelLabel?: string;
   saveLabel?: string;
   defaultRightTab?: 'meta' | 'block';
+  /** Public frontend path for live preview (e.g. `/`, `/p/slug`, `/service/id`) */
+  previewHref?: string | null;
+  /** Fired whenever the block tree changes (for live SEO analysis, etc.) */
+  onBlocksChange?: (blocks: ServiceBlock[]) => void;
 }
 
 function findBlockDeep(
@@ -199,6 +208,8 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   metaPanelLabel = 'تنظیمات',
   saveLabel = 'ذخیره صفحه',
   defaultRightTab = 'block',
+  previewHref = null,
+  onBlocksChange,
 }) => {
   const [blocks, setBlocks] = useState<ServiceBlock[]>(initialBlocks);
   const [history, setHistory] = useState<ServiceBlock[][]>([initialBlocks]);
@@ -219,8 +230,15 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   const [rightTab, setRightTab] = useState<'meta' | 'block'>(
     metaPanel && defaultRightTab === 'meta' ? 'meta' : 'block'
   );
+  const [blockSettingsTab, setBlockSettingsTab] = useState<'content' | 'animate' | 'responsive'>(
+    'content'
+  );
   const [clipboard, setClipboard] = useState<BuilderClipboard | null>(() => readBuilderClipboard());
   const [contextMenu, setContextMenu] = useState<BuilderContextMenuState | null>(null);
+
+  useEffect(() => {
+    onBlocksChange?.(blocks);
+  }, [blocks, onBlocksChange]);
 
   const pushHistory = useCallback((next: ServiceBlock[]) => {
     setBlocks(next);
@@ -637,6 +655,12 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
         ? blocks.find((b) => b.id === selectedMeta.parentContainerId) || null
         : null;
 
+  useEffect(() => {
+    if (blockSettingsTab === 'responsive' && settingsTarget?.type !== 'container') {
+      setBlockSettingsTab('content');
+    }
+  }, [blockSettingsTab, settingsTarget?.type]);
+
   return (
     <div className="fixed inset-0 z-[200] bg-slate-100 dark:bg-slate-950 flex flex-col text-right" dir="rtl">
       <header className="h-14 shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between px-3 md:px-4 gap-2">
@@ -698,6 +722,18 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
           >
             <span className="material-symbols-outlined">redo</span>
           </button>
+          {previewHref ? (
+            <a
+              href={previewHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 md:px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5"
+              title={previewHref}
+            >
+              <span className="material-symbols-outlined text-base">visibility</span>
+              <span className="hidden sm:inline">پیش‌نمایش</span>
+            </a>
+          ) : null}
           <span className="hidden md:inline text-[11px] text-slate-500 font-bold bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
             {blocks.length} بلوک
           </span>
@@ -1092,36 +1128,94 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                     )}
                   </div>
                 </div>
-                <BlockSettings
-                  block={settingsTarget}
-                  onChange={updateSelectedProps}
-                  selectedColumnId={
-                    selected?.type === 'container' ? selectedColumnId : null
-                  }
-                  onSelectColumn={
-                    selected?.type === 'container'
-                      ? (columnId) => selectColumn(selected.id, columnId)
-                      : undefined
-                  }
-                  onUpdateColumn={
-                    selected?.type === 'container' ? updateSelectedColumn : undefined
-                  }
-                  onAddNestedBlock={
-                    containerForNestedSettings && selected?.type === 'container'
-                      ? addNestedBlock
-                      : undefined
-                  }
-                  onRemoveNestedBlock={
-                    selected?.type === 'container' ? removeNestedBlock : undefined
-                  }
-                  onMoveNestedBlock={
-                    selected?.type === 'container'
-                      ? (fromCol, fromIndex, toCol, toIndex) =>
-                          moveNestedBlock(selected.id, fromCol, fromIndex, toCol, toIndex)
-                      : undefined
-                  }
-                  onSelectNestedBlock={selectBlock}
-                />
+
+                {!selectedColumnId && (
+                  <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setBlockSettingsTab('content')}
+                      className={`flex-1 py-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 ${
+                        blockSettingsTab === 'content'
+                          ? 'bg-teal-600 text-white shadow-sm'
+                          : 'text-slate-500 hover:bg-white/70 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">tune</span>
+                      تنظیمات
+                    </button>
+                    {settingsTarget.type === 'container' && (
+                      <button
+                        type="button"
+                        onClick={() => setBlockSettingsTab('responsive')}
+                        className={`flex-1 py-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 ${
+                          blockSettingsTab === 'responsive'
+                            ? 'bg-teal-600 text-white shadow-sm'
+                            : 'text-slate-500 hover:bg-white/70 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">devices</span>
+                        ریسپانسیو
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setBlockSettingsTab('animate')}
+                      className={`flex-1 py-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 ${
+                        blockSettingsTab === 'animate'
+                          ? 'bg-teal-600 text-white shadow-sm'
+                          : 'text-slate-500 hover:bg-white/70 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">animation</span>
+                      انیمیت
+                    </button>
+                  </div>
+                )}
+
+                {blockSettingsTab === 'animate' && !selectedColumnId ? (
+                  <AnimateBlockSettings
+                    props={settingsTarget.props}
+                    onChange={updateSelectedProps}
+                  />
+                ) : blockSettingsTab === 'responsive' &&
+                  !selectedColumnId &&
+                  settingsTarget.type === 'container' ? (
+                  <ContainerResponsiveSettings
+                    props={settingsTarget.props}
+                    onChange={updateSelectedProps}
+                  />
+                ) : (
+                  <BlockSettings
+                    block={settingsTarget}
+                    onChange={updateSelectedProps}
+                    selectedColumnId={
+                      selected?.type === 'container' ? selectedColumnId : null
+                    }
+                    onSelectColumn={
+                      selected?.type === 'container'
+                        ? (columnId) => selectColumn(selected.id, columnId)
+                        : undefined
+                    }
+                    onUpdateColumn={
+                      selected?.type === 'container' ? updateSelectedColumn : undefined
+                    }
+                    onAddNestedBlock={
+                      containerForNestedSettings && selected?.type === 'container'
+                        ? addNestedBlock
+                        : undefined
+                    }
+                    onRemoveNestedBlock={
+                      selected?.type === 'container' ? removeNestedBlock : undefined
+                    }
+                    onMoveNestedBlock={
+                      selected?.type === 'container'
+                        ? (fromCol, fromIndex, toCol, toIndex) =>
+                            moveNestedBlock(selected.id, fromCol, fromIndex, toCol, toIndex)
+                        : undefined
+                    }
+                    onSelectNestedBlock={selectBlock}
+                  />
+                )}
                 {selectedColumnId && selected?.type === 'container' && (
                   <button
                     type="button"

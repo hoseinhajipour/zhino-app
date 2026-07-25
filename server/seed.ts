@@ -5,16 +5,18 @@ import {
   INITIAL_ARTICLES,
   DEFAULT_FAQS,
 } from '../src/data/clinicData';
-import type { Article, ArticleCategory, ClinicSettings, ServiceItem, SitePage, UserRecord } from '../src/types';
+import type { Article, ArticleCategory, ClinicSettings, FormDefinition, ServiceItem, SitePage, UserRecord } from '../src/types';
 import { enrichServicesWithPageBuilder } from '../src/lib/landingToBlocks';
 import { getAllDefaultSitePages } from '../src/lib/sitePageDefaults';
 import { DEFAULT_SITE_CHROME } from '../src/lib/siteChromeDefaults';
 import { DEFAULT_FREE_GUIDE } from '../src/lib/freeGuideDefaults';
+import { createDefaultContactForm, DEFAULT_CONTACT_FORM_ID } from '../src/lib/formDefaults';
 import { countEntities, listEntities, upsertEntity, getEntity } from './db';
 import { hashPassword } from './lib/password';
 
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   bookingEnabled: true,
+  developmentMode: false,
   zarinpal: {
     enabled: true,
     isSandbox: true,
@@ -75,6 +77,11 @@ export async function seedIfEmpty(): Promise<void> {
     for (const page of getAllDefaultSitePages()) {
       await upsertEntity('pages', page.id, page);
     }
+  }
+
+  if ((await countEntities('forms')) === 0) {
+    const form = createDefaultContactForm();
+    await upsertEntity('forms', form.id, form);
   }
 
   await ensureDefaultUsers();
@@ -164,6 +171,36 @@ export async function ensureSitePages(): Promise<void> {
     const existing = await getEntity<SitePage>('pages', page.id);
     if (!existing?.pageBuilder?.blocks?.length) {
       await upsertEntity('pages', page.id, existing ? { ...existing, pageBuilder: page.pageBuilder } : page);
+    }
+  }
+}
+
+/** Ensure default contact form exists and backfill formId on contactForm blocks. */
+export async function ensureDefaultForms(): Promise<void> {
+  const existing = await getEntity<FormDefinition>('forms', DEFAULT_CONTACT_FORM_ID);
+  if (!existing) {
+    await upsertEntity('forms', DEFAULT_CONTACT_FORM_ID, createDefaultContactForm());
+  }
+
+  const pages = await listEntities<SitePage>('pages');
+  for (const page of pages) {
+    const blocks = page.pageBuilder?.blocks;
+    if (!blocks?.length) continue;
+    let changed = false;
+    const nextBlocks = blocks.map((block) => {
+      if (block.type !== 'contactForm') return block;
+      if (typeof block.props?.formId === 'string' && block.props.formId) return block;
+      changed = true;
+      return {
+        ...block,
+        props: { ...block.props, formId: DEFAULT_CONTACT_FORM_ID },
+      };
+    });
+    if (changed) {
+      await upsertEntity('pages', page.id, {
+        ...page,
+        pageBuilder: { ...page.pageBuilder, blocks: nextBlocks },
+      });
     }
   }
 }

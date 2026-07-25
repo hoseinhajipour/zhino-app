@@ -440,6 +440,9 @@ export function ContainerBlockSettings({
         <span className="text-[11px] font-bold text-on-surface-variant block">
           جهت نمایش ستون‌ها
         </span>
+        <p className="text-[10px] text-on-surface-variant leading-relaxed">
+          مقدار پیش‌فرض (دسکتاپ). برای موبایل و تبلت از تب «ریسپانسیو» استفاده کنید.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {(
             [
@@ -562,7 +565,9 @@ export function ContainerBlockSettings({
           </div>
         )}
         <label className="block space-y-1">
-          <span className="text-[11px] font-bold text-on-surface-variant">حاشیه داخلی</span>
+          <span className="text-[11px] font-bold text-on-surface-variant">
+            حاشیه داخلی (پیش‌فرض دسکتاپ)
+          </span>
           <select
             value={String(p.padding || 'md')}
             onChange={(e) => {
@@ -642,6 +647,9 @@ export function ContainerBlockSettings({
             />
           </label>
         </div>
+        <p className="text-[10px] text-on-surface-variant leading-relaxed">
+          پدینگ و مارجین جدا برای موبایل/تبلت را در تب «ریسپانسیو» تنظیم کنید.
+        </p>
         <label className="block space-y-1">
           <span className="text-[11px] font-bold text-on-surface-variant">
             گردی گوشه ({Number.isFinite(Number(p.borderRadius)) ? Number(p.borderRadius) : 28}px)

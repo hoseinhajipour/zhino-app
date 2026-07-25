@@ -8,6 +8,7 @@ export type AdminTabId =
   | 'pages'
   | 'articles'
   | 'faqs'
+  | 'forms'
   | 'contact'
   | 'modules'
   | 'system'
@@ -41,6 +42,7 @@ const ALL_NAV: AdminNavEntry[] = [
   { id: 'pages', label: 'مدیریت صفحه‌ها', icon: 'web' },
   { id: 'articles', label: 'مقالات', icon: 'article' },
   { id: 'faqs', label: 'سوالات متداول', icon: 'help' },
+  { id: 'forms', label: 'فرم‌ها', icon: 'dynamic_form' },
   { id: 'contact', label: 'اطلاعات تماس', icon: 'contact_phone' },
   { id: 'modules', label: 'ماژول‌ها', icon: 'extension' },
   { id: 'system', label: 'وضعیت سیستم', icon: 'monitor_heart' },
@@ -62,13 +64,14 @@ const TABS_BY_ROLE: Record<'admin' | 'doctor' | 'operator', AdminTabId[]> = {
     'pages',
     'articles',
     'faqs',
+    'forms',
     'contact',
     'modules',
     'system',
     'tools-io',
     'settings',
   ],
-  operator: ['overview', 'appointments', 'personnel', 'faqs'],
+  operator: ['overview', 'appointments', 'personnel', 'faqs', 'forms'],
   doctor: ['overview', 'appointments', 'articles', 'faqs'],
 };
 
@@ -197,6 +200,15 @@ export function canDeleteServices(role?: UserRole | string | null): boolean {
 }
 
 export function canApproveFaqs(role?: UserRole | string | null): boolean {
+  const r = getStaffRole(role);
+  return r === 'admin' || r === 'operator';
+}
+
+export function canManageFormDefinitions(role?: UserRole | string | null): boolean {
+  return getStaffRole(role) === 'admin';
+}
+
+export function canManageFormSubmissions(role?: UserRole | string | null): boolean {
   const r = getStaffRole(role);
   return r === 'admin' || r === 'operator';
 }

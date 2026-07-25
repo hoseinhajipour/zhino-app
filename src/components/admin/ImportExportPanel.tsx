@@ -7,6 +7,8 @@ type EntityKey =
   | 'doctors'
   | 'services'
   | 'faqs'
+  | 'forms'
+  | 'form_submissions'
   | 'settings'
   | 'users'
   | 'appointments';
@@ -18,6 +20,8 @@ const ENTITY_OPTIONS: Array<{ key: EntityKey; label: string; hint: string }> = [
   { key: 'doctors', label: 'پرسنل', hint: 'درمانگران' },
   { key: 'services', label: 'خدمات', hint: 'دپارتمان‌ها' },
   { key: 'faqs', label: 'سوالات متداول', hint: 'FAQ' },
+  { key: 'forms', label: 'تعاریف فرم', hint: 'فرم‌ساز مرکزی' },
+  { key: 'form_submissions', label: 'ارسال فرم‌ها', hint: 'اینباکس فرم' },
   { key: 'settings', label: 'تنظیمات', hint: 'هویت و کروم سایت' },
   { key: 'users', label: 'کاربران', hint: 'حساب‌ها (رمز اختیاری)' },
   { key: 'appointments', label: 'نوبت‌ها', hint: 'رزروها' },
@@ -34,6 +38,8 @@ export const ImportExportPanel: React.FC = () => {
     'doctors',
     'services',
     'faqs',
+    'forms',
+    'form_submissions',
     'settings',
   ]);
   const [includeUserSecrets, setIncludeUserSecrets] = useState(false);

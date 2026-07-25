@@ -1,10 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceBlock, ServiceItem } from '../../../types';
-import { fetchArticleCategories } from '../../../lib/dbService';
+import type {
+  Article,
+  ClinicContactInfo,
+  Doctor,
+  FAQItem,
+  FormAnswerValue,
+  FormDefinition,
+  FormField,
+  PageScreen,
+  ServiceBlock,
+  ServiceItem,
+} from '../../../types';
+import { fetchArticleCategories, fetchForm, submitForm } from '../../../lib/dbService';
+import { DEFAULT_CONTACT_FORM_ID } from '../../../lib/formDefaults';
 import {
   readResponsiveCols,
   resolveColsForWidth,
+  resolveColumnsDirection,
   resolveContainerColumnCount,
+  resolveContainerMargin,
+  resolveContainerPadding,
   type ColCount,
 } from '../../../lib/responsiveGrid';
 import {
@@ -23,8 +38,21 @@ import {
 } from '../../../lib/contactInfo';
 import { CHANNEL_ACCENT, ContactChannelIcon } from '../../ContactChannelIcon';
 import { ResponsiveGrid } from '../ResponsiveGrid';
+import { ScrollReveal } from '../ScrollReveal';
 import { useBuilderDevicePreview } from '../BuilderDevicePreviewContext';
+import { useDeviceBand } from '../useDeviceBand';
+import { getBlockScrollAnimation } from '../../../lib/blockScrollAnimation';
 import { containerWidthStyle, DEFAULT_CONTENT_MAX_WIDTH } from '../../../lib/contentWidth';
+import {
+  itemTitleSizeClass,
+  resolveTitleFontStyle,
+  sectionTitleSizeClass,
+} from '../../../lib/blockTitleTypography';
+import {
+  heroHasCustomVerticalPadding,
+  resolveHeroDevice,
+  resolveHeroOuterStyle,
+} from '../../../lib/heroHeaderLayout';
 import {
   cssBorderStyle,
   dividerSpacingClass,
@@ -67,6 +95,9 @@ export interface BlockRenderContext {
   onSelectOtherService?: (id: string) => void;
   onSelectArticle?: (article: Article) => void;
   interactive?: boolean;
+  /** Site page context for form submissions */
+  pageId?: string;
+  pageSlug?: string;
 }
 
 function str(v: unknown, fallback = '') {
@@ -183,87 +214,139 @@ export const HighlightsBlock: React.FC<{ props: Record<string, unknown> }> = ({ 
 
 export const SymptomsBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const items = arr<{ icon: string; title: string; desc: string }>(props.items);
+  const titleFont = resolveTitleFontStyle(props.titleFontFamily);
+  const itemTitleFont = resolveTitleFontStyle(props.itemTitleFontFamily);
   return (
     <section className="space-y-8 bg-surface-container-lowest p-8 md:p-12 rounded-[36px] border border-outline-variant/20 shadow-xs">
       <div className="text-center space-y-2 max-w-2xl mx-auto">
         <span className="text-xs font-bold text-primary bg-primary/10 px-3.5 py-1 rounded-full">
           مخاطبان و نشانه‌های نیاز
         </span>
-        <h2 className="text-2xl md:text-3xl font-black text-primary">{str(props.title)}</h2>
+        <h2
+          className={`font-black text-primary ${sectionTitleSizeClass(props.titleSize)}`}
+          style={titleFont}
+        >
+          {str(props.title)}
+        </h2>
         <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">{str(props.subtitle)}</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 3 }}
+        className="gap-4 sm:gap-6"
+      >
         {items.map((item, idx) => (
           <div
             key={idx}
-            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3 hover:border-primary/50 hover:shadow-md transition-all group"
+            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3 hover:border-primary/50 hover:shadow-md transition-all group min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
               <span className="material-symbols-outlined text-2xl">{item.icon}</span>
             </div>
-            <h3 className="text-base font-extrabold text-on-surface group-hover:text-primary transition-colors">
+            <h3
+              className={`font-extrabold text-on-surface group-hover:text-primary transition-colors ${itemTitleSizeClass(props.itemTitleSize, 'md')}`}
+              style={itemTitleFont}
+            >
               {item.title}
             </h3>
             <p className="text-xs text-on-surface-variant leading-relaxed text-justify">{item.desc}</p>
           </div>
         ))}
-      </div>
+      </ResponsiveGrid>
     </section>
   );
 };
 
 export const ProcessBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const steps = arr<{ number: string; title: string; desc: string }>(props.steps);
+  const titleFont = resolveTitleFontStyle(props.titleFontFamily);
+  const itemTitleFont = resolveTitleFontStyle(props.itemTitleFontFamily);
   return (
     <section className="space-y-8">
       <div className="text-center space-y-2">
         <span className="text-xs font-bold text-primary bg-primary/10 px-3.5 py-1 rounded-full">
           {str(props.eyebrow, 'فرآیند دریافت خدمت')}
         </span>
-        <h2 className="text-2xl md:text-3xl font-black text-primary">{str(props.title)}</h2>
+        <h2
+          className={`font-black text-primary ${sectionTitleSizeClass(props.titleSize)}`}
+          style={titleFont}
+        >
+          {str(props.title)}
+        </h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 4 }}
+        className="gap-4 sm:gap-6 relative"
+      >
         {steps.map((step, idx) => (
           <div
             key={idx}
-            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft relative flex flex-col justify-between space-y-4"
+            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft relative flex flex-col justify-between space-y-4 min-w-0"
           >
             <div className="flex items-center justify-between">
               <span className="text-3xl font-black text-primary/30">{step.number}</span>
               <span className="w-3 h-3 rounded-full bg-primary/20" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-on-surface">{step.title}</h3>
+              <h3
+                className={`font-bold text-on-surface ${itemTitleSizeClass(props.itemTitleSize, 'md')}`}
+                style={itemTitleFont}
+              >
+                {step.title}
+              </h3>
               <p className="text-xs text-on-surface-variant leading-relaxed text-justify">{step.desc}</p>
             </div>
           </div>
         ))}
-      </div>
+      </ResponsiveGrid>
     </section>
   );
 };
 
 export const FeaturesBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const items = arr<{ icon: string; title: string; desc: string }>(props.items);
+  const titleFont = resolveTitleFontStyle(props.titleFontFamily);
+  const itemTitleFont = resolveTitleFontStyle(props.itemTitleFontFamily);
   return (
     <section className="bg-surface-container-low p-8 md:p-12 rounded-[36px] border border-outline-variant/30 space-y-8">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl md:text-3xl font-black text-primary">{str(props.title)}</h2>
+        <h2
+          className={`font-black text-primary ${sectionTitleSizeClass(props.titleSize)}`}
+          style={titleFont}
+        >
+          {str(props.title)}
+        </h2>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 4 }}
+        className="gap-4 sm:gap-6"
+      >
         {items.map((feat, idx) => (
           <div
             key={idx}
-            className="bg-white dark:bg-surface-dim p-6 rounded-2xl border border-outline-variant/30 shadow-xs space-y-3"
+            className="bg-white dark:bg-surface-dim p-6 rounded-2xl border border-outline-variant/30 shadow-xs space-y-3 min-w-0"
           >
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <span className="material-symbols-outlined text-xl">{feat.icon}</span>
             </div>
-            <h3 className="text-sm font-bold text-on-surface">{feat.title}</h3>
+            <h3
+              className={`font-bold text-on-surface ${itemTitleSizeClass(props.itemTitleSize, 'sm')}`}
+              style={itemTitleFont}
+            >
+              {feat.title}
+            </h3>
             <p className="text-xs text-on-surface-variant leading-relaxed">{feat.desc}</p>
           </div>
         ))}
-      </div>
+      </ResponsiveGrid>
     </section>
   );
 };
@@ -739,24 +822,42 @@ export const StaffCarouselBlock: React.FC<{
 export const TestimonialsBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const items = arr<{ name: string; role: string; comment: string; rating: number }>(props.items);
   if (!items.length) return null;
+  const titleFont = resolveTitleFontStyle(props.titleFontFamily);
+  const itemTitleFont = resolveTitleFontStyle(props.itemTitleFontFamily);
   return (
     <section className="bg-surface-container-lowest p-8 md:p-12 rounded-[36px] border border-outline-variant/20 space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-black text-primary">{str(props.title)}</h2>
+        <h2
+          className={`font-black text-primary ${sectionTitleSizeClass(props.titleSize)}`}
+          style={titleFont}
+        >
+          {str(props.title)}
+        </h2>
         <p className="text-xs text-on-surface-variant">{str(props.subtitle)}</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 2 }}
+        className="gap-4 sm:gap-6"
+      >
         {items.map((test, idx) => (
           <div
             key={idx}
-            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3"
+            className="bg-white dark:bg-surface-dim p-6 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3 min-w-0"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-sm text-on-surface">{test.name}</h3>
-                <p className="text-[11px] text-primary">{test.role}</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3
+                  className={`font-extrabold text-on-surface truncate ${itemTitleSizeClass(props.itemTitleSize, 'sm')}`}
+                  style={itemTitleFont}
+                >
+                  {test.name}
+                </h3>
+                <p className="text-[11px] text-primary truncate">{test.role}</p>
               </div>
-              <div className="flex text-amber-500">
+              <div className="flex text-amber-500 shrink-0">
                 {[...Array(test.rating || 5)].map((_, i) => (
                   <span key={i} className="material-symbols-outlined text-sm">
                     star
@@ -769,7 +870,7 @@ export const TestimonialsBlock: React.FC<{ props: Record<string, unknown> }> = (
             </p>
           </div>
         ))}
-      </div>
+      </ResponsiveGrid>
     </section>
   );
 };
@@ -1287,6 +1388,9 @@ export const HeroHeaderBlock: React.FC<{
   /** Compact = stacked mobile/tablet layout (also respects page-builder device toolbar). */
   const previewDevice = useBuilderDevicePreview();
   const [isCompact, setIsCompact] = useState(true);
+  const [viewportW, setViewportW] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
 
   useEffect(() => {
     if (previewDevice === 'mobile' || previewDevice === 'tablet') {
@@ -1297,11 +1401,21 @@ export const HeroHeaderBlock: React.FC<{
       setIsCompact(false);
       return;
     }
-    const apply = () => setIsCompact(window.innerWidth < 1024);
+    const apply = () => {
+      setViewportW(window.innerWidth);
+      setIsCompact(window.innerWidth < 1024);
+    };
     apply();
     window.addEventListener('resize', apply);
     return () => window.removeEventListener('resize', apply);
   }, [previewDevice]);
+
+  const heroDevice = resolveHeroDevice(previewDevice, viewportW);
+  const outerStyle = resolveHeroOuterStyle(props, heroDevice);
+  const useCustomPad = heroHasCustomVerticalPadding(props);
+  const bgMode = str(props.background, 'none');
+  const bgImage = str(props.backgroundImage);
+  const overlay = Math.max(0, Math.min(80, Number(props.backgroundOverlay ?? 35)));
 
   useEffect(() => {
     if (!autoplay || slides.length < 2) return;
@@ -1666,7 +1780,26 @@ export const HeroHeaderBlock: React.FC<{
   );
 
   return (
-    <section className={`w-full min-w-0 overflow-x-clip ${padClass}`} data-hero-compact={isCompact ? '1' : '0'}>
+    <section
+      className={`relative w-full min-w-0 overflow-x-clip ${useCustomPad ? '' : padClass}`}
+      style={outerStyle}
+      data-hero-compact={isCompact ? '1' : '0'}
+    >
+      {bgMode === 'image' && bgImage && (
+        <>
+          <img
+            src={bgImage}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundColor: `rgba(0,0,0,${overlay / 100})` }}
+          />
+        </>
+      )}
+      <div className={bgMode === 'image' && bgImage ? 'relative z-10' : undefined}>
       {isCompact ? (
         <div className="flex flex-col gap-4 w-full">
           {mediaColumn}
@@ -1731,6 +1864,7 @@ export const HeroHeaderBlock: React.FC<{
           ))}
         </div>
       )}
+      </div>
     </section>
   );
 };
@@ -2485,6 +2619,198 @@ export const ImageGalleryBlock: React.FC<{ props: Record<string, unknown> }> = (
   );
 };
 
+type VerticalGalleryItem = {
+  image?: string;
+  alt?: string;
+  caption?: string;
+};
+
+export const VerticalImageGalleryBlock: React.FC<{ props: Record<string, unknown> }> = ({
+  props,
+}) => {
+  const items = arr<VerticalGalleryItem>(props.items).filter((it) => str(it.image));
+  const title = str(props.title);
+  const sectionSubtitle = str(props.subtitle);
+  const radius = clampRadius(props.borderRadius ?? 20);
+  const shadow = props.shadow !== false;
+  const clickBehavior = str(props.clickBehavior, 'lightbox');
+  const columnAnimate = props.columnAnimate !== false;
+  // Seconds for one full loop of a column's image set (slower = larger).
+  const loopSeconds = Math.min(60, Math.max(8, Number(props.animateSpeed) || 28));
+  const maxHeight = Math.min(900, Math.max(280, Number(props.maxHeight) || 560));
+  const gap = str(props.gap, 'md');
+  const gapPx = gap === 'sm' ? 8 : gap === 'lg' ? 20 : 14;
+  const band = useDeviceBand();
+  const cols = readResponsiveCols(
+    props.columnsMobile,
+    props.columnsTablet,
+    props.columnsDesktop,
+    { mobile: 1, tablet: 2, desktop: 2 }
+  );
+  const columnCount = band === 'mobile' ? cols.mobile : band === 'tablet' ? cols.tablet : cols.desktop;
+
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const lightboxItems: LightboxItem[] = items.map((it) => ({
+    src: str(it.image),
+    alt: str(it.alt) || str(it.caption),
+    caption: str(it.caption),
+  }));
+
+  if (!items.length) {
+    return (
+      <section className="rounded-2xl border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+        هنوز تصویری برای گالری عمودی تعریف نشده است.
+      </section>
+    );
+  }
+
+  // Round-robin into columns so adjacent columns can scroll opposite directions.
+  const columns: Array<Array<{ item: VerticalGalleryItem; globalIndex: number }>> = Array.from(
+    { length: columnCount },
+    () => []
+  );
+  items.forEach((item, idx) => {
+    columns[idx % columnCount].push({ item, globalIndex: idx });
+  });
+
+  const renderTile = (item: VerticalGalleryItem, globalIndex: number) => {
+    const src = str(item.image);
+    const cap = str(item.caption);
+    const alt = str(item.alt) || cap || `تصویر ${globalIndex + 1}`;
+
+    const tile = (
+      <div
+        className={`relative overflow-hidden bg-surface-container group ${
+          shadow ? 'shadow-soft border border-outline-variant/20' : ''
+        } ${clickBehavior === 'lightbox' ? 'cursor-zoom-in' : ''}`}
+        style={{ borderRadius: radius }}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className={`w-full h-auto block transition-transform duration-500 ${
+            clickBehavior === 'lightbox' ? 'group-hover:scale-[1.03]' : ''
+          }`}
+          loading="lazy"
+          draggable={false}
+        />
+        {cap && (
+          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-3 py-2.5 pt-8 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+            <p className="text-white text-xs font-bold line-clamp-2">{cap}</p>
+          </div>
+        )}
+        {clickBehavior === 'lightbox' && (
+          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <span className="material-symbols-outlined text-base">zoom_in</span>
+          </span>
+        )}
+      </div>
+    );
+
+    if (clickBehavior === 'lightbox') {
+      return (
+        <button
+          type="button"
+          className="block w-full text-right"
+          onClick={() => {
+            setLightboxIndex(globalIndex);
+            setLightboxOpen(true);
+          }}
+        >
+          {tile}
+        </button>
+      );
+    }
+    return tile;
+  };
+
+  return (
+    <section className="w-full min-w-0 space-y-5">
+      {(title || sectionSubtitle) && (
+        <div className="text-center space-y-1.5 max-w-2xl mx-auto">
+          {title && <h2 className="text-xl md:text-2xl font-black text-on-surface">{title}</h2>}
+          {sectionSubtitle && (
+            <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+              {sectionSubtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div
+        className={`vertical-column-gallery flex items-start ${
+          columnAnimate ? 'vertical-column-gallery--loop' : ''
+        }`}
+        style={{
+          gap: gapPx,
+          ...(columnAnimate ? { height: maxHeight } : {}),
+        }}
+      >
+        {columns.map((column, colIdx) => {
+          if (!column.length) return null;
+
+          if (!columnAnimate) {
+            return (
+              <div
+                key={colIdx}
+                className="vertical-column-gallery__col flex-1 min-w-0 flex flex-col"
+                style={{ gap: gapPx }}
+              >
+                {column.map(({ item, globalIndex }) => (
+                  <figure key={`${str(item.image)}-${globalIndex}`} className="min-w-0">
+                    {renderTile(item, globalIndex)}
+                  </figure>
+                ))}
+              </div>
+            );
+          }
+
+          // Build one loop unit (repeat short columns), then duplicate it once
+          // so translateY(-50%) lands on an identical frame.
+          const unitCopies = Math.max(1, Math.ceil(3 / column.length));
+          const unit = Array.from({ length: unitCopies }, () => column).flat();
+          const loopItems = [...unit, ...unit];
+          const goesUp = colIdx % 2 === 0;
+
+          return (
+            <div key={colIdx} className="vertical-column-gallery__viewport flex-1 min-w-0">
+              <div
+                className={`vertical-column-gallery__track ${goesUp ? 'is-up' : 'is-down'}`}
+                style={
+                  {
+                    ['--vg-duration' as string]: `${loopSeconds}s`,
+                  } as React.CSSProperties
+                }
+              >
+                {loopItems.map(({ item, globalIndex }, i) => (
+                  <figure
+                    key={`c${colIdx}-${i}-${str(item.image)}-${globalIndex}`}
+                    className="min-w-0 shrink-0"
+                    style={{ marginBottom: gapPx }}
+                    aria-hidden={i >= unit.length ? true : undefined}
+                  >
+                    {renderTile(item, globalIndex)}
+                  </figure>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <ImageLightbox
+        open={lightboxOpen}
+        index={lightboxIndex}
+        items={lightboxItems}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={setLightboxIndex}
+      />
+    </section>
+  );
+};
+
 const ICON_COLOR_CLASS: Record<string, string> = {
   primary: 'text-primary',
   onSurface: 'text-on-surface',
@@ -2928,8 +3254,8 @@ export const ContainerBlock: React.FC<{
 }) => {
   const columnCount = resolveContainerColumnCount(props);
   const gap = str(props.gap, 'md');
-  const paddingPreset = str(props.padding, 'md');
   const background = str(props.background, 'none');
+  const deviceBand = useDeviceBand();
   const previewDevice = useBuilderDevicePreview();
   const { mobile, tablet, desktop } = readResponsiveCols(
     props.columnsMobile,
@@ -2961,17 +3287,8 @@ export const ContainerBlock: React.FC<{
 
   const gapClass = gap === 'sm' ? 'gap-3' : gap === 'lg' ? 'gap-6 sm:gap-8' : 'gap-4 sm:gap-5';
 
-  const presetPad: Record<string, number> = { none: 0, sm: 12, md: 20, lg: 32 };
-  const useCustomPad = paddingPreset === 'custom';
-  const padX = useCustomPad
-    ? Math.max(0, Math.min(120, Number(props.paddingX) || 0))
-    : presetPad[paddingPreset] ?? 20;
-  const padY = useCustomPad
-    ? Math.max(0, Math.min(120, Number(props.paddingY) || 0))
-    : presetPad[paddingPreset] ?? 20;
-
-  const marginTop = Math.max(0, Math.min(160, Number(props.marginTop) || 0));
-  const marginBottom = Math.max(0, Math.min(160, Number(props.marginBottom) || 0));
+  const { padX, padY } = resolveContainerPadding(props, deviceBand);
+  const { marginTop, marginBottom } = resolveContainerMargin(props, deviceBand);
   const radiusRaw = Number(props.borderRadius);
   const borderRadius = Number.isFinite(radiusRaw)
     ? Math.max(0, Math.min(64, Math.round(radiusRaw)))
@@ -3013,14 +3330,7 @@ export const ContainerBlock: React.FC<{
   const canDragNested = Boolean(previewMode && blockId && onMoveNestedBlock);
 
   const hasCustomWidths = columns.some((c) => (c.widthMode || 'auto') !== 'auto');
-  const columnsDirectionRaw = str(props.columnsDirection, 'row');
-  const columnsDirection = (
-    columnsDirectionRaw === 'row-reverse' ||
-    columnsDirectionRaw === 'column' ||
-    columnsDirectionRaw === 'column-reverse'
-      ? columnsDirectionRaw
-      : 'row'
-  ) as 'row' | 'row-reverse' | 'column' | 'column-reverse';
+  const columnsDirection = resolveColumnsDirection(props, deviceBand);
   const isVerticalDirection =
     columnsDirection === 'column' || columnsDirection === 'column-reverse';
   const templateColumns =
@@ -3118,6 +3428,14 @@ export const ContainerBlock: React.FC<{
             )}
             {colBlocks.map((child, childIndex) => {
               const selected = previewMode && selectedBlockId === child.id;
+              const childAnim = getBlockScrollAnimation(child.props);
+              const childContent = renderServiceBlock(child, ctx, {
+                previewMode,
+                selectedBlockId,
+                onSelectBlock,
+                onContextMenuBlock,
+                onUpdateBlockProps,
+              });
               return (
                 <div
                   key={child.id}
@@ -3196,13 +3514,13 @@ export const ContainerBlock: React.FC<{
                       </span>
                     </div>
                   )}
-                  {renderServiceBlock(child, ctx, {
-                    previewMode,
-                    selectedBlockId,
-                    onSelectBlock,
-                    onContextMenuBlock,
-                    onUpdateBlockProps,
-                  })}
+                  {previewMode ? (
+                    childContent
+                  ) : (
+                    <ScrollReveal enabled={childAnim.enabled} type={childAnim.type}>
+                      {childContent}
+                    </ScrollReveal>
+                  )}
                 </div>
               );
             })}
@@ -3474,93 +3792,308 @@ export const ContactInfoBlock: React.FC<{
   );
 };
 
-export const ContactFormBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [subject, setSubject] = useState('مشاوره عمومی');
-  const [message, setMessage] = useState('');
+export const ContactFormBlock: React.FC<{
+  props: Record<string, unknown>;
+  ctx?: BlockRenderContext;
+}> = ({ props, ctx }) => {
+  const formId = str(props.formId, DEFAULT_CONTACT_FORM_ID);
+  const [form, setForm] = useState<FormDefinition | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, FormAnswerValue>>({});
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone || !message) {
-      alert('لطفاً تمامی فیلدهای ضروری را تکمیل فرمایید.');
-      return;
-    }
-    setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
-      setSentSuccess(true);
-      setName('');
-      setPhone('');
-      setMessage('');
-    }, 1200);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    void fetchForm(formId).then((data) => {
+      if (cancelled) return;
+      if (!data || data.enabled === false) {
+        setForm(null);
+        setLoadError('فرم در دسترس نیست.');
+      } else {
+        setForm(data);
+        const initial: Record<string, FormAnswerValue> = {};
+        for (const field of data.fields || []) {
+          if (field.type === 'description') continue;
+          if (field.type === 'checkbox') initial[field.id] = false;
+          else if (field.type === 'checkboxGroup') initial[field.id] = [];
+          else if (field.type === 'select' || field.type === 'radio') {
+            initial[field.id] = field.options?.[0]?.id || '';
+          } else {
+            initial[field.id] = '';
+          }
+        }
+        setAnswers(initial);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [formId]);
+
+  const setAnswer = (fieldId: string, value: FormAnswerValue) => {
+    setAnswers((prev) => ({ ...prev, [fieldId]: value }));
   };
+
+  const toggleCheckboxGroup = (fieldId: string, optionId: string) => {
+    setAnswers((prev) => {
+      const current = Array.isArray(prev[fieldId]) ? (prev[fieldId] as string[]) : [];
+      const next = current.includes(optionId)
+        ? current.filter((id) => id !== optionId)
+        : [...current, optionId];
+      return { ...prev, [fieldId]: next };
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form) return;
+
+    for (const field of form.fields || []) {
+      if (field.type === 'description' || !field.required) continue;
+      const value = answers[field.id];
+      const empty =
+        value == null ||
+        (typeof value === 'boolean' && !value) ||
+        (Array.isArray(value) && value.length === 0) ||
+        (typeof value === 'string' && !value.trim());
+      if (empty) {
+        alert(`لطفاً فیلد «${field.label}» را تکمیل کنید.`);
+        return;
+      }
+    }
+
+    setIsSending(true);
+    try {
+      const result = await submitForm(form.id, {
+        answers,
+        pageId: ctx?.pageId,
+        pageSlug: ctx?.pageSlug,
+      });
+      setSuccessMessage(result.message || form.successMessage || 'پیام شما با موفقیت ثبت شد.');
+      setSentSuccess(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'ارسال فرم ناموفق بود.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const inputClass =
+    'w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low';
+
+  const renderField = (field: FormField) => {
+    if (field.type === 'description') {
+      return (
+        <div
+          key={field.id}
+          className="p-3 rounded-xl bg-surface-container-low/60 text-on-surface-variant text-xs leading-relaxed"
+        >
+          <p className="font-bold text-on-surface mb-1">{field.label}</p>
+          {field.helpText ? <p>{field.helpText}</p> : null}
+        </div>
+      );
+    }
+
+    const label = (
+      <span className="font-bold">
+        {field.label}
+        {field.required ? ' *' : ''}
+      </span>
+    );
+
+    const help = field.helpText ? (
+      <span className="text-[10px] text-on-surface-variant">{field.helpText}</span>
+    ) : null;
+
+    if (field.type === 'textarea') {
+      return (
+        <label key={field.id} className="block space-y-1">
+          {label}
+          <textarea
+            rows={4}
+            value={String(answers[field.id] ?? '')}
+            placeholder={field.placeholder || ''}
+            onChange={(e) => setAnswer(field.id, e.target.value)}
+            className={inputClass}
+          />
+          {help}
+        </label>
+      );
+    }
+
+    if (field.type === 'select') {
+      return (
+        <label key={field.id} className="block space-y-1">
+          {label}
+          <select
+            value={String(answers[field.id] ?? '')}
+            onChange={(e) => setAnswer(field.id, e.target.value)}
+            className={inputClass}
+          >
+            {(field.options || []).map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {help}
+        </label>
+      );
+    }
+
+    if (field.type === 'radio') {
+      return (
+        <fieldset key={field.id} className="space-y-2">
+          <legend className="font-bold">
+            {field.label}
+            {field.required ? ' *' : ''}
+          </legend>
+          <div className="space-y-1.5">
+            {(field.options || []).map((opt) => (
+              <label key={opt.id} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name={field.id}
+                  checked={answers[field.id] === opt.id}
+                  onChange={() => setAnswer(field.id, opt.id)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          {help}
+        </fieldset>
+      );
+    }
+
+    if (field.type === 'checkbox') {
+      return (
+        <label key={field.id} className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={!!answers[field.id]}
+            onChange={(e) => setAnswer(field.id, e.target.checked)}
+          />
+          <span>
+            <span className="font-bold">
+              {field.label}
+              {field.required ? ' *' : ''}
+            </span>
+            {help}
+          </span>
+        </label>
+      );
+    }
+
+    if (field.type === 'checkboxGroup') {
+      const selected = Array.isArray(answers[field.id]) ? (answers[field.id] as string[]) : [];
+      return (
+        <fieldset key={field.id} className="space-y-2">
+          <legend className="font-bold">
+            {field.label}
+            {field.required ? ' *' : ''}
+          </legend>
+          <div className="space-y-1.5">
+            {(field.options || []).map((opt) => (
+              <label key={opt.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.id)}
+                  onChange={() => toggleCheckboxGroup(field.id, opt.id)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+          {help}
+        </fieldset>
+      );
+    }
+
+    const inputType =
+      field.type === 'email'
+        ? 'email'
+        : field.type === 'tel'
+          ? 'tel'
+          : field.type === 'number'
+            ? 'number'
+            : field.type === 'date'
+              ? 'date'
+              : 'text';
+
+    return (
+      <label key={field.id} className="block space-y-1">
+        {label}
+        <input
+          type={inputType}
+          value={String(answers[field.id] ?? '')}
+          placeholder={field.placeholder || ''}
+          dir={field.type === 'tel' || field.type === 'email' ? 'ltr' : undefined}
+          onChange={(e) => setAnswer(field.id, e.target.value)}
+          className={`${inputClass}${
+            field.type === 'tel' || field.type === 'email' ? ' text-left' : ''
+          }`}
+        />
+        {help}
+      </label>
+    );
+  };
+
+  const title = str(props.title) || form?.name || 'ارسال پیام';
+  const subtitle = str(props.subtitle) || form?.description || '';
 
   return (
     <section className="bg-white dark:bg-surface-dim p-8 md:p-10 rounded-[36px] border border-outline-variant/30 shadow-soft space-y-5 max-w-3xl mx-auto">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-black text-primary">{str(props.title, 'ارسال پیام')}</h2>
-        <p className="text-xs text-on-surface-variant">{str(props.subtitle)}</p>
+        <h2 className="text-2xl font-black text-primary">{title}</h2>
+        {subtitle ? <p className="text-xs text-on-surface-variant">{subtitle}</p> : null}
       </div>
-      {sentSuccess ? (
+      {loading ? (
+        <p className="text-center text-xs text-on-surface-variant py-6">در حال بارگذاری فرم…</p>
+      ) : loadError || !form ? (
+        <p className="text-center text-xs text-rose-700 py-6">{loadError || 'فرم یافت نشد.'}</p>
+      ) : sentSuccess ? (
         <div className="p-6 rounded-2xl bg-emerald-50 text-emerald-800 text-sm font-bold text-center space-y-2">
           <span className="material-symbols-outlined text-3xl">check_circle</span>
-          <p>پیام شما با موفقیت ثبت شد.</p>
-          <button type="button" className="underline text-xs" onClick={() => setSentSuccess(false)}>
+          <p>{successMessage}</p>
+          <button
+            type="button"
+            className="underline text-xs"
+            onClick={() => {
+              setSentSuccess(false);
+              const initial: Record<string, FormAnswerValue> = {};
+              for (const field of form.fields || []) {
+                if (field.type === 'description') continue;
+                if (field.type === 'checkbox') initial[field.id] = false;
+                else if (field.type === 'checkboxGroup') initial[field.id] = [];
+                else if (field.type === 'select' || field.type === 'radio') {
+                  initial[field.id] = field.options?.[0]?.id || '';
+                } else {
+                  initial[field.id] = '';
+                }
+              }
+              setAnswers(initial);
+            }}
+          >
             ارسال پیام دیگر
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4 text-right text-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="block space-y-1">
-              <span className="font-bold">نام *</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="font-bold">موبایل *</span>
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                dir="ltr"
-                className="w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-left"
-              />
-            </label>
-          </div>
-          <label className="block space-y-1">
-            <span className="font-bold">موضوع</span>
-            <select
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low"
-            >
-              <option>مشاوره عمومی</option>
-              <option>رزرو نوبت</option>
-              <option>همکاری</option>
-              <option>سایر</option>
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="font-bold">پیام *</span>
-            <textarea
-              rows={4}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low"
-            />
-          </label>
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 text-right text-xs">
+          {(form.fields || []).map((field) => renderField(field))}
           <button
             type="submit"
             disabled={isSending}
             className="w-full py-3.5 rounded-2xl bg-primary text-white font-black disabled:opacity-60"
           >
-            {isSending ? 'در حال ارسال...' : 'ارسال پیام'}
+            {isSending ? 'در حال ارسال...' : form.submitLabel || 'ارسال'}
           </button>
         </form>
       )}
@@ -3930,7 +4463,7 @@ export function renderServiceBlock(
     case 'contactInfo':
       return <ContactInfoBlock props={block.props} ctx={ctx} />;
     case 'contactForm':
-      return <ContactFormBlock props={block.props} />;
+      return <ContactFormBlock props={block.props} ctx={ctx} />;
     case 'articlesGrid':
       return <ArticlesGridBlock props={block.props} ctx={ctx} />;
     case 'cta':
@@ -3967,6 +4500,8 @@ export function renderServiceBlock(
       return <SingleImageBlock props={block.props} />;
     case 'imageGallery':
       return <ImageGalleryBlock props={block.props} />;
+    case 'verticalImageGallery':
+      return <VerticalImageGalleryBlock props={block.props} />;
     case 'googleMap':
       return <GoogleMapBlock props={block.props} />;
     case 'tabGallery':

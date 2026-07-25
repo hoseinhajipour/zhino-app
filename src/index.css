@@ -250,6 +250,100 @@ body {
   display: none;
 }
 
+/* Page-builder widget scroll reveal */
+.scroll-reveal {
+  opacity: 0;
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.scroll-reveal--fade-in {
+  transform: none;
+}
+.scroll-reveal--fade-up {
+  transform: translateY(28px);
+}
+.scroll-reveal--fade-down {
+  transform: translateY(-28px);
+}
+.scroll-reveal.scroll-reveal--in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Vertical image gallery — infinite opposite-direction column marquee */
+.vertical-column-gallery {
+  width: 100%;
+}
+.vertical-column-gallery--loop {
+  overflow: hidden;
+  align-items: stretch;
+}
+.vertical-column-gallery__viewport {
+  overflow: hidden;
+  height: 100%;
+  min-height: inherit;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+.vertical-column-gallery__track {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  will-change: transform;
+}
+.vertical-column-gallery__track.is-up {
+  animation: vgallery-marquee-up var(--vg-duration, 28s) linear infinite;
+}
+.vertical-column-gallery__track.is-down {
+  animation: vgallery-marquee-down var(--vg-duration, 28s) linear infinite;
+}
+.vertical-column-gallery__viewport:hover .vertical-column-gallery__track {
+  animation-play-state: paused;
+}
+@keyframes vgallery-marquee-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+@keyframes vgallery-marquee-down {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vertical-column-gallery__track.is-up,
+  .vertical-column-gallery__track.is-down {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* Floating consult / contact FAB */
 .consult-fab-root {
   opacity: 0;

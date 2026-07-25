@@ -5,11 +5,14 @@ import type { UserProfile } from '../types';
 interface AdminLoginPageProps {
   onLoginSuccess: (user: UserProfile) => void;
   onGoHome: () => void;
+  /** From clinic settings — shows demo admin credentials when true */
+  developmentMode?: boolean;
 }
 
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
   onLoginSuccess,
   onGoHome,
+  developmentMode = false,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +42,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
       setErrorMsg(
         err instanceof Error
           ? err.message
-          : 'نام کاربری یا کلمه عبور نادرست است. (اطلاعات پیش‌فرض: admin / zhino1403)'
+          : developmentMode
+            ? 'نام کاربری یا کلمه عبور نادرست است. (اطلاعات پیش‌فرض: admin / zhino1403)'
+            : 'نام کاربری یا کلمه عبور نادرست است.'
       );
     } finally {
       setIsLoading(false);
@@ -72,16 +77,18 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
           </p>
         </div>
 
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 mb-6 text-xs text-on-surface-variant flex items-start gap-2.5">
-          <span className="material-symbols-outlined text-primary text-base shrink-0 mt-0.5">info</span>
-          <div className="space-y-0.5">
-            <p className="font-bold text-primary">ورود مدیر (نقش admin):</p>
-            <p>
-              نام کاربری: <span className="font-mono text-on-surface">admin</span> — رمز:{' '}
-              <span className="font-mono text-on-surface">zhino1403</span>
-            </p>
+        {developmentMode && (
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 mb-6 text-xs text-on-surface-variant flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-primary text-base shrink-0 mt-0.5">info</span>
+            <div className="space-y-0.5">
+              <p className="font-bold text-primary">ورود مدیر (نقش admin):</p>
+              <p>
+                نام کاربری: <span className="font-mono text-on-surface">admin</span> — رمز:{' '}
+                <span className="font-mono text-on-surface">zhino1403</span>
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-right">
           <div>
@@ -91,7 +98,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full p-3 rounded-xl border border-outline-variant/40 bg-surface-container-low text-sm"
-              placeholder="admin"
+              placeholder={developmentMode ? 'admin' : 'نام کاربری'}
               autoComplete="username"
             />
           </div>

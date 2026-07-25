@@ -9,6 +9,9 @@ import {
   SitePage,
   UserProfile,
   ArticleCategory,
+  FormDefinition,
+  FormSubmission,
+  FormAnswerValue,
 } from '../types';
 import { DEFAULT_CONTACT_INFO, mergeContactInfo } from './contactInfo';
 import { DEFAULT_FREE_GUIDE, mergeFreeGuide } from './freeGuideDefaults';
@@ -19,6 +22,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   bookingEnabled: true,
   maintenanceMode: false,
   maintenanceMessage: '',
+  developmentMode: false,
   zarinpal: {
     enabled: true,
     isSandbox: true,
@@ -49,6 +53,7 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
     bookingEnabled: raw?.bookingEnabled ?? base.bookingEnabled,
     maintenanceMode: raw?.maintenanceMode ?? base.maintenanceMode,
     maintenanceMessage: raw?.maintenanceMessage ?? base.maintenanceMessage ?? '',
+    developmentMode: raw?.developmentMode ?? base.developmentMode,
     zarinpal: { ...base.zarinpal, ...(raw?.zarinpal || {}) },
     kavenegar: { ...base.kavenegar, ...(raw?.kavenegar || {}) },
     site,
@@ -314,6 +319,61 @@ export async function saveFaq(faq: FAQItem) {
 
 export async function deleteFaq(id: string) {
   await api(`/api/faqs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------
+// FORMS
+// ---------------------------------------------------------------------
+export function subscribeForms(callback: (data: FormDefinition[]) => void) {
+  return subscribeList<FormDefinition>('/api/forms', callback, 'Forms');
+}
+
+export async function fetchForm(id: string): Promise<FormDefinition | null> {
+  try {
+    return await api<FormDefinition>(`/api/forms/${encodeURIComponent(id)}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveForm(form: FormDefinition) {
+  await api(`/api/forms/${encodeURIComponent(form.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(form),
+  });
+}
+
+export async function deleteForm(id: string) {
+  await api(`/api/forms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function subscribeFormSubmissions(callback: (data: FormSubmission[]) => void) {
+  return subscribeList<FormSubmission>('/api/form-submissions', callback, 'FormSubmissions');
+}
+
+export async function saveFormSubmission(submission: FormSubmission) {
+  await api(`/api/form-submissions/${encodeURIComponent(submission.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(submission),
+  });
+}
+
+export async function deleteFormSubmission(id: string) {
+  await api(`/api/form-submissions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function submitForm(
+  formId: string,
+  payload: {
+    answers: Record<string, FormAnswerValue>;
+    pageId?: string;
+    pageSlug?: string;
+  }
+): Promise<{ ok: boolean; id: string; message: string }> {
+  return api(`/api/forms/${encodeURIComponent(formId)}/submit`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 // ---------------------------------------------------------------------

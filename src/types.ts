@@ -12,7 +12,9 @@ export type PageScreen =
   | 'faq'
   | 'admin'
   | 'user-panel'
-  | 'custom-page';
+  | 'login'
+  | 'custom-page'
+  | 'not-found';
 
 export type UserRole = 'admin' | 'doctor' | 'operator' | 'patient';
 
@@ -75,6 +77,12 @@ export interface ServiceItem {
   title: string;
   description: string;
   icon: string;
+  /** URL-friendly slug for the service page */
+  slug?: string;
+  /** Short summary shown in cards / listings */
+  excerpt?: string;
+  /** Featured / cover image */
+  image?: string;
   duration?: string;
   format?: string;
   badge?: string;
@@ -119,7 +127,11 @@ export type ServiceBlockType =
   | 'divider'
   | 'spacer'
   | 'singleImage'
-  | 'imageGallery';
+  | 'imageGallery'
+  | 'verticalImageGallery';
+
+/** Scroll-into-view reveal for page-builder widgets */
+export type BlockScrollAnimation = 'fade-in' | 'fade-up' | 'fade-down';
 
 export interface ServiceBlock {
   id: string;
@@ -151,6 +163,8 @@ export interface SitePage {
   coverImage?: string;
   /** Short summary for listings / SEO */
   excerpt?: string;
+  /** SEO optimizer fields (when seoOptimizer module is on) */
+  seo?: ContentSeoSettings;
   /**
    * Page shell width:
    * - contained: centered content (max 1400px)
@@ -245,6 +259,74 @@ export interface KavenegarSettings {
   bookingPattern: string;
   reminderPattern: string;
   cancelPattern: string;
+  /** Optional SMS text for new form submissions; supports %form% and %summary% */
+  formNotifyPattern?: string;
+}
+
+/** Field types for the central form builder */
+export type FormFieldType =
+  | 'text'
+  | 'textarea'
+  | 'email'
+  | 'tel'
+  | 'number'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'checkboxGroup'
+  | 'date'
+  | 'description';
+
+export interface FormFieldOption {
+  id: string;
+  label: string;
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+  /** For select / radio / checkboxGroup */
+  options?: FormFieldOption[];
+}
+
+export interface FormDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  submitLabel?: string;
+  successMessage?: string;
+  fields: FormField[];
+  /** Notification destination (logged until SMTP is wired) */
+  notifyEmail?: string;
+  /** Operator mobile for Kavenegar SMS */
+  notifySms?: string;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type FormSubmissionStatus = 'new' | 'read' | 'archived';
+
+export type FormAnswerValue = string | string[] | boolean;
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  formName: string;
+  answers: Record<string, FormAnswerValue>;
+  status: FormSubmissionStatus;
+  createdAt: string;
+  pageId?: string;
+  pageSlug?: string;
+  notify?: {
+    emailLogged?: boolean;
+    smsSent?: boolean;
+    smsError?: string;
+  };
 }
 
 export interface SiteIdentitySettings {
@@ -366,6 +448,8 @@ export interface ClinicSettings {
   maintenanceMode?: boolean;
   /** Optional custom message on the maintenance page */
   maintenanceMessage?: string;
+  /** When true, login screens show demo credentials and quick-login shortcuts */
+  developmentMode?: boolean;
   zarinpal: ZarinpalSettings;
   kavenegar: KavenegarSettings;
   /** Branding, header, menus, footer — editable in admin settings */
@@ -408,6 +492,20 @@ export interface SiteModulesSettings {
   autoTranslate: AutoTranslateModuleSettings;
   /** Online booking + admin appointments tab */
   appointments: FeatureModuleSettings;
+  /** Rank Math–style SEO score & focus keyword for pages/articles */
+  seoOptimizer: FeatureModuleSettings;
+}
+
+/** Per-content SEO fields (articles & site pages) */
+export interface ContentSeoSettings {
+  /** Primary focus keyword / phrase */
+  focusKeyword?: string;
+  /** Override document title (falls back to content title) */
+  seoTitle?: string;
+  /** Override meta description (falls back to summary/excerpt) */
+  seoDescription?: string;
+  /** Cached 0–100 score from last analysis / save */
+  score?: number;
 }
 
 export interface ContactPhoneItem {
@@ -475,4 +573,6 @@ export interface Article {
   tags: string[];
   /** Block-based article body (preferred). Legacy `content` used as fallback. */
   pageBuilder?: PageBuilderDoc;
+  /** SEO optimizer fields (when seoOptimizer module is on) */
+  seo?: ContentSeoSettings;
 }

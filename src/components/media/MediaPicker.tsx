@@ -11,7 +11,14 @@ export type MediaAccept = 'image' | 'video' | 'all';
 interface MediaPickerProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (url: string) => void;
+  /** Single-select callback (default mode). */
+  onSelect?: (url: string) => void;
+  /**
+   * When true, user can pick several images and confirm once.
+   * Prefer `onSelectMany`; falls back to calling `onSelect` per URL.
+   */
+  multiple?: boolean;
+  onSelectMany?: (urls: string[]) => void;
   accept?: MediaAccept;
   title?: string;
 }
@@ -26,6 +33,8 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
   open,
   onClose,
   onSelect,
+  multiple = false,
+  onSelectMany,
   accept = 'image',
   title = 'کتابخانه رسانه',
 }) => {
@@ -35,8 +44,27 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const commitSelection = (urls: string[]) => {
+    const unique = [...new Set(urls.filter(Boolean))];
+    if (!unique.length) return;
+    if (multiple) {
+      if (onSelectMany) onSelectMany(unique);
+      else unique.forEach((u) => onSelect?.(u));
+    } else {
+      onSelect?.(unique[0]);
+    }
+    onClose();
+  };
+
+  const toggleMulti = (url: string) => {
+    setSelectedUrls((prev) =>
+      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]
+    );
+  };
 
   const loadLibrary = async () => {
     setLoading(true);
@@ -55,9 +83,10 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     if (!open) return;
     setTab('library');
     setSelectedUrl(null);
+    setSelectedUrls([]);
     setSearch('');
     void loadLibrary();
-  }, [open, accept]);
+  }, [open, accept, multiple]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -80,7 +109,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     setUploading(true);
     setError('');
     try {
-      let lastUrl = '';
+      const uploaded: string[] = [];
       for (const file of Array.from(files)) {
         if (accept === 'image' && !file.type.startsWith('image/')) {
           throw new Error('فقط تصویر مجاز است');
@@ -91,11 +120,15 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
         if (file.size > 50 * 1024 * 1024) {
           throw new Error('حجم فایل نباید بیشتر از ۵۰ مگابایت باشد');
         }
-        lastUrl = await uploadFile(file);
+        uploaded.push(await uploadFile(file));
       }
       await loadLibrary();
       setTab('library');
-      if (lastUrl) setSelectedUrl(lastUrl);
+      if (multiple && uploaded.length) {
+        setSelectedUrls((prev) => [...new Set([...prev, ...uploaded])]);
+      } else if (uploaded.length) {
+        setSelectedUrl(uploaded[uploaded.length - 1]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در آپلود');
     } finally {
@@ -113,6 +146,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     try {
       await deleteMediaFile(item.filename);
       if (selectedUrl === item.url) setSelectedUrl(null);
+      setSelectedUrls((prev) => prev.filter((u) => u !== item.url));
       await loadLibrary();
     } catch {
       alert('حذف فایل ناموفق بود');
@@ -233,17 +267,22 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((item) => {
-                const selected = selectedUrl === item.url;
+                const selected = multiple
+                  ? selectedUrls.includes(item.url)
+                  : selectedUrl === item.url;
                 return (
                   <div
                     key={`${item.source}-${item.filename}`}
                     className={`group relative rounded-2xl overflow-hidden border-2 bg-slate-50 dark:bg-slate-800 cursor-pointer transition-all ${
                       selected ? 'border-teal-600 shadow-lg' : 'border-transparent hover:border-teal-300'
                     }`}
-                    onClick={() => setSelectedUrl(item.url)}
+                    onClick={() => {
+                      if (multiple) toggleMulti(item.url);
+                      else setSelectedUrl(item.url);
+                    }}
                     onDoubleClick={() => {
-                      onSelect(item.url);
-                      onClose();
+                      if (multiple) return;
+                      commitSelection([item.url]);
                     }}
                   >
                     <div className="aspect-square bg-slate-200 dark:bg-slate-700">
@@ -292,7 +331,9 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
 
         <footer className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50">
           <p className="text-[11px] text-slate-500 font-bold">
-            {filtered.length} فایل · دابل‌کلیک برای انتخاب سریع
+            {multiple
+              ? `${filtered.length} فایل · ${selectedUrls.length} انتخاب‌شده`
+              : `${filtered.length} فایل · دابل‌کلیک برای انتخاب سریع`}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -304,15 +345,18 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
             </button>
             <button
               type="button"
-              disabled={!selectedUrl}
+              disabled={multiple ? selectedUrls.length === 0 : !selectedUrl}
               onClick={() => {
-                if (!selectedUrl) return;
-                onSelect(selectedUrl);
-                onClose();
+                if (multiple) commitSelection(selectedUrls);
+                else if (selectedUrl) commitSelection([selectedUrl]);
               }}
               className="px-5 py-2 rounded-xl bg-teal-600 disabled:opacity-40 text-white text-xs font-black"
             >
-              انتخاب رسانه
+              {multiple
+                ? selectedUrls.length
+                  ? `افزودن ${selectedUrls.length} تصویر`
+                  : 'افزودن تصاویر'
+                : 'انتخاب رسانه'}
             </button>
           </div>
         </footer>

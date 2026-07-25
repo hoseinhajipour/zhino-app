@@ -33,7 +33,6 @@ import { ConsultFloatingButton } from './components/ConsultFloatingButton';
 import { AppointmentModal } from './components/AppointmentModal';
 import { DoctorProfileModal } from './components/DoctorProfileModal';
 import { FreeGuideModal } from './components/FreeGuideModal';
-import { AuthModal } from './components/AuthModal';
 import { SiteTranslateProvider } from './components/SiteTranslateProvider';
 import { InstallerWizardPage } from './pages/InstallerWizardPage';
 import { MaintenancePage } from './pages/MaintenancePage';
@@ -55,6 +54,8 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const ServiceDetailPage = lazy(() => import('./pages/ServiceDetailPage').then((m) => ({ default: m.ServiceDetailPage })));
 const UserDashboardPage = lazy(() => import('./pages/UserDashboardPage').then((m) => ({ default: m.UserDashboardPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 const CustomSitePage = lazy(() =>
   import('./pages/CustomSitePage').then((m) => ({ default: m.CustomSitePage }))
@@ -72,8 +73,10 @@ const PageLoadingFallback = () => (
 
 const getScreenFromPath = (pathname: string): PageScreen => {
   const clean = pathname.replace(/^\/+/, '').toLowerCase();
+  if (!clean) return 'home';
   if (clean === 'admin') return 'admin';
   if (clean === 'user-panel') return 'user-panel';
+  if (clean === 'login' || clean === 'register') return 'login';
   if (clean === 'services') return 'services';
   if (clean.startsWith('service/')) return 'service-detail';
   if (clean === 'child-therapy') return 'child-therapy';
@@ -85,7 +88,13 @@ const getScreenFromPath = (pathname: string): PageScreen => {
   if (clean === 'blog' || clean.startsWith('blog/')) return 'blog';
   if (clean === 'faq') return 'faq';
   if (clean.startsWith('p/')) return 'custom-page';
-  return 'home';
+  if (clean === 'not-found' || clean === '404') return 'not-found';
+  return 'not-found';
+};
+
+const getLoginModeFromPath = (pathname: string): 'login' | 'register' => {
+  const clean = pathname.replace(/^\/+/, '').toLowerCase();
+  return clean === 'register' ? 'register' : 'login';
 };
 
 const getCustomPageSlugFromPath = (pathname: string): string | null => {
@@ -166,7 +175,9 @@ export function App() {
     return null;
   });
 
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [loginMode, setLoginMode] = useState<'login' | 'register'>(() =>
+    getLoginModeFromPath(window.location.pathname)
+  );
 
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
@@ -213,6 +224,9 @@ export function App() {
       const path = window.location.pathname;
       const scr = getScreenFromPath(path);
       setCurrentScreen(scr);
+      if (scr === 'login') {
+        setLoginMode(getLoginModeFromPath(path));
+      }
       if (scr === 'service-detail') {
         setSelectedServiceId(getInitialServiceFromPath(path));
       }
@@ -332,7 +346,31 @@ export function App() {
     setCurrentScreen(screen);
     setSelectedArticleSlug(null);
     setSelectedCustomPageSlug(null);
-    const path = screen === 'home' ? '/' : `/${screen}`;
+    if (screen === 'login') {
+      setLoginMode('login');
+    }
+    const path =
+      screen === 'home' ? '/' : screen === 'not-found' ? '/404' : `/${screen}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLoginModeChange = (mode: 'login' | 'register') => {
+    setLoginMode(mode);
+    const path = mode === 'register' ? '/register' : '/login';
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+  };
+
+  const openLoginPage = (mode: 'login' | 'register' = 'login') => {
+    setLoginMode(mode);
+    setCurrentScreen('login');
+    setSelectedArticleSlug(null);
+    setSelectedCustomPageSlug(null);
+    const path = mode === 'register' ? '/register' : '/login';
     if (window.location.pathname !== path) {
       window.history.pushState({}, '', path);
     }
@@ -361,6 +399,11 @@ export function App() {
       return;
     }
     const path = t.startsWith('/') ? t : `/${t}`;
+    const scr = getScreenFromPath(path);
+    setCurrentScreen(scr);
+    setSelectedArticleSlug(scr === 'blog' ? getArticleSlugFromPath(path) : null);
+    setSelectedCustomPageSlug(scr === 'custom-page' ? getCustomPageSlugFromPath(path) : null);
+    if (scr === 'service-detail') setSelectedServiceId(getInitialServiceFromPath(path));
     if (window.location.pathname !== path) window.history.pushState({}, '', path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -436,7 +479,7 @@ export function App() {
     openBooking: handleOpenBooking,
     openDoctorProfile: handleOpenDoctorProfile,
     openGuideModal: () => setGuideModalOpen(true),
-    openAuthModal: () => setAuthModalOpen(true),
+    openAuthModal: () => openLoginPage('login'),
     bookingEnabled: settings.bookingEnabled,
     selectedServiceId,
     selectService: handleSelectService,
@@ -517,11 +560,12 @@ export function App() {
     handleNavigate('admin');
   };
 
-  /** Public maintenance: guests blocked; logged-in users + admin login bypass */
+  /** Public maintenance: guests blocked; logged-in users + admin/login bypass */
   const showMaintenance =
     !!settings.maintenanceMode &&
     !currentUser &&
     currentScreen !== 'admin' &&
+    currentScreen !== 'login' &&
     installCheck === 'ready';
 
   if (installCheck === 'loading') {
@@ -564,23 +608,94 @@ export function App() {
       {/* Dynamic SEO Head Manager */}
       <SEOHead
         currentScreen={currentScreen}
-        extraTitle={
-          currentScreen === 'blog' && selectedArticleSlug
-            ? articles.find((a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug)?.title
-            : currentScreen === 'custom-page' && selectedCustomPageSlug
-              ? sitePages.find(
-                  (p) =>
-                    p.slug === selectedCustomPageSlug ||
-                    p.slug === `/p/${selectedCustomPageSlug}` ||
-                    p.id === selectedCustomPageSlug
-                )?.title
-              : undefined
-        }
-        description={
-          currentScreen === 'blog' && selectedArticleSlug
-            ? articles.find((a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug)?.summary
-            : undefined
-        }
+        extraTitle={(() => {
+          if (currentScreen === 'blog' && selectedArticleSlug) {
+            const art = articles.find(
+              (a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug
+            );
+            return art?.seo?.seoTitle || art?.title;
+          }
+          if (currentScreen === 'custom-page' && selectedCustomPageSlug) {
+            const page = sitePages.find(
+              (p) =>
+                p.slug === selectedCustomPageSlug ||
+                p.slug === `/p/${selectedCustomPageSlug}` ||
+                p.id === selectedCustomPageSlug
+            );
+            return page?.seo?.seoTitle || page?.title;
+          }
+          const systemSeoPage =
+            currentScreen === 'home'
+              ? sitePages.find((p) => p.id === 'home')
+              : currentScreen === 'about'
+                ? sitePages.find((p) => p.id === 'about')
+                : currentScreen === 'contact'
+                  ? sitePages.find((p) => p.id === 'contact')
+                  : currentScreen === 'blog' && !selectedArticleSlug
+                    ? sitePages.find((p) => p.id === 'blog')
+                    : undefined;
+          return systemSeoPage?.seo?.seoTitle || undefined;
+        })()}
+        description={(() => {
+          if (currentScreen === 'blog' && selectedArticleSlug) {
+            const art = articles.find(
+              (a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug
+            );
+            return art?.seo?.seoDescription || art?.summary;
+          }
+          if (currentScreen === 'custom-page' && selectedCustomPageSlug) {
+            const page = sitePages.find(
+              (p) =>
+                p.slug === selectedCustomPageSlug ||
+                p.slug === `/p/${selectedCustomPageSlug}` ||
+                p.id === selectedCustomPageSlug
+            );
+            return page?.seo?.seoDescription || page?.excerpt;
+          }
+          const systemSeoPage =
+            currentScreen === 'home'
+              ? sitePages.find((p) => p.id === 'home')
+              : currentScreen === 'about'
+                ? sitePages.find((p) => p.id === 'about')
+                : currentScreen === 'contact'
+                  ? sitePages.find((p) => p.id === 'contact')
+                  : currentScreen === 'blog' && !selectedArticleSlug
+                    ? sitePages.find((p) => p.id === 'blog')
+                    : undefined;
+          return systemSeoPage?.seo?.seoDescription || systemSeoPage?.excerpt || undefined;
+        })()}
+        keywords={(() => {
+          if (currentScreen === 'blog' && selectedArticleSlug) {
+            const art = articles.find(
+              (a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug
+            );
+            const parts = [
+              art?.seo?.focusKeyword,
+              ...(art?.tags || []),
+            ].filter(Boolean);
+            return parts.length ? parts.join(', ') : undefined;
+          }
+          if (currentScreen === 'custom-page' && selectedCustomPageSlug) {
+            const page = sitePages.find(
+              (p) =>
+                p.slug === selectedCustomPageSlug ||
+                p.slug === `/p/${selectedCustomPageSlug}` ||
+                p.id === selectedCustomPageSlug
+            );
+            return page?.seo?.focusKeyword || undefined;
+          }
+          const systemSeoPage =
+            currentScreen === 'home'
+              ? sitePages.find((p) => p.id === 'home')
+              : currentScreen === 'about'
+                ? sitePages.find((p) => p.id === 'about')
+                : currentScreen === 'contact'
+                  ? sitePages.find((p) => p.id === 'contact')
+                  : currentScreen === 'blog' && !selectedArticleSlug
+                    ? sitePages.find((p) => p.id === 'blog')
+                    : undefined;
+          return systemSeoPage?.seo?.focusKeyword || undefined;
+        })()}
       />
 
       {/* Admin quick-access bar — visible on the public site for admins only */}
@@ -602,7 +717,7 @@ export function App() {
           onNavigate={handleNavigate}
           onNavigateTarget={handleNavigateTarget}
           onOpenBooking={() => handleOpenBooking()}
-          onOpenAuthModal={() => setAuthModalOpen(true)}
+          onOpenAuthModal={() => openLoginPage('login')}
           onLogout={handleLogout}
           bookingEnabled={settings.bookingEnabled}
           darkMode={darkMode}
@@ -742,6 +857,10 @@ export function App() {
             />
           )}
 
+          {currentScreen === 'not-found' && (
+            <NotFoundPage onNavigate={handleNavigate} />
+          )}
+
           {currentScreen === 'custom-page' && (() => {
             const page = sitePages.find(
               (p) =>
@@ -751,20 +870,10 @@ export function App() {
             );
             if (!page || page.status === 'draft') {
               return (
-                <div className="max-w-lg mx-auto py-24 px-4 text-center space-y-3">
-                  <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
-                  <h1 className="text-xl font-black text-on-surface">صفحه پیدا نشد</h1>
-                  <p className="text-sm text-on-surface-variant">
-                    این آدرس مربوط به صفحه‌ای منتشرشده در سایت نیست.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleNavigate('home')}
-                    className="mt-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold"
-                  >
-                    بازگشت به خانه
-                  </button>
-                </div>
+                <NotFoundPage
+                  onNavigate={handleNavigate}
+                  message="این آدرس مربوط به صفحه‌ای منتشرشده در سایت نیست."
+                />
               );
             }
             return (
@@ -792,6 +901,36 @@ export function App() {
               onNavigate={handleNavigate}
               onLikeFaq={handleLikeFaq}
             />
+          )}
+
+          {currentScreen === 'login' && (
+            currentUser ? (
+              <div className="max-w-md mx-auto my-12 text-center p-8 bg-surface-container-low rounded-3xl border border-outline-variant/30 space-y-4">
+                <span className="material-symbols-outlined text-5xl text-primary">check_circle</span>
+                <h2 className="font-bold text-lg">شما وارد شده‌اید</h2>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  {currentUser.name} — می‌توانید به پنل خود بروید.
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleNavigate(currentUser.role === 'patient' ? 'user-panel' : 'admin')
+                  }
+                  className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow hover:bg-primary-container transition-all"
+                >
+                  رفتن به پنل
+                </button>
+              </div>
+            ) : (
+              <LoginPage
+                initialMode={loginMode}
+                onLoginSuccess={handleLoginSuccess}
+                onGoHome={() => handleNavigate('home')}
+                onGoAdmin={() => handleNavigate('admin')}
+                onModeChange={handleLoginModeChange}
+                developmentMode={!!settings.developmentMode}
+              />
+            )
           )}
 
           {currentScreen === 'user-panel' && (
@@ -831,7 +970,8 @@ export function App() {
                   جهت پیگیری نوبت‌ها، مشاهده تراکنش‌ها و بروزرسانی پرونده شخصی، وارد حساب شوید.
                 </p>
                 <button
-                  onClick={() => setAuthModalOpen(true)}
+                  type="button"
+                  onClick={() => openLoginPage('login')}
                   className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow hover:bg-primary-container transition-all"
                 >
                   ورود / عضویت
@@ -864,6 +1004,7 @@ export function App() {
                   handleLoginSuccess(user);
                 }}
                 onGoHome={() => handleNavigate('home')}
+                developmentMode={!!settings.developmentMode}
               />
             )
           )}
@@ -912,12 +1053,6 @@ export function App() {
         onSelectDoctor={(docId) => handleOpenBooking(docId)}
         doctors={doctors}
         config={settings.freeGuide}
-      />
-
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
       />
     </div>
       </SiteTranslateProvider>

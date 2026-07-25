@@ -119,6 +119,8 @@ articlesRouter.use('/', articlesCrud);
 export const faqsRouter = createCrudRouter('faqs');
 export const pagesRouter = createCrudRouter('pages');
 export const articleCategoriesRouter = createCrudRouter('article_categories');
+export const formsCrudRouter = createCrudRouter('forms');
+export const formSubmissionsRouter = createCrudRouter('form_submissions');
 
 export const settingsRouter = Router();
 

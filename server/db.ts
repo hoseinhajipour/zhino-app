@@ -15,7 +15,9 @@ export type EntityTable =
   | 'settings'
   | 'pages'
   | 'users'
-  | 'article_categories';
+  | 'article_categories'
+  | 'forms'
+  | 'form_submissions';
 
 const TABLES: EntityTable[] = [
   'appointments',
@@ -27,6 +29,8 @@ const TABLES: EntityTable[] = [
   'pages',
   'users',
   'article_categories',
+  'forms',
+  'form_submissions',
 ];
 
 let pool: Pool | null = null;

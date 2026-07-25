@@ -4,13 +4,6 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { initDatabase } from './db';
 import {
-  seedIfEmpty,
-  ensureServicePageBuilders,
-  ensureSitePages,
-  ensureDefaultUsers,
-  ensureArticleCategories,
-} from './seed';
-import {
   appointmentsRouter,
   doctorsRouter,
   servicesRouter,
@@ -19,7 +12,9 @@ import {
   settingsRouter,
   pagesRouter,
   articleCategoriesRouter,
+  formSubmissionsRouter,
 } from './routes/entities';
+import { formsRouter } from './routes/forms';
 import { uploadsRouter, uploadsDir } from './routes/uploads';
 import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
@@ -27,6 +22,14 @@ import { systemRouter } from './routes/system';
 import { backupRouter } from './routes/backup';
 import { isInstallInProgress, isInstallLocked } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
+import {
+  seedIfEmpty,
+  ensureServicePageBuilders,
+  ensureSitePages,
+  ensureDefaultUsers,
+  ensureArticleCategories,
+  ensureDefaultForms,
+} from './seed';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -48,6 +51,8 @@ app.use('/api/services', servicesRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/article-categories', articleCategoriesRouter);
 app.use('/api/faqs', faqsRouter);
+app.use('/api/forms', formsRouter);
+app.use('/api/form-submissions', formSubmissionsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/pages', pagesRouter);
 app.use('/api/users', usersRouter);
@@ -133,6 +138,7 @@ async function bootstrapDatabase(): Promise<boolean> {
     await ensureSitePages();
     await ensureDefaultUsers();
     await ensureArticleCategories();
+    await ensureDefaultForms();
     return true;
   } catch (err) {
     console.error('Database bootstrap failed (installer available):', err);

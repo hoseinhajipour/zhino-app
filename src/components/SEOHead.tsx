@@ -5,6 +5,8 @@ interface SEOHeadProps {
   currentScreen: PageScreen;
   extraTitle?: string;
   description?: string;
+  /** Focus / meta keywords */
+  keywords?: string;
   /** Force noindex (maintenance mode) */
   maintenance?: boolean;
 }
@@ -58,6 +60,10 @@ const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
     title: 'پنل کاربری مراجعین | کلینیک روانشناسی ژینو',
     description: 'مدیریت نوبت‌های مشاوره، پرونده درمانی، مشاهده تکالیف و پشتیبانی آنلاین.',
   },
+  login: {
+    title: 'ورود و عضویت | کلینیک روانشناسی ژینو',
+    description: 'ورود به حساب کاربری یا ثبت‌نام برای پیگیری نوبت‌ها و پرونده شخصی در کلینیک ژینو.',
+  },
   admin: {
     title: 'سامانه مدیریت و پذیرش کلینیک | ژینو',
     description: 'پنل اختصاصی کادر درمان، پزشکان و اپراتور پذیرش کلینیک روانشناسی ژینو.',
@@ -66,12 +72,17 @@ const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
     title: 'صفحه | کلینیک روانشناسی ژینو',
     description: 'صفحه اختصاصی کلینیک روانشناسی ژینو.',
   },
+  'not-found': {
+    title: 'صفحه پیدا نشد (۴۰۴) | کلینیک ژینو',
+    description: 'آدرس واردشده در سایت کلینیک ژینو وجود ندارد.',
+  },
 };
 
 export const SEOHead: React.FC<SEOHeadProps> = ({
   currentScreen,
   extraTitle,
   description,
+  keywords,
   maintenance = false,
 }) => {
   useEffect(() => {
@@ -79,7 +90,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     const finalTitle = maintenance
       ? `${extraTitle || 'در دست تعمیر'} | کلینیک ژینو`
       : extraTitle
-        ? `${extraTitle} | کلینیک ژینو`
+        ? (extraTitle.includes('ژینو') ? extraTitle : `${extraTitle} | کلینیک ژینو`)
         : config.title;
     const finalDescription = maintenance
       ? 'سایت موقتاً در دست تعمیر و به‌روزرسانی است.'
@@ -95,15 +106,28 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     }
     metaDesc.setAttribute('content', finalDescription);
 
+    if (keywords?.trim()) {
+      let metaKw = document.querySelector('meta[name="keywords"]');
+      if (!metaKw) {
+        metaKw = document.createElement('meta');
+        metaKw.setAttribute('name', 'keywords');
+        document.head.appendChild(metaKw);
+      }
+      metaKw.setAttribute('content', keywords.trim());
+    }
+
     let robots = document.querySelector('meta[name="robots"]');
     if (!robots) {
       robots = document.createElement('meta');
       robots.setAttribute('name', 'robots');
       document.head.appendChild(robots);
     }
+    const shouldNoIndex = maintenance || currentScreen === 'not-found';
     robots.setAttribute(
       'content',
-      maintenance ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+      shouldNoIndex
+        ? 'noindex, nofollow, noarchive, nosnippet'
+        : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
     );
 
     let googlebot = document.querySelector('meta[name="googlebot"]');
@@ -114,7 +138,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     }
     googlebot.setAttribute(
       'content',
-      maintenance ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow'
+      shouldNoIndex ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow'
     );
 
     let ogTitle = document.querySelector('meta[property="og:title"]');
@@ -133,7 +157,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       document.head.appendChild(canonical);
     }
     canonical.href = window.location.href;
-  }, [currentScreen, extraTitle, description, maintenance]);
+  }, [currentScreen, extraTitle, description, keywords, maintenance]);
 
   return null;
 };
