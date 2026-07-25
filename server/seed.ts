@@ -1,5 +1,4 @@
 import {
-  INITIAL_APPOINTMENTS,
   DOCTORS as DEFAULT_DOCTORS,
   MAIN_SERVICES as DEFAULT_SERVICES,
   INITIAL_ARTICLES,
@@ -39,11 +38,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
 };
 
 export async function seedIfEmpty(): Promise<void> {
-  if ((await countEntities('appointments')) === 0) {
-    for (const item of INITIAL_APPOINTMENTS) {
-      await upsertEntity('appointments', item.id, item);
-    }
-  }
+  // Do not seed appointments — demo bookings must not return when the table is empty.
 
   if ((await countEntities('doctors')) === 0) {
     for (const item of DEFAULT_DOCTORS) {

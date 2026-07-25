@@ -442,6 +442,20 @@ export interface FreeGuideSettings {
   fallbackSpecialtyKeys: string[];
 }
 
+/** OpenAI-compatible AI gateway used by the project (GapGPT, OpenAI, custom) */
+export type AiProviderId = 'gapgpt' | 'openai' | 'custom';
+
+export interface AiSettings {
+  /** Master switch — when off, AI features should not call the provider */
+  enabled: boolean;
+  provider: AiProviderId;
+  apiKey: string;
+  /** e.g. https://api.gapgpt.app/v1 */
+  baseUrl: string;
+  /** Default chat model id, e.g. gpt-4o */
+  defaultModel: string;
+}
+
 export interface ClinicSettings {
   bookingEnabled?: boolean;
   /** When true, public visitors see maintenance page; logged-in users bypass */
@@ -460,6 +474,8 @@ export interface ClinicSettings {
   modules?: SiteModulesSettings;
   /** Therapist selector / free guide form (admin-editable) */
   freeGuide?: FreeGuideSettings;
+  /** AI provider connection (GapGPT / OpenAI-compatible) */
+  ai?: AiSettings;
 }
 
 /** Catalog entry for site language switcher */

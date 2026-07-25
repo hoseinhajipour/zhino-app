@@ -48,6 +48,8 @@ import { FormsAdminPanel } from '../components/admin/FormsAdminPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { ImportExportPanel } from '../components/admin/ImportExportPanel';
+import { McpConnectionPanel } from '../components/admin/McpConnectionPanel';
+import { AiSettingsPanel } from '../components/admin/AiSettingsPanel';
 import { mergeSiteChrome } from '../lib/siteChromeDefaults';
 import {
   identityPatchFromContact,
@@ -57,7 +59,9 @@ import { isAppointmentsModuleEnabled, isSeoOptimizerModuleEnabled, mergeSiteModu
 import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
 import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
+import { DEFAULT_AI_SETTINGS, mergeAiSettings } from '../lib/aiSettingsDefaults';
 import type {
+  AiSettings,
   ClinicContactInfo,
   FreeGuideSettings,
   SiteChromeSettings,
@@ -150,6 +154,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   // --- APPOINTMENT FILTERS & ACTIONS ---
   const [appSearch, setAppSearch] = useState('');
   const [appointmentsSubTab, setAppointmentsSubTab] = useState<'list' | 'settings' | 'guide'>('list');
+  const [settingsSubTab, setSettingsSubTab] = useState<'appearance' | 'modes' | 'ai'>('appearance');
   const [appStatusFilter, setAppStatusFilter] = useState<string>('all');
   const [showAddAppModal, setShowAddAppModal] = useState(false);
   const [editingApp, setEditingApp] = useState<Appointment | null>(null);
@@ -174,6 +179,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [freeGuideDraft, setFreeGuideDraft] = useState<FreeGuideSettings>(() =>
     mergeFreeGuide(DEFAULT_CLINIC_SETTINGS.freeGuide)
   );
+  const [aiDraft, setAiDraft] = useState<AiSettings>(() =>
+    mergeAiSettings(DEFAULT_CLINIC_SETTINGS.ai || DEFAULT_AI_SETTINGS)
+  );
 
   const navOptions = { appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft) };
   const seoOptimizerEnabled = isSeoOptimizerModuleEnabled(modulesDraft);
@@ -196,6 +204,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [savingContact, setSavingContact] = useState(false);
   const [savingModules, setSavingModules] = useState(false);
   const [savingFreeGuide, setSavingFreeGuide] = useState(false);
+  const [savingAi, setSavingAi] = useState(false);
   const [settingsSaveMsg, setSettingsSaveMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
@@ -251,6 +260,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         setContactDraft(mergeContactInfo(st.contact, st.site?.identity));
         setModulesDraft(mergeSiteModules(st.modules));
         setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
+        setAiDraft(mergeAiSettings(st.ai));
         setMaintenanceMode(!!st.maintenanceMode);
         setMaintenanceMessage(st.maintenanceMessage || '');
         setDevelopmentMode(!!st.developmentMode);
@@ -734,6 +744,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره فرم انتخاب درمانگر' });
     } finally {
       setSavingFreeGuide(false);
+    }
+  };
+
+  const handleSaveAi = async () => {
+    setSavingAi(true);
+    setSettingsSaveMsg(null);
+    const ai = mergeAiSettings(aiDraft);
+    const updated: ClinicSettings = {
+      ...settings,
+      ai,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setAiDraft(ai);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: 'تنظیمات هوش مصنوعی ذخیره شد.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره تنظیمات هوش مصنوعی' });
+    } finally {
+      setSavingAi(false);
     }
   };
 
@@ -1450,7 +1484,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title: 'درونریزی و برونریزی',
       subtitle: 'پشتیبان JSON ژینو و درون‌ریزی از وردپرس با انتقال رسانه به هاست',
     },
-    settings: { title: 'تنظیمات کلینیک', subtitle: 'هویت برند، هدر، منو و فوتر سایت' },
+    settings: {
+      title:
+        settingsSubTab === 'modes'
+          ? 'وضعیت سایت'
+          : settingsSubTab === 'ai'
+            ? 'هوش مصنوعی'
+            : 'ظاهر سایت',
+      subtitle:
+        settingsSubTab === 'modes'
+          ? 'حالت تعمیر و حالت توسعه'
+          : settingsSubTab === 'ai'
+            ? 'اتصال GapGPT / OpenAI و MCP برای Cursor'
+            : 'هویت برند، هدر، منو و فوتر سایت',
+    },
   };
 
   return (
@@ -3343,8 +3390,58 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {/* TAB 4: SYSTEM SETTINGS (SITE CHROME) */}
       {/* ========================================================================= */}
       {activeTab === 'settings' && canManageSettings(currentUser?.role) && (
-        <div className="space-y-8 animate-fade-in">
-          {/* Notification Alert */}
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-1.5 bg-white dark:bg-surface-dim p-1 rounded-2xl border border-outline-variant/30 shadow-soft">
+              {(
+                [
+                  { id: 'appearance' as const, label: 'ظاهر سایت', icon: 'brush' },
+                  { id: 'modes' as const, label: 'وضعیت سایت', icon: 'toggle_on' },
+                  { id: 'ai' as const, label: 'هوش مصنوعی', icon: 'smart_toy' },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSettingsSubTab(item.id)}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                    settingsSubTab === item.id
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface-variant hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black ${
+                  maintenanceMode
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {maintenanceMode ? 'construction' : 'public'}
+                </span>
+                {maintenanceMode ? 'تعمیر فعال' : 'سایت عمومی'}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black ${
+                  developmentMode
+                    ? 'bg-sky-100 text-sky-800'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">code</span>
+                {developmentMode ? 'توسعه فعال' : 'توسعه خاموش'}
+              </span>
+            </div>
+          </div>
+
           {settingsSaveMsg && (
             <div
               className={`p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
@@ -3360,163 +3457,208 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
-                    maintenanceMode
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                >
-                  <span className="material-symbols-outlined">construction</span>
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-on-surface">حالت تعمیر (Maintenance)</h2>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    بستن موقت سایت برای بازدیدکنندگان و موتورهای جستجو
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={savingMaintenance}
-                onClick={() => void handleSaveMaintenance()}
-                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-base">save</span>
-                {savingMaintenance ? 'در حال ذخیره…' : 'ذخیره'}
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <label
-                className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-                  maintenanceMode
-                    ? 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/20'
-                    : 'border-outline-variant/40 bg-surface-container-low/40'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 rounded border-outline-variant"
-                  checked={maintenanceMode}
-                  onChange={(e) => setMaintenanceMode(e.target.checked)}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-on-surface">فعال‌سازی Maintenance Mode</p>
-                  <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
-                    کاربران عادی صفحه «در دست تعمیر» را می‌بینند. موتورهای جستجو با{' '}
-                    <code className="text-[10px] bg-white/80 px-1 rounded" dir="ltr">
-                      noindex
-                    </code>{' '}
-                    و مسدودسازی در robots از ایندکس شدن جلوگیری می‌شود. کاربران لاگین‌شده (ادمین،
-                    اپراتور، پزشک و مراجع) همچنان به سایت دسترسی دارند.
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
-                    maintenanceMode
-                      ? 'bg-amber-200 text-amber-900'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}
-                >
-                  {maintenanceMode ? 'فعال' : 'غیرفعال'}
-                </span>
-              </label>
+          {settingsSubTab === 'appearance' && (
+            <SiteChromeSettingsPanel
+              value={siteChromeDraft}
+              onChange={(next) => {
+                siteChromeDraftRevisionRef.current += 1;
+                siteChromeSyncBlockedRef.current = true;
+                setSiteChromeDraft(next);
+              }}
+              onSave={handleSaveSiteChrome}
+              saving={savingSiteChrome}
+            />
+          )}
 
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-bold text-on-surface-variant">
-                  پیام صفحه تعمیر (اختیاری)
-                </span>
-                <textarea
-                  rows={3}
-                  value={maintenanceMessage}
-                  onChange={(e) => setMaintenanceMessage(e.target.value)}
-                  placeholder="سایت موقتاً در دست به‌روزرسانی است. از صبوری شما متشکریم…"
-                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-            </div>
-          </div>
+          {settingsSubTab === 'modes' && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        maintenanceMode
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined">construction</span>
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-black text-on-surface">حالت تعمیر</h2>
+                      <p className="text-[11px] text-on-surface-variant mt-1 leading-5">
+                        بستن موقت سایت برای بازدیدکنندگان و موتورهای جستجو
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
+                      maintenanceMode
+                        ? 'bg-amber-200 text-amber-900'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {maintenanceMode ? 'فعال' : 'غیرفعال'}
+                  </span>
+                </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
-                    developmentMode
-                      ? 'bg-sky-100 text-sky-700'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                >
-                  <span className="material-symbols-outlined">code</span>
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-on-surface">حالت توسعه (Development)</h2>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    نمایش ورود سریع آزمایشی و اطلاعات حساب‌های دمو در صفحات لاگین
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={savingDevelopment}
-                onClick={() => void handleSaveDevelopment()}
-                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-base">save</span>
-                {savingDevelopment ? 'در حال ذخیره…' : 'ذخیره'}
-              </button>
-            </div>
-            <div className="p-5">
-              <label
-                className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-                  developmentMode
-                    ? 'border-sky-300 bg-sky-50/80 dark:bg-sky-950/20'
-                    : 'border-outline-variant/40 bg-surface-container-low/40'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 rounded border-outline-variant"
-                  checked={developmentMode}
-                  onChange={(e) => setDevelopmentMode(e.target.checked)}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-on-surface">فعال‌سازی حالت توسعه</p>
-                  <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
-                    اگر فعال باشد، در صفحات ورود پیشنهاد «ورود سریع»، حساب دموی مراجع و نام کاربری/رمز
-                    ادمین آزمایشی نمایش داده می‌شود. در محیط واقعی این گزینه را خاموش نگه دارید.
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
-                    developmentMode
-                      ? 'bg-sky-200 text-sky-900'
-                      : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
-                  }`}
-                >
-                  {developmentMode ? 'فعال' : 'غیرفعال'}
-                </span>
-              </label>
-            </div>
-          </div>
+                <div className="p-5 space-y-4 flex-1 flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceMode((v) => !v)}
+                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-2xl border text-right transition-all ${
+                      maintenanceMode
+                        ? 'border-amber-300 bg-amber-50/80 dark:bg-amber-950/20'
+                        : 'border-outline-variant/40 bg-surface-container-low/40 hover:border-outline-variant'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-on-surface">فعال‌سازی Maintenance</p>
+                      <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
+                        کاربران عادی صفحه تعمیر را می‌بینند؛ ادمین و کاربران لاگین‌شده همچنان دسترسی دارند.
+                        ایندکس موتورهای جستجو با{' '}
+                        <code className="text-[10px] bg-white/80 dark:bg-slate-800 px-1 rounded" dir="ltr">
+                          noindex
+                        </code>{' '}
+                        محدود می‌شود.
+                      </p>
+                    </div>
+                    <span
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                        maintenanceMode ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      dir="ltr"
+                      aria-hidden
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          maintenanceMode ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                  </button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="lg:col-span-2">
-              <SiteChromeSettingsPanel
-                value={siteChromeDraft}
-                onChange={(next) => {
-                  siteChromeDraftRevisionRef.current += 1;
-                  siteChromeSyncBlockedRef.current = true;
-                  setSiteChromeDraft(next);
-                }}
-                onSave={handleSaveSiteChrome}
-                saving={savingSiteChrome}
+                  <label className="block space-y-1.5">
+                    <span className="text-[11px] font-bold text-on-surface-variant">
+                      پیام صفحه تعمیر (اختیاری)
+                    </span>
+                    <textarea
+                      rows={3}
+                      value={maintenanceMessage}
+                      onChange={(e) => setMaintenanceMessage(e.target.value)}
+                      placeholder="سایت موقتاً در دست به‌روزرسانی است. از صبوری شما متشکریم…"
+                      className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </label>
+
+                  <div className="pt-1 mt-auto">
+                    <button
+                      type="button"
+                      disabled={savingMaintenance}
+                      onClick={() => void handleSaveMaintenance()}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base">save</span>
+                      {savingMaintenance ? 'در حال ذخیره…' : 'ذخیره حالت تعمیر'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        developmentMode
+                          ? 'bg-sky-100 text-sky-700'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined">code</span>
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-black text-on-surface">حالت توسعه</h2>
+                      <p className="text-[11px] text-on-surface-variant mt-1 leading-5">
+                        ورود سریع آزمایشی و نمایش حساب‌های دمو در صفحات لاگین
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full ${
+                      developmentMode
+                        ? 'bg-sky-200 text-sky-900'
+                        : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    {developmentMode ? 'فعال' : 'غیرفعال'}
+                  </span>
+                </div>
+
+                <div className="p-5 space-y-4 flex-1 flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => setDevelopmentMode((v) => !v)}
+                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-2xl border text-right transition-all ${
+                      developmentMode
+                        ? 'border-sky-300 bg-sky-50/80 dark:bg-sky-950/20'
+                        : 'border-outline-variant/40 bg-surface-container-low/40 hover:border-outline-variant'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-on-surface">فعال‌سازی Development</p>
+                      <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
+                        پیشنهاد ورود سریع، حساب دموی مراجع و اطلاعات ادمین آزمایشی در صفحات ورود نمایش
+                        داده می‌شود. در محیط واقعی خاموش نگه دارید.
+                      </p>
+                    </div>
+                    <span
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                        developmentMode ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      dir="ltr"
+                      aria-hidden
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          developmentMode ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                  </button>
+
+                  <div className="rounded-2xl border border-sky-200/70 bg-sky-50/60 dark:bg-sky-950/20 dark:border-sky-900/40 p-4 text-[11px] leading-relaxed text-on-surface-variant">
+                    این حالت فقط برای تست و توسعه است و نباید روی سایت اصلی فعال بماند.
+                  </div>
+
+                  <div className="pt-1 mt-auto">
+                    <button
+                      type="button"
+                      disabled={savingDevelopment}
+                      onClick={() => void handleSaveDevelopment()}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base">save</span>
+                      {savingDevelopment ? 'در حال ذخیره…' : 'ذخیره حالت توسعه'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {settingsSubTab === 'ai' && (
+            <div className="space-y-6">
+              <AiSettingsPanel
+                value={aiDraft}
+                onChange={setAiDraft}
+                onSave={handleSaveAi}
+                saving={savingAi}
+                saveMsg={settingsSaveMsg}
               />
+              <McpConnectionPanel />
             </div>
-          </div>
+          )}
         </div>
       )}
 

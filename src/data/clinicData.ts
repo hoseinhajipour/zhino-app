@@ -1,4 +1,4 @@
-import { Doctor, ServiceItem, FAQItem, Appointment, Article } from '../types';
+import { Doctor, ServiceItem, FAQItem, Article } from '../types';
 
 export const CLINIC_INFO = {
   name: 'کلینیک روانشناسی ژینو',
@@ -397,95 +397,6 @@ export const FAQS_MARRIAGE: FAQItem[] = [
     id: 'mfaq-3',
     question: 'آیا اطلاعات جلسات محرمانه باقی می‌ماند؟',
     answer: 'رازداری و محرمانگی، هسته اصلی اخلاق حرفه‌ای ماست. تمام گفتگوها و اطلاعات شما در محیطی امن و کاملاً محرمانه باقی خواهد ماند.'
-  }
-];
-
-export const INITIAL_APPOINTMENTS: Appointment[] = [
-  {
-    id: 'app-101',
-    bookingRef: 'ZH-849201',
-    patientName: 'سارا کاظمی',
-    patientPhone: '09121112233',
-    patientEmail: 'sara.k@gmail.com',
-    doctorId: 'dr-deihimi',
-    doctorName: 'خانم مرجانه دیهیمی',
-    serviceId: 'adult-individual',
-    serviceTitle: 'مشاوره فردی بزرگسال',
-    date: '1403/05/02',
-    timeSlot: '16:00',
-    sessionType: 'in-person',
-    status: 'confirmed',
-    createdAt: '1403/04/28 - 14:20',
-    notes: 'مراجع با شکایت اضطراب شدید شغلی و اختلال در خواب.',
-    fee: '۸۵۰,۰۰۰ تومان'
-  },
-  {
-    id: 'app-102',
-    bookingRef: 'ZH-391044',
-    patientName: 'امیرحسین رضایی',
-    patientPhone: '09123334455',
-    doctorId: 'dr-ghadyani',
-    doctorName: 'خانم مرجان قدیانی',
-    serviceId: 'couples-marriage',
-    serviceTitle: 'زوج‌درمانی و پیش از ازدواج',
-    date: '1403/05/03',
-    timeSlot: '17:30',
-    sessionType: 'online',
-    status: 'pending',
-    createdAt: '1403/04/29 - 09:15',
-    notes: 'جلسه دوم زوج درمانی - تمرکز بر الگوی گفتگو.',
-    fee: '۱,۱۰۰,۰۰۰ تومان'
-  },
-  {
-    id: 'app-103',
-    bookingRef: 'ZH-112093',
-    patientName: 'نرگس محمدی',
-    patientPhone: '09358889900',
-    doctorId: 'dr-nejad-hosseini',
-    doctorName: 'خانم سعیده نژاد حسینی',
-    serviceId: 'child-play-therapy',
-    serviceTitle: 'کودک و نوجوان (بازی درمانی)',
-    date: '1403/05/01',
-    timeSlot: '14:00',
-    sessionType: 'in-person',
-    status: 'completed',
-    createdAt: '1403/04/25 - 18:30',
-    notes: 'کودک ۷ ساله - بازی درمانی ترومای جدایی از مهد کودک.',
-    fee: '۹۰۰,۰۰۰ تومان'
-  },
-  {
-    id: 'app-104',
-    bookingRef: 'ZH-778219',
-    patientName: 'رضا طباطبایی',
-    patientPhone: '09129990011',
-    doctorId: 'dr-afshar',
-    doctorName: 'خانم زهره افشار',
-    serviceId: 'psychological-assessment',
-    serviceTitle: 'ارزیابی‌های روانشناختی',
-    date: '1403/05/04',
-    timeSlot: '11:30',
-    sessionType: 'in-person',
-    status: 'confirmed',
-    createdAt: '1403/04/30 - 11:00',
-    notes: 'تست هوش و سنجش استعداد شغلی NEO.',
-    fee: '۱,۵۰۰,۰۰۰ تومان'
-  },
-  {
-    id: 'app-105',
-    bookingRef: 'ZH-552190',
-    patientName: 'مریم حسینی',
-    patientPhone: '09194445566',
-    doctorId: 'dr-shaghaghi',
-    doctorName: 'خانم پروانه شقاقی',
-    serviceId: 'adult-individual',
-    serviceTitle: 'مشاوره فردی بزرگسال',
-    date: '1403/05/02',
-    timeSlot: '19:00',
-    sessionType: 'online',
-    status: 'cancelled',
-    createdAt: '1403/04/27 - 20:00',
-    notes: 'انصراف مراجع به دلیل تغییر زمان سفر.',
-    fee: '۸۵۰,۰۰۰ تومان'
   }
 ];
 

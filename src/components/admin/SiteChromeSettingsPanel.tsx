@@ -280,16 +280,16 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
   ];
 
   return (
-    <div className="bg-white dark:bg-surface-dim rounded-[32px] border border-outline-variant/30 shadow-sm overflow-hidden lg:col-span-2">
-      <div className="p-5 md:p-6 border-b border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 md:px-6 md:py-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+          <div className="w-11 h-11 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-2xl">brush</span>
           </div>
           <div>
-            <h2 className="font-extrabold text-lg text-on-surface">ظاهر سایت (هدر، منو، فوتر، هویت)</h2>
-            <p className="text-xs text-on-surface-variant">
-              برند، رنگ‌ها، منوی ناوبری و محتوای فوتر را از اینجا مدیریت کنید
+            <h2 className="font-extrabold text-base md:text-lg text-on-surface">ظاهر سایت</h2>
+            <p className="text-[11px] md:text-xs text-on-surface-variant mt-0.5">
+              برند، رنگ‌ها، منوی ناوبری و محتوای فوتر
             </p>
           </div>
         </div>
@@ -297,21 +297,23 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
           type="button"
           disabled={saving}
           onClick={() => void onSave()}
-          className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
+          className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-base">save</span>
           {saving ? 'ذخیره...' : 'ذخیره ظاهر سایت'}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1 p-3 border-b border-outline-variant/20 bg-surface-container-low/40">
+      <div className="flex flex-wrap gap-1 p-2.5 md:p-3 border-b border-slate-100 dark:border-slate-800 bg-surface-container-low/50">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`px-3.5 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
-              tab === t.id ? 'bg-primary text-white shadow' : 'text-on-surface-variant hover:bg-white'
+            className={`px-3.5 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all ${
+              tab === t.id
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-on-surface-variant hover:bg-white dark:hover:bg-slate-800'
             }`}
           >
             <span className="material-symbols-outlined text-base">{t.icon}</span>
@@ -504,27 +506,38 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
         )}
 
         {tab === 'header' && (
-          <div className="space-y-3">
-            {(
-              [
-                ['showPhone', 'نمایش شماره تلفن در هدر'],
-                ['showAuthButton', 'نمایش دکمه ورود / عضویت'],
-                ['showThemeToggle', 'نمایش تغییر تم روشن/تیره'],
-                ['showBookingButton', 'نمایش دکمه رزرو نوبت'],
-                ['sticky', 'هدر چسبان (Sticky)'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 font-bold cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!header[key]}
-                  onChange={(e) =>
-                    onChange({ ...value, header: { ...header, [key]: e.target.checked } })
-                  }
-                />
-                {label}
-              </label>
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {(
+                [
+                  { key: 'showPhone' as const, label: 'نمایش شماره تلفن در هدر', icon: 'call' },
+                  { key: 'showAuthButton' as const, label: 'نمایش دکمه ورود / عضویت', icon: 'login' },
+                  { key: 'showThemeToggle' as const, label: 'نمایش تغییر تم روشن/تیره', icon: 'contrast' },
+                  { key: 'showBookingButton' as const, label: 'نمایش دکمه رزرو نوبت', icon: 'event' },
+                  { key: 'sticky' as const, label: 'هدر چسبان (Sticky)', icon: 'vertical_align_top' },
+                ]
+              ).map((item) => (
+                <label
+                  key={item.key}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    header[item.key]
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-outline-variant/30 bg-surface-container-low/40 hover:border-outline-variant'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="rounded border-outline-variant"
+                    checked={!!header[item.key]}
+                    onChange={(e) =>
+                      onChange({ ...value, header: { ...header, [item.key]: e.target.checked } })
+                    }
+                  />
+                  <span className="material-symbols-outlined text-base text-primary">{item.icon}</span>
+                  <span className="font-bold text-[11px] text-on-surface">{item.label}</span>
+                </label>
+              ))}
+            </div>
             <TextField
               label="متن دکمه رزرو"
               value={header.bookingButtonLabel}
@@ -550,44 +563,59 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
 
         {tab === 'footer' && (
           <div className="space-y-4">
-            <TextField
-              label="متن معرفی فوتر"
-              value={footer.aboutText}
-              onChange={(v) => onChange({ ...value, footer: { ...footer, aboutText: v } })}
-              multiline
-            />
-            <TextField
-              label="ساعات کاری"
-              value={footer.hoursText}
-              onChange={(v) => onChange({ ...value, footer: { ...footer, hoursText: v } })}
-            />
-            <TextField
-              label="متن کپی‌رایت"
-              value={footer.copyrightText}
-              onChange={(v) => onChange({ ...value, footer: { ...footer, copyrightText: v } })}
-            />
-            {(
-              [
-                ['showNewsletter', 'نمایش خبرنامه'],
-                ['showAdminLink', 'نمایش لینک داشبورد ادمین'],
-                ['showWhatsapp', 'آیکون واتساپ'],
-                ['showPhoneIcon', 'آیکون تماس'],
-                ['showMapIcon', 'آیکون نقشه'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 font-bold cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!footer[key]}
-                  onChange={(e) =>
-                    onChange({ ...value, footer: { ...footer, [key]: e.target.checked } })
-                  }
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TextField
+                label="متن معرفی فوتر"
+                value={footer.aboutText}
+                onChange={(v) => onChange({ ...value, footer: { ...footer, aboutText: v } })}
+                multiline
+              />
+              <div className="space-y-4">
+                <TextField
+                  label="ساعات کاری"
+                  value={footer.hoursText}
+                  onChange={(v) => onChange({ ...value, footer: { ...footer, hoursText: v } })}
                 />
-                {label}
-              </label>
-            ))}
+                <TextField
+                  label="متن کپی‌رایت"
+                  value={footer.copyrightText}
+                  onChange={(v) => onChange({ ...value, footer: { ...footer, copyrightText: v } })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {(
+                [
+                  { key: 'showNewsletter' as const, label: 'نمایش خبرنامه', icon: 'mail' },
+                  { key: 'showAdminLink' as const, label: 'لینک داشبورد ادمین', icon: 'admin_panel_settings' },
+                  { key: 'showWhatsapp' as const, label: 'آیکون واتساپ', icon: 'chat' },
+                  { key: 'showPhoneIcon' as const, label: 'آیکون تماس', icon: 'call' },
+                  { key: 'showMapIcon' as const, label: 'آیکون نقشه', icon: 'location_on' },
+                ]
+              ).map((item) => (
+                <label
+                  key={item.key}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    footer[item.key]
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-outline-variant/30 bg-surface-container-low/40 hover:border-outline-variant'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="rounded border-outline-variant"
+                    checked={!!footer[item.key]}
+                    onChange={(e) =>
+                      onChange({ ...value, footer: { ...footer, [item.key]: e.target.checked } })
+                    }
+                  />
+                  <span className="material-symbols-outlined text-base text-primary">{item.icon}</span>
+                  <span className="font-bold text-[11px] text-on-surface">{item.label}</span>
+                </label>
+              ))}
+            </div>
             {footer.showNewsletter && (
-              <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl border border-outline-variant/30 bg-surface-container-low/30 p-4">
                 <TextField
                   label="عنوان خبرنامه"
                   value={footer.newsletterTitle}
@@ -601,7 +629,7 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
                   }
                   multiline
                 />
-              </>
+              </div>
             )}
             <div>
               <p className="text-[11px] font-black text-on-surface mb-2">لینک‌های دسترسی سریع</p>

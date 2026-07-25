@@ -3,7 +3,6 @@ import { PageScreen, Doctor, ServiceItem, Appointment, Article, UserProfile, FAQ
 import {
   DOCTORS as DEFAULT_DOCTORS,
   MAIN_SERVICES as DEFAULT_SERVICES,
-  INITIAL_APPOINTMENTS,
   INITIAL_ARTICLES,
   DEFAULT_FAQS,
 } from './data/clinicData';
@@ -269,7 +268,7 @@ export function App() {
   };
 
   // Datasets synchronized with MySQL via API
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>(DEFAULT_DOCTORS);
   const [services, setServices] = useState<ServiceItem[]>(DEFAULT_SERVICES);
   const [articles, setArticles] = useState<Article[]>(INITIAL_ARTICLES);
