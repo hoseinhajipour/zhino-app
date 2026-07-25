@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MediaField } from '../components/media/MediaField';
 import {
   completeInstall,
@@ -24,6 +24,24 @@ export const InstallerWizardPage: React.FC<InstallerWizardPageProps> = ({ onComp
   const [step, setStep] = useState<StepId>(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Resume mid-wizard after refresh (DB done, site/admin still pending)
+  useEffect(() => {
+    let cancelled = false;
+    fetchInstallStatus()
+      .then((status) => {
+        if (cancelled) return;
+        if (status.resumeStep === 2 || status.resumeStep === 3) {
+          setStep(status.resumeStep as StepId);
+        }
+      })
+      .catch(() => {
+        /* stay on step 1 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Step 1
   const [host, setHost] = useState('127.0.0.1');
@@ -91,12 +109,8 @@ export const InstallerWizardPage: React.FC<InstallerWizardPageProps> = ({ onComp
         password,
         database: database.trim() || 'zhino_app',
       });
-      if ((result as { alreadyInstalled?: boolean }).alreadyInstalled) {
-        onComplete();
-        return;
-      }
-      const status = await fetchInstallStatus();
-      if (status.installed && status.dbConnected) {
+      // Only skip site/admin when repairing an already-completed install.
+      if (result.alreadyInstalled) {
         onComplete();
         return;
       }

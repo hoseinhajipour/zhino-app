@@ -11,6 +11,7 @@ import {
   ArticleCategory,
 } from '../types';
 import { DEFAULT_CONTACT_INFO, mergeContactInfo } from './contactInfo';
+import { DEFAULT_FREE_GUIDE, mergeFreeGuide } from './freeGuideDefaults';
 import { DEFAULT_SITE_CHROME, mergeSiteChrome } from './siteChromeDefaults';
 import { DEFAULT_SITE_MODULES, mergeSiteModules } from './siteModules';
 
@@ -38,6 +39,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   site: DEFAULT_SITE_CHROME,
   contact: DEFAULT_CONTACT_INFO,
   modules: DEFAULT_SITE_MODULES,
+  freeGuide: DEFAULT_FREE_GUIDE,
 };
 
 export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): ClinicSettings {
@@ -52,6 +54,7 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
     site,
     contact: mergeContactInfo(raw?.contact || base.contact, site.identity),
     modules: mergeSiteModules(raw?.modules || base.modules),
+    freeGuide: mergeFreeGuide(raw?.freeGuide || base.freeGuide),
   };
 }
 

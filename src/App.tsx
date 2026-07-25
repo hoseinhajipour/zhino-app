@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { PageScreen, Doctor, ServiceItem, Appointment, Article, UserProfile, FAQItem, ClinicSettings, SitePage } from './types';
 import {
   DOCTORS as DEFAULT_DOCTORS,
@@ -21,11 +21,13 @@ import {
 } from './lib/dbService';
 import { applySiteTheme, isPageScreenTarget, mergeSiteChrome } from './lib/siteChromeDefaults';
 import { fetchInstallStatus } from './lib/installApi';
+import { AdminIntent, getSystemPageIdForScreen, setAdminIntent } from './lib/adminIntent';
 
 import { SEOHead } from './components/SEOHead';
 import { AppProvider, AppContextType } from './context/AppContext';
 
 import { Header } from './components/Header';
+import { AdminToolbar, AdminEditTarget } from './components/AdminToolbar';
 import { Footer } from './components/Footer';
 import { ConsultFloatingButton } from './components/ConsultFloatingButton';
 import { AppointmentModal } from './components/AppointmentModal';
@@ -445,6 +447,76 @@ export function App() {
     currentScreen === 'admin' ||
     (currentScreen === 'user-panel' && !!currentUser && currentUser.role !== 'patient');
 
+  const showAdminToolbar = !isAdminSurface && currentUser?.role === 'admin';
+
+  /** Which page/post the admin toolbar should offer to edit on the current screen. */
+  const adminEditTarget = useMemo<AdminEditTarget | null>(() => {
+    if (!showAdminToolbar) return null;
+
+    if (currentScreen === 'blog' && selectedArticleSlug) {
+      const article = articles.find(
+        (a) => a.slug === selectedArticleSlug || a.id === selectedArticleSlug
+      );
+      return article
+        ? {
+            label: 'ویرایش این نوشته',
+            icon: 'edit_note',
+            intent: { kind: 'edit-article', articleId: article.id },
+          }
+        : null;
+    }
+
+    if (currentScreen === 'custom-page') {
+      const page = sitePages.find(
+        (p) =>
+          p.slug === selectedCustomPageSlug ||
+          p.slug === `/p/${selectedCustomPageSlug}` ||
+          p.id === selectedCustomPageSlug
+      );
+      return page
+        ? {
+            label: 'ویرایش این صفحه',
+            icon: 'edit_square',
+            intent: { kind: 'edit-page', pageId: page.id },
+          }
+        : null;
+    }
+
+    if (currentScreen === 'service-detail') {
+      const service = services.find((s) => s.id === selectedServiceId);
+      return service
+        ? {
+            label: 'ویرایش صفحه خدمت',
+            icon: 'edit_square',
+            intent: { kind: 'edit-service', serviceId: service.id },
+          }
+        : null;
+    }
+
+    const systemPageId = getSystemPageIdForScreen(currentScreen);
+    return systemPageId
+      ? {
+          label: 'ویرایش این صفحه',
+          icon: 'edit_square',
+          intent: { kind: 'edit-page', pageId: systemPageId },
+        }
+      : null;
+  }, [
+    showAdminToolbar,
+    currentScreen,
+    selectedArticleSlug,
+    selectedCustomPageSlug,
+    selectedServiceId,
+    articles,
+    sitePages,
+    services,
+  ]);
+
+  const handleAdminIntent = (intent: AdminIntent) => {
+    setAdminIntent(intent);
+    handleNavigate('admin');
+  };
+
   /** Public maintenance: guests blocked; logged-in users + admin login bypass */
   const showMaintenance =
     !!settings.maintenanceMode &&
@@ -511,9 +583,20 @@ export function App() {
         }
       />
 
+      {/* Admin quick-access bar — visible on the public site for admins only */}
+      {showAdminToolbar && (
+        <AdminToolbar
+          currentUser={currentUser}
+          editTarget={adminEditTarget}
+          onOpenAdmin={handleAdminIntent}
+          onLogout={handleLogout}
+        />
+      )}
+
       {/* Sticky Header — hidden on admin dashboard */}
       {!isAdminSurface && (
         <Header
+          stickyTopClass={showAdminToolbar ? 'top-10' : 'top-0'}
           currentScreen={currentScreen}
           currentUser={currentUser}
           onNavigate={handleNavigate}
@@ -828,6 +911,7 @@ export function App() {
         onClose={() => setGuideModalOpen(false)}
         onSelectDoctor={(docId) => handleOpenBooking(docId)}
         doctors={doctors}
+        config={settings.freeGuide}
       />
 
       <AuthModal

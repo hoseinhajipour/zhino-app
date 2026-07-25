@@ -1,7 +1,9 @@
 export type InstallStatus = {
   needsInstall: boolean;
   installed: boolean;
+  installing?: boolean;
   dbConnected: boolean;
+  resumeStep?: number;
   steps: string[];
 };
 

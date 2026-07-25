@@ -1,4 +1,5 @@
 import type { ServiceBlock, ServiceBlockType } from '../../types';
+import type { ContainerColumn } from '../../lib/containerColumn';
 
 export type BuilderClipboard =
   | { kind: 'block'; block: ServiceBlock }
@@ -11,13 +12,12 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-type ContainerColumn = { id: string; blocks: ServiceBlock[] };
-
 /** Deep-clone a block with fresh ids (including nested container children). */
 export function cloneBlockWithNewIds(block: ServiceBlock): ServiceBlock {
   const props = JSON.parse(JSON.stringify(block.props)) as Record<string, unknown>;
   if (block.type === 'container' && Array.isArray(props.columns)) {
     props.columns = (props.columns as ContainerColumn[]).map((col) => ({
+      ...col,
       id: uid('col'),
       blocks: (col.blocks || []).map((child) => cloneBlockWithNewIds(child)),
     }));

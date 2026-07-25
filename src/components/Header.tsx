@@ -18,6 +18,8 @@ interface HeaderProps {
   onToggleTheme?: () => void;
   siteChrome?: SiteChromeSettings | null;
   contact?: ClinicContactInfo | null;
+  /** Sticky offset, so the header parks below the admin toolbar when it is shown. */
+  stickyTopClass?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   siteChrome,
   contact,
+  stickyTopClass = 'top-0',
 }) => {
   const chrome = useMemo(() => mergeSiteChrome(siteChrome || DEFAULT_SITE_CHROME), [siteChrome]);
   const { identity, header, menu } = chrome;
@@ -70,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
     return 'مراجعه‌کننده';
   };
 
-  const stickyClass = header.sticky !== false ? 'sticky top-0' : 'relative';
+  const stickyClass = header.sticky !== false ? `sticky ${stickyTopClass}` : 'relative';
 
   return (
     <>

@@ -7,5 +7,6 @@ coverage/
 .env*
 !.env.example
 .installed
+.installing
 uploads/
 !uploads/.gitkeep

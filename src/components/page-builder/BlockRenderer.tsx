@@ -7,8 +7,18 @@ interface BlockRendererProps {
   blocks: ServiceBlock[];
   ctx: BlockRenderContext;
   selectedBlockId?: string | null;
+  selectedColumnId?: string | null;
   onSelectBlock?: (id: string) => void;
+  onSelectColumn?: (containerId: string, columnId: string) => void;
   onContextMenuBlock?: (e: React.MouseEvent, blockId: string) => void;
+  onUpdateBlockProps?: (id: string, props: Record<string, unknown>) => void;
+  onMoveNestedBlock?: (
+    containerId: string,
+    fromCol: number,
+    fromIndex: number,
+    toCol: number,
+    toIndex: number
+  ) => void;
   previewMode?: boolean;
 }
 
@@ -16,14 +26,18 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   blocks,
   ctx,
   selectedBlockId,
+  selectedColumnId,
   onSelectBlock,
+  onSelectColumn,
   onContextMenuBlock,
+  onUpdateBlockProps,
+  onMoveNestedBlock,
   previewMode = false,
 }) => {
   return (
     <div className="space-y-10 md:space-y-14 pb-8 text-right">
       {blocks.map((block) => {
-        const selected = previewMode && selectedBlockId === block.id;
+        const selected = previewMode && selectedBlockId === block.id && !selectedColumnId;
         return (
           <div
             key={block.id}
@@ -57,8 +71,12 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             {renderServiceBlock(block, ctx, {
               previewMode,
               selectedBlockId,
+              selectedColumnId,
               onSelectBlock,
+              onSelectColumn,
               onContextMenuBlock,
+              onUpdateBlockProps,
+              onMoveNestedBlock,
             })}
           </div>
         );

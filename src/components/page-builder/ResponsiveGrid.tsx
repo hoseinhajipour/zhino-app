@@ -12,6 +12,13 @@ interface ResponsiveGridProps {
   columnsDesktop?: unknown;
   fallbacks?: { mobile?: number; tablet?: number; desktop?: number };
   className?: string;
+  /** Override grid-template-columns (e.g. custom column widths). */
+  templateColumns?: string;
+  /**
+   * Layout direction of items:
+   * row | row-reverse | column | column-reverse
+   */
+  direction?: 'row' | 'row-reverse' | 'column' | 'column-reverse';
   children: React.ReactNode;
 }
 
@@ -38,6 +45,8 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
   columnsDesktop,
   fallbacks,
   className = '',
+  templateColumns,
+  direction = 'row',
   children,
 }) => {
   const previewDevice = useBuilderDevicePreview();
@@ -67,12 +76,30 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
   }, [previewDevice, mobile, tablet, desktop]);
 
   const cols = previewCols ?? viewportCols;
+  const isVertical = direction === 'column' || direction === 'column-reverse';
+  const gridTemplateColumns = isVertical
+    ? 'minmax(0, 1fr)'
+    : templateColumns || `repeat(${cols}, minmax(0, 1fr))`;
+
+  const layoutStyle: React.CSSProperties = isVertical
+    ? {
+        display: 'flex',
+        flexDirection: direction,
+        flexWrap: 'nowrap',
+      }
+    : {
+        display: 'grid',
+        gridTemplateColumns,
+        // row = inherit page RTL; row-reverse = force LTR so first column is on the left
+        direction: direction === 'row-reverse' ? 'ltr' : undefined,
+      };
 
   return (
     <div
-      className={`grid w-full min-w-0 ${className}`.trim()}
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      data-cols={cols}
+      className={`w-full min-w-0 ${className}`.trim()}
+      style={layoutStyle}
+      data-cols={isVertical ? 1 : cols}
+      data-direction={direction}
       data-device={previewDevice || 'viewport'}
     >
       {children}

@@ -22,6 +22,11 @@ import {
   writeBuilderClipboard,
   type BuilderClipboard,
 } from './builderClipboard';
+import {
+  createEmptyColumn,
+  normalizeContainerColumn,
+  type ContainerColumn,
+} from '../../lib/containerColumn';
 
 export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
   'container',
@@ -119,8 +124,6 @@ export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
 
 type DevicePreview = 'desktop' | 'tablet' | 'mobile';
 
-type ContainerColumn = { id: string; blocks: ServiceBlock[] };
-
 interface PageBuilderEditorProps {
   title: string;
   eyebrow?: string;
@@ -201,9 +204,15 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   const [history, setHistory] = useState<ServiceBlock[][]>([initialBlocks]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(initialBlocks[0]?.id ?? null);
+  const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [nestedDrag, setNestedDrag] = useState<{
+    containerId: string;
+    columnIndex: number;
+    blockIndex: number;
+  } | null>(null);
   const [device, setDevice] = useState<DevicePreview>('desktop');
   const [widgetQuery, setWidgetQuery] = useState('');
   const [leftTab, setLeftTab] = useState<'widgets' | 'structure'>('widgets');
@@ -243,6 +252,33 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   );
   const selected = selectedMeta?.block || null;
 
+  const selectBlock = (id: string | null) => {
+    setSelectedId(id);
+    setSelectedColumnId(null);
+  };
+
+  const selectColumn = (containerId: string, columnId: string) => {
+    setSelectedId(containerId);
+    setSelectedColumnId(columnId);
+    if (metaPanel) setRightTab('block');
+  };
+
+  const updateSelectedColumn = (patch: Partial<ContainerColumn>) => {
+    if (!selectedId || !selectedColumnId) return;
+    const next = blocks.map((b) => {
+      if (b.id !== selectedId || b.type !== 'container') return b;
+      const columns = (
+        (Array.isArray(b.props.columns) ? b.props.columns : []) as unknown[]
+      ).map((raw, i) => {
+        const col = normalizeContainerColumn(raw, i);
+        if (col.id !== selectedColumnId) return col;
+        return normalizeContainerColumn({ ...col, ...patch }, i);
+      });
+      return { ...b, props: { ...b.props, columns } };
+    });
+    pushHistory(next);
+  };
+
   const moveBlock = (from: number, to: number) => {
     if (to < 0 || to >= blocks.length) return;
     const next = [...blocks];
@@ -254,7 +290,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   const addWidget = (type: ServiceBlockType) => {
     const block = createEmptyBlock(type);
     pushHistory([...blocks, block]);
-    setSelectedId(block.id);
+    selectBlock(block.id);
     setLeftTab('structure');
   };
 
@@ -269,7 +305,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     const next = [...blocks];
     next.splice(idx + 1, 0, copy);
     pushHistory(next);
-    setSelectedId(copy.id);
+    selectBlock(copy.id);
   };
 
   const removeBlock = (id: string) => {
@@ -277,7 +313,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     if (topLevel) {
       const next = blocks.filter((b) => b.id !== id);
       pushHistory(next);
-      if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+      if (selectedId === id) selectBlock(next[0]?.id ?? null);
       return;
     }
     const next = blocks.map((b) => {
@@ -295,13 +331,17 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
       };
     });
     pushHistory(next);
-    if (selectedId === id) setSelectedId(null);
+    if (selectedId === id) selectBlock(null);
+  };
+
+  const updateBlockProps = (id: string, props: Record<string, unknown>) => {
+    const next = mapBlocksDeep(blocks, (b) => (b.id === id ? { ...b, props } : b));
+    pushHistory(next);
   };
 
   const updateSelectedProps = (props: Record<string, unknown>) => {
     if (!selectedId) return;
-    const next = mapBlocksDeep(blocks, (b) => (b.id === selectedId ? { ...b, props } : b));
-    pushHistory(next);
+    updateBlockProps(selectedId, props);
   };
 
   const addNestedBlock = (columnIndex: number, type: ServiceBlockType) => {
@@ -312,7 +352,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
       if (b.id !== containerId) return b;
       const columns = [...((Array.isArray(b.props.columns) ? b.props.columns : []) as ContainerColumn[])];
       while (columns.length <= columnIndex) {
-        columns.push({ id: `col-${Date.now()}-${columns.length}`, blocks: [] });
+        columns.push(createEmptyColumn());
       }
       columns[columnIndex] = {
         ...columns[columnIndex],
@@ -321,7 +361,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
       return { ...b, props: { ...b.props, columns } };
     });
     pushHistory(next);
-    setSelectedId(child.id);
+    selectBlock(child.id);
   };
 
   const removeNestedBlock = (columnIndex: number, blockId: string) => {
@@ -342,7 +382,62 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
       return { ...b, props: { ...b.props, columns } };
     });
     pushHistory(next);
-    if (selectedId === blockId) setSelectedId(containerId);
+    if (selectedId === blockId) selectBlock(containerId);
+  };
+
+  const moveNestedBlock = (
+    containerId: string,
+    fromCol: number,
+    fromIndex: number,
+    toCol: number,
+    toIndex: number
+  ) => {
+    if (fromCol === toCol && fromIndex === toIndex) return;
+    const next = blocks.map((b) => {
+      if (b.id !== containerId || b.type !== 'container') return b;
+      const columns = ((Array.isArray(b.props.columns) ? b.props.columns : []) as ContainerColumn[]).map(
+        (col) => ({ ...col, blocks: [...(col.blocks || [])] })
+      );
+      if (
+        fromCol < 0 ||
+        toCol < 0 ||
+        fromCol >= columns.length ||
+        toCol >= columns.length ||
+        fromIndex < 0 ||
+        fromIndex >= columns[fromCol].blocks.length
+      ) {
+        return b;
+      }
+
+      if (fromCol === toCol) {
+        const list = columns[fromCol].blocks;
+        if (toIndex < 0 || toIndex > list.length) return b;
+        const originalLen = list.length;
+        const [item] = list.splice(fromIndex, 1);
+        const insertAt =
+          toIndex >= originalLen ? list.length : Math.min(toIndex, list.length);
+        list.splice(insertAt, 0, item);
+      } else {
+        const [item] = columns[fromCol].blocks.splice(fromIndex, 1);
+        const insertAt = Math.max(0, Math.min(toIndex, columns[toCol].blocks.length));
+        columns[toCol].blocks.splice(insertAt, 0, item);
+      }
+
+      return { ...b, props: { ...b.props, columns } };
+    });
+    pushHistory(next);
+  };
+
+  const dropNestedAt = (containerId: string, toCol: number, toIndex: number) => {
+    if (!nestedDrag || nestedDrag.containerId !== containerId) return;
+    moveNestedBlock(
+      containerId,
+      nestedDrag.columnIndex,
+      nestedDrag.blockIndex,
+      toCol,
+      toIndex
+    );
+    setNestedDrag(null);
   };
 
   const setClipboardState = (payload: BuilderClipboard | null) => {
@@ -354,7 +449,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (targetId) {
-      setSelectedId(targetId);
+      selectBlock(targetId);
       if (metaPanel) setRightTab('block');
     }
     setContextMenu({ x: e.clientX, y: e.clientY, targetId });
@@ -364,13 +459,13 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     const clone = cloneBlockWithNewIds(source);
     if (!targetId) {
       pushHistory([...blocks, clone]);
-      setSelectedId(clone.id);
+      selectBlock(clone.id);
       return;
     }
     const meta = findBlockDeep(blocks, targetId);
     if (!meta) {
       pushHistory([...blocks, clone]);
-      setSelectedId(clone.id);
+      selectBlock(clone.id);
       return;
     }
     if (meta.parentContainerId != null && meta.columnIndex != null) {
@@ -388,14 +483,14 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
         return { ...b, props: { ...b.props, columns } };
       });
       pushHistory(next);
-      setSelectedId(clone.id);
+      selectBlock(clone.id);
       return;
     }
     const idx = blocks.findIndex((b) => b.id === targetId);
     const next = [...blocks];
     next.splice(idx < 0 ? next.length : idx + 1, 0, clone);
     pushHistory(next);
-    setSelectedId(clone.id);
+    selectBlock(clone.id);
   };
 
   const handleContextAction = (action: ContextMenuAction) => {
@@ -439,7 +534,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
         if (!blocks.length) return;
         if (!window.confirm('همه ویجت‌های این صفحه حذف شوند؟')) return;
         pushHistory([]);
-        setSelectedId(null);
+        selectBlock(null);
         break;
       }
       case 'paste': {
@@ -456,7 +551,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
             next.splice(idx < 0 ? next.length : idx + 1, 0, ...clones);
             pushHistory(next);
           }
-          setSelectedId(clones[0]?.id ?? null);
+          selectBlock(clones[0]?.id ?? null);
         }
         break;
       }
@@ -678,14 +773,18 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                 <div key={block.id}>
                   <div
                     draggable
-                    onDragStart={() => setDragIndex(index)}
+                    onDragStart={() => {
+                      setNestedDrag(null);
+                      setDragIndex(index);
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => {
                       if (dragIndex === null || dragIndex === index) return;
                       moveBlock(dragIndex, index);
                       setDragIndex(null);
                     }}
-                    onClick={() => setSelectedId(block.id)}
+                    onClick={() => selectBlock(block.id)}
                     onContextMenu={(e) => openContextMenu(e, block.id)}
                     className={`group flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                       selectedId === block.id
@@ -747,28 +846,133 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                   </div>
                   {block.type === 'container' &&
                     ((Array.isArray(block.props.columns) ? block.props.columns : []) as ContainerColumn[]).map(
-                      (col, ci) =>
-                        (col.blocks || []).map((child) => (
+                      (col, ci) => (
+                        <div
+                          key={col.id || `col-${ci}`}
+                          className="mr-3 mt-1 rounded-lg border border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-1.5 space-y-1"
+                          onDragOver={(e) => {
+                            if (!nestedDrag || nestedDrag.containerId !== block.id) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => {
+                            if (!nestedDrag || nestedDrag.containerId !== block.id) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            dropNestedAt(block.id, ci, (col.blocks || []).length);
+                          }}
+                        >
                           <button
-                            key={child.id}
                             type="button"
-                            onClick={() => setSelectedId(child.id)}
-                            onContextMenu={(e) => openContextMenu(e, child.id)}
-                            className={`w-full mr-4 mt-1 flex items-center gap-2 p-2 rounded-lg border text-right ${
-                              selectedId === child.id
-                                ? 'border-teal-400 bg-teal-50/80'
-                                : 'border-transparent hover:bg-slate-50'
+                            className={`w-full text-right text-[9px] font-black px-1.5 pt-0.5 rounded ${
+                              selectedColumnId === col.id
+                                ? 'text-teal-700 bg-teal-50'
+                                : 'text-slate-400 hover:text-teal-600'
                             }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              selectColumn(block.id, col.id);
+                            }}
                           >
-                            <span className="text-slate-300 text-[10px]">└</span>
-                            <span className="material-symbols-outlined text-sm text-slate-500">
-                              {BLOCK_ICONS[child.type]}
-                            </span>
-                            <span className="text-[10px] font-bold truncate">
-                              {BLOCK_LABELS[child.type]} · ستون {ci + 1}
-                            </span>
+                            ستون {ci + 1}
+                            {(col.blocks || []).length > 0
+                              ? ` · ${(col.blocks || []).length} ویجت`
+                              : ' · خالی'}
                           </button>
-                        ))
+                          {(col.blocks || []).map((child, childIndex) => (
+                            <div
+                              key={child.id}
+                              draggable
+                              onDragStart={(e) => {
+                                e.stopPropagation();
+                                setDragIndex(null);
+                                setNestedDrag({
+                                  containerId: block.id,
+                                  columnIndex: ci,
+                                  blockIndex: childIndex,
+                                });
+                              }}
+                              onDragEnd={() => setNestedDrag(null)}
+                              onDragOver={(e) => {
+                                if (!nestedDrag || nestedDrag.containerId !== block.id) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onDrop={(e) => {
+                                if (!nestedDrag || nestedDrag.containerId !== block.id) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                dropNestedAt(block.id, ci, childIndex);
+                              }}
+                              onClick={() => selectBlock(child.id)}
+                              onContextMenu={(e) => openContextMenu(e, child.id)}
+                              className={`group/nested w-full flex items-center gap-1.5 p-1.5 rounded-lg border cursor-pointer text-right ${
+                                selectedId === child.id
+                                  ? 'border-teal-400 bg-teal-50/80 dark:bg-teal-900/30'
+                                  : nestedDrag?.blockIndex === childIndex &&
+                                      nestedDrag.columnIndex === ci &&
+                                      nestedDrag.containerId === block.id
+                                    ? 'border-teal-300 opacity-50'
+                                    : 'border-transparent hover:bg-white dark:hover:bg-slate-800'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-sm text-slate-400 cursor-grab shrink-0">
+                                drag_indicator
+                              </span>
+                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">
+                                {BLOCK_ICONS[child.type]}
+                              </span>
+                              <span className="flex-1 text-[10px] font-bold truncate">
+                                {BLOCK_LABELS[child.type]}
+                              </span>
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover/nested:opacity-100 shrink-0">
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-slate-100"
+                                  title="بالا"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (childIndex > 0) {
+                                      moveNestedBlock(block.id, ci, childIndex, ci, childIndex - 1);
+                                    }
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined text-xs">arrow_upward</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-slate-100"
+                                  title="پایین"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (childIndex < (col.blocks || []).length - 1) {
+                                      moveNestedBlock(block.id, ci, childIndex, ci, childIndex + 1);
+                                    }
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined text-xs">arrow_downward</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-rose-50 text-rose-600"
+                                  title="حذف"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeBlock(child.id);
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined text-xs">delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {!(col.blocks || []).length && (
+                            <p className="text-[9px] text-slate-400 text-center py-2 px-1">
+                              ویجت را اینجا رها کنید
+                            </p>
+                          )}
+                        </div>
+                      )
                     )}
                 </div>
               ))}
@@ -792,11 +996,15 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
               <BlockRenderer
                 blocks={blocks}
                 selectedBlockId={selectedId}
+                selectedColumnId={selectedColumnId}
                 onSelectBlock={(id) => {
-                  setSelectedId(id);
+                  selectBlock(id);
                   if (metaPanel) setRightTab('block');
                 }}
+                onSelectColumn={selectColumn}
                 onContextMenuBlock={(e, id) => openContextMenu(e, id)}
+                onUpdateBlockProps={updateBlockProps}
+                onMoveNestedBlock={moveNestedBlock}
                 previewMode
                 ctx={{
                   serviceId: contextId,
@@ -860,22 +1068,44 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                 )}
                 <div className="flex items-center gap-2 p-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/30 border border-teal-200/60">
                   <span className="material-symbols-outlined text-teal-700">
-                    {BLOCK_ICONS[settingsTarget.type]}
+                    {selectedColumnId ? 'view_column' : BLOCK_ICONS[settingsTarget.type]}
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-teal-900 dark:text-teal-100 truncate">
-                      {BLOCK_LABELS[settingsTarget.type]}
+                      {selectedColumnId && selected?.type === 'container'
+                        ? `تنظیمات ستون ${
+                            (
+                              (Array.isArray(selected.props.columns)
+                                ? selected.props.columns
+                                : []) as ContainerColumn[]
+                            ).findIndex((c) => c.id === selectedColumnId) + 1
+                          }`
+                        : BLOCK_LABELS[settingsTarget.type]}
                     </p>
                     {selectedMeta?.parentContainerId && (
                       <p className="text-[10px] text-teal-700/80 font-bold">
                         داخل کانتینر · ستون {(selectedMeta.columnIndex ?? 0) + 1}
                       </p>
                     )}
+                    {selectedColumnId && selected?.type === 'container' && (
+                      <p className="text-[10px] text-teal-700/80 font-bold">کانتینر / ستون‌ها</p>
+                    )}
                   </div>
                 </div>
                 <BlockSettings
                   block={settingsTarget}
                   onChange={updateSelectedProps}
+                  selectedColumnId={
+                    selected?.type === 'container' ? selectedColumnId : null
+                  }
+                  onSelectColumn={
+                    selected?.type === 'container'
+                      ? (columnId) => selectColumn(selected.id, columnId)
+                      : undefined
+                  }
+                  onUpdateColumn={
+                    selected?.type === 'container' ? updateSelectedColumn : undefined
+                  }
                   onAddNestedBlock={
                     containerForNestedSettings && selected?.type === 'container'
                       ? addNestedBlock
@@ -884,12 +1114,27 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                   onRemoveNestedBlock={
                     selected?.type === 'container' ? removeNestedBlock : undefined
                   }
-                  onSelectNestedBlock={setSelectedId}
+                  onMoveNestedBlock={
+                    selected?.type === 'container'
+                      ? (fromCol, fromIndex, toCol, toIndex) =>
+                          moveNestedBlock(selected.id, fromCol, fromIndex, toCol, toIndex)
+                      : undefined
+                  }
+                  onSelectNestedBlock={selectBlock}
                 />
+                {selectedColumnId && selected?.type === 'container' && (
+                  <button
+                    type="button"
+                    onClick={() => selectBlock(selected.id)}
+                    className="w-full py-2 rounded-xl border border-slate-200 text-[11px] font-bold text-slate-600"
+                  >
+                    بازگشت به تنظیمات کانتینر
+                  </button>
+                )}
                 {selectedMeta?.parentContainerId && (
                   <button
                     type="button"
-                    onClick={() => setSelectedId(selectedMeta.parentContainerId!)}
+                    onClick={() => selectBlock(selectedMeta.parentContainerId!)}
                     className="w-full py-2 rounded-xl border border-slate-200 text-[11px] font-bold text-slate-600"
                   >
                     بازگشت به کانتینر والد

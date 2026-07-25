@@ -10,7 +10,9 @@ import {
   type MysqlConnectionInput,
 } from '../db';
 import {
+  isInstallInProgress,
   isInstallLocked,
+  markInstallInProgress,
   writeEnvFile,
   writeInstallLock,
 } from '../lib/installLock';
@@ -57,18 +59,50 @@ async function probeDbConnected(): Promise<boolean> {
 
 installRouter.get('/status', async (_req, res) => {
   const locked = isInstallLocked();
+  const installing = isInstallInProgress();
   const dbConnected = await probeDbConnected();
+  // Always show installer until .installed exists (even if .env MySQL already works).
+  // Also show when lock exists but DB is down (reconnect via step 1).
   const needsInstall = !locked || !dbConnected;
+  const resumeStep = locked ? 0 : installing && dbConnected ? 2 : 1;
   res.json({
     needsInstall,
     installed: locked,
+    installing,
     dbConnected,
+    resumeStep,
     steps: ['db', 'site', 'admin'],
   });
 });
 
 installRouter.post('/db', async (req, res) => {
   try {
+    if (isInstallLocked()) {
+      // Repair path only: verify credentials, rewrite .env, do not re-run wizard steps 2–3
+      const body = req.body || {};
+      const input: MysqlConnectionInput = {
+        host: String(body.host || '127.0.0.1').trim() || '127.0.0.1',
+        port: Number(body.port) || 3306,
+        user: String(body.user || 'root').trim() || 'root',
+        password: String(body.password ?? ''),
+        database: String(body.database || 'zhino_app').trim().replace(/[^a-zA-Z0-9_]/g, '') || 'zhino_app',
+      };
+      await testMysqlConnection(input, { createDb: false });
+      writeEnvFile({
+        PORT: process.env.PORT || '3001',
+        MYSQL_HOST: input.host,
+        MYSQL_PORT: input.port,
+        MYSQL_USER: input.user,
+        MYSQL_PASSWORD: input.password,
+        MYSQL_DATABASE: input.database,
+      });
+      applyMysqlEnv(input);
+      await resetPool();
+      await initDatabase();
+      res.json({ ok: true, database: input.database, alreadyInstalled: true });
+      return;
+    }
+
     const body = req.body || {};
     const input: MysqlConnectionInput = {
       host: String(body.host || '127.0.0.1').trim() || '127.0.0.1',
@@ -78,6 +112,7 @@ installRouter.post('/db', async (req, res) => {
       database: String(body.database || 'zhino_app').trim().replace(/[^a-zA-Z0-9_]/g, '') || 'zhino_app',
     };
 
+    // Create database ONLY from the installer wizard (never on server boot from .env)
     await testMysqlConnection(input, { createDb: true });
 
     writeEnvFile({
@@ -93,15 +128,14 @@ installRouter.post('/db', async (req, res) => {
     await resetPool();
     await initDatabase();
 
-    const locked = isInstallLocked();
-    if (!locked) {
-      await seedIfEmpty();
-      await ensureServicePageBuilders();
-      await ensureSitePages();
-      await ensureArticleCategories();
-    }
+    await seedIfEmpty();
+    await ensureServicePageBuilders();
+    await ensureSitePages();
+    await ensureArticleCategories();
+    // Keep wizard open for site identity + admin steps
+    markInstallInProgress();
 
-    res.json({ ok: true, database: input.database, alreadyInstalled: locked });
+    res.json({ ok: true, database: input.database, alreadyInstalled: false });
   } catch (err) {
     console.error('install/db failed:', err);
     res.status(400).json({

@@ -194,22 +194,15 @@ async function backfillArticleCategories(): Promise<void> {
   }
 }
 
+/**
+ * Ensure app tables exist on the configured database.
+ * Does NOT create the database itself — that only happens in the installer wizard
+ * via testMysqlConnection(..., { createDb: true }).
+ */
 export async function initDatabase(): Promise<void> {
-  const cfg = getConfig();
-  const bootstrap = await mysql.createConnection({
-    host: cfg.host,
-    port: cfg.port,
-    user: cfg.user,
-    password: cfg.password,
-    multipleStatements: true,
-  });
-
-  await bootstrap.query(
-    `CREATE DATABASE IF NOT EXISTS \`${cfg.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-  );
-  await bootstrap.end();
-
   const db = getPool();
+  // Fail fast if the database from env does not exist (no auto-CREATE).
+  await db.query('SELECT 1');
   for (const table of TABLES) {
     if (table === 'articles') {
       await db.query(`

@@ -1,12 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import type { ServiceBlock, ServiceBlockType } from '../../types';
 import { BLOCK_LABELS } from '../../lib/landingToBlocks';
+import type { ContainerColumn } from '../../lib/containerColumn';
 import { filterMaterialIcons } from '../../lib/materialIcons';
 import { MediaField } from '../media/MediaField';
 import { DividerBlockSettings } from './DividerBlockSettings';
 import { SpacerBlockSettings } from './SpacerBlockSettings';
 import { SingleImageBlockSettings } from './SingleImageBlockSettings';
 import { ImageGalleryBlockSettings } from './ImageGalleryBlockSettings';
+import { RichTextEditor } from './RichTextEditor';
+import { ContainerBlockSettings } from './ContainerBlockSettings';
 
 interface BlockSettingsProps {
   block: ServiceBlock;
@@ -14,7 +17,16 @@ interface BlockSettingsProps {
   /** Add a nestable widget into a container column */
   onAddNestedBlock?: (columnIndex: number, type: ServiceBlockType) => void;
   onRemoveNestedBlock?: (columnIndex: number, blockId: string) => void;
-  onSelectNestedBlock?: (blockId: string) => void;
+  onMoveNestedBlock?: (
+    fromCol: number,
+    fromIndex: number,
+    toCol: number,
+    toIndex: number
+  ) => void;
+  onSelectNestedBlock?: (blockId: string | null) => void;
+  selectedColumnId?: string | null;
+  onSelectColumn?: (columnId: string) => void;
+  onUpdateColumn?: (patch: Partial<ContainerColumn>) => void;
 }
 
 const fieldClass =
@@ -1049,7 +1061,11 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
   onChange,
   onAddNestedBlock,
   onRemoveNestedBlock,
+  onMoveNestedBlock,
   onSelectNestedBlock,
+  selectedColumnId,
+  onSelectColumn,
+  onUpdateColumn,
 }) => {
   const p = block.props;
   const set = (key: string, value: unknown) => onChange({ ...p, [key]: value });
@@ -1766,15 +1782,18 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
     case 'richText':
       return (
         <div className="space-y-3">
-          <label className="block space-y-1">
-            <span className="text-[11px] font-bold text-on-surface-variant">محتوای HTML</span>
-            <textarea
-              rows={10}
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold text-on-surface-variant">محتوا</span>
+            <RichTextEditor
               value={String(p.html || '')}
-              onChange={(e) => set('html', e.target.value)}
-              className={`${fieldClass} font-mono`}
+              onChange={(html) => set('html', html)}
+              compact
+              allowSource
             />
-          </label>
+          </div>
+          <p className="text-[10px] leading-relaxed text-on-surface-variant">
+            متن را همین‌جا یا مستقیماً روی بوم انتخاب و ویرایش کنید.
+          </p>
         </div>
       );
 
@@ -2351,191 +2370,18 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
     }
 
     case 'container': {
-      const columnCount = Math.min(
-        4,
-        Math.max(1, Number(p.columnsDesktop ?? p.columnCount) || 2)
-      );
-      const columns = (Array.isArray(p.columns) ? p.columns : []) as Array<{
-        id: string;
-        blocks: ServiceBlock[];
-      }>;
-      const nestTypes: ServiceBlockType[] = [
-        'richText',
-        'htmlCode',
-        'imageCarousel',
-        'videoPlayer',
-        'icon',
-        'iconList',
-        'button',
-        'divider',
-        'spacer',
-        'singleImage',
-        'imageGallery',
-        'googleMap',
-        'features',
-        'highlights',
-        'cta',
-        'contactCards',
-        'contactInfo',
-      ];
       return (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-on-surface-variant block">عرض کانتینر</span>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  { value: 'contained', label: 'کانتینری', hint: 'پیش‌فرض ۱۴۰۰px' },
-                  { value: 'full', label: 'تمام‌عرض', hint: 'عرض کامل صفحه' },
-                ] as const
-              ).map((opt) => {
-                const active = String(p.widthMode || 'contained') === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => set('widthMode', opt.value)}
-                    className={`text-right rounded-xl border p-2.5 transition-all ${
-                      active
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                        : 'border-outline-variant/40 hover:border-primary/30'
-                    }`}
-                  >
-                    <p className="text-[11px] font-black text-on-surface">{opt.label}</p>
-                    <p className="text-[10px] text-on-surface-variant">{opt.hint}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {String(p.widthMode || 'contained') !== 'full' && (
-            <label className="block space-y-1">
-              <span className="text-[11px] font-bold text-on-surface-variant">
-                حداکثر عرض (پیکسل)
-              </span>
-              <input
-                type="number"
-                min={640}
-                max={2400}
-                step={20}
-                value={Number(p.maxWidth) > 0 ? Number(p.maxWidth) : 1400}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  set('maxWidth', Number.isFinite(n) ? n : 1400);
-                }}
-                className={fieldClass}
-                dir="ltr"
-              />
-              <span className="text-[10px] text-on-surface-variant">
-                پیشنهادی: ۱۴۰۰ · محدوده ۶۴۰–۲۴۰۰
-              </span>
-            </label>
-          )}
-          <ResponsiveColumnsFields
-            props={p}
-            onChange={onChange}
-            defaults={{ mobile: 1, tablet: 2, desktop: 2 }}
-            desktopLabel="دسکتاپ / محتوا"
-            onDesktopChange={(nextCount, nextProps) => {
-              let nextCols = [...columns];
-              while (nextCols.length < nextCount) {
-                nextCols.push({
-                  id: `col-${Date.now().toString(36)}-${nextCols.length}`,
-                  blocks: [],
-                });
-              }
-              nextCols = nextCols.slice(0, nextCount);
-              onChange({ ...nextProps, columns: nextCols });
-            }}
-          />
-          <label className="block space-y-1">
-            <span className="text-[11px] font-bold text-on-surface-variant">فاصله ستون‌ها</span>
-            <select
-              value={String(p.gap || 'md')}
-              onChange={(e) => set('gap', e.target.value)}
-              className={fieldClass}
-            >
-              <option value="sm">کم</option>
-              <option value="md">متوسط</option>
-              <option value="lg">زیاد</option>
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-[11px] font-bold text-on-surface-variant">حاشیه داخلی</span>
-            <select
-              value={String(p.padding || 'md')}
-              onChange={(e) => set('padding', e.target.value)}
-              className={fieldClass}
-            >
-              <option value="none">بدون</option>
-              <option value="sm">کم</option>
-              <option value="md">متوسط</option>
-              <option value="lg">زیاد</option>
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-[11px] font-bold text-on-surface-variant">پس‌زمینه</span>
-            <select
-              value={String(p.background || 'none')}
-              onChange={(e) => set('background', e.target.value)}
-              className={fieldClass}
-            >
-              <option value="none">شفاف</option>
-              <option value="soft">سطح ملایم</option>
-              <option value="white">کارت سفید</option>
-            </select>
-          </label>
-
-          {Array.from({ length: columnCount }).map((_, colIdx) => {
-            const col = columns[colIdx] || { id: `col-${colIdx}`, blocks: [] };
-            return (
-              <div
-                key={col.id || colIdx}
-                className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-2"
-              >
-                <p className="text-[11px] font-black text-primary">ستون {colIdx + 1}</p>
-                {(col.blocks || []).map((child) => (
-                  <div
-                    key={child.id}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-surface-dim border border-outline-variant/20"
-                  >
-                    <button
-                      type="button"
-                      className="flex-1 text-right text-[11px] font-bold truncate"
-                      onClick={() => onSelectNestedBlock?.(child.id)}
-                    >
-                      {BLOCK_LABELS[child.type] || child.type}
-                    </button>
-                    <button
-                      type="button"
-                      className="text-rose-500 text-[10px] font-bold"
-                      onClick={() => onRemoveNestedBlock?.(colIdx, child.id)}
-                    >
-                      حذف
-                    </button>
-                  </div>
-                ))}
-                <select
-                  defaultValue=""
-                  className={fieldClass}
-                  onChange={(e) => {
-                    const type = e.target.value as ServiceBlockType;
-                    if (!type) return;
-                    onAddNestedBlock?.(colIdx, type);
-                    e.target.value = '';
-                  }}
-                >
-                  <option value="">+ افزودن بلوک به این ستون</option>
-                  {nestTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {BLOCK_LABELS[t] || t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-          })}
-        </div>
+        <ContainerBlockSettings
+          props={p}
+          onChange={onChange}
+          onAddNestedBlock={onAddNestedBlock}
+          onRemoveNestedBlock={onRemoveNestedBlock}
+          onMoveNestedBlock={onMoveNestedBlock}
+          onSelectNestedBlock={onSelectNestedBlock}
+          selectedColumnId={selectedColumnId}
+          onSelectColumn={onSelectColumn}
+          onUpdateColumn={onUpdateColumn}
+        />
       );
     }
 

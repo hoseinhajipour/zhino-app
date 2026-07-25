@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { getEntity, initDatabase } from './db';
+import { initDatabase } from './db';
 import {
   seedIfEmpty,
   ensureServicePageBuilders,
@@ -25,7 +25,7 @@ import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
 import { systemRouter } from './routes/system';
 import { backupRouter } from './routes/backup';
-import { isInstallLocked, writeInstallLock } from './lib/installLock';
+import { isInstallInProgress, isInstallLocked } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -106,7 +106,26 @@ app.use((req, res, next) => {
   });
 });
 
+/**
+ * Only connect/seed when install is finished, or mid-wizard (DB already created in step 1).
+ * Never CREATE DATABASE from .env — that happens only in installer step 1.
+ */
 async function bootstrapDatabase(): Promise<boolean> {
+  if (!isInstallLocked()) {
+    if (!isInstallInProgress()) {
+      // Fresh site: force installer — do not create DB or seed from .env
+      return false;
+    }
+    // Steps 2–3 pending: reconnect so /site and /admin work after restart
+    try {
+      await initDatabase();
+      return true;
+    } catch (err) {
+      console.error('Database reconnect during install failed:', err);
+      return false;
+    }
+  }
+
   try {
     await initDatabase();
     await seedIfEmpty();
@@ -114,15 +133,6 @@ async function bootstrapDatabase(): Promise<boolean> {
     await ensureSitePages();
     await ensureDefaultUsers();
     await ensureArticleCategories();
-
-    // Legacy installs without .installed lock: auto-lock if settings exist
-    if (!isInstallLocked()) {
-      const settings = await getEntity('settings', 'clinic_settings');
-      if (settings) {
-        writeInstallLock();
-        console.log('Created .installed lock for existing database.');
-      }
-    }
     return true;
   } catch (err) {
     console.error('Database bootstrap failed (installer available):', err);
@@ -134,10 +144,12 @@ async function main() {
   const dbOk = await bootstrapDatabase();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Zhino server listening on http://0.0.0.0:${PORT}`);
-    if (!dbOk) {
-      console.log('Waiting for installer — open the site to complete setup.');
-    } else if (!isInstallLocked()) {
-      console.log('Database ready — complete the installer wizard in the browser.');
+    if (!isInstallLocked()) {
+      console.log(
+        'Waiting for installer — open the site to complete setup (database is created only in the wizard).'
+      );
+    } else if (!dbOk) {
+      console.log('Install lock present but database is unreachable — open the site to repair connection.');
     }
   });
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MediaField } from '../components/media/MediaField';
 import {
@@ -43,6 +43,7 @@ import { ArticleEditorPage } from '../components/page-builder/ArticleEditorPage'
 import { SiteChromeSettingsPanel } from '../components/admin/SiteChromeSettingsPanel';
 import { ContactInfoSettingsPanel } from '../components/admin/ContactInfoSettingsPanel';
 import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
+import { FreeGuideSettingsPanel } from '../components/admin/FreeGuideSettingsPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { ImportExportPanel } from '../components/admin/ImportExportPanel';
@@ -52,7 +53,13 @@ import {
   mergeContactInfo,
 } from '../lib/contactInfo';
 import { isAppointmentsModuleEnabled, mergeSiteModules } from '../lib/siteModules';
-import type { ClinicContactInfo, SiteChromeSettings, SiteModulesSettings } from '../types';
+import { mergeFreeGuide } from '../lib/freeGuideDefaults';
+import type {
+  ClinicContactInfo,
+  FreeGuideSettings,
+  SiteChromeSettings,
+  SiteModulesSettings,
+} from '../types';
 import { createBlankArticle } from '../lib/articleDefaults';
 import {
   createBlankSitePage,
@@ -65,6 +72,7 @@ import {
   SYSTEM_SITE_PAGE_IDS,
 } from '../lib/sitePageDefaults';
 import { AdminShell } from '../components/admin/AdminShell';
+import { AdminIntent, consumeAdminIntent } from '../lib/adminIntent';
 import {
   AdminTabId,
   canAccessPersonnelTab,
@@ -131,10 +139,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onLogout,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  /** Pending action requested by the public-site admin toolbar. */
+  const [pendingIntent, setPendingIntent] = useState<AdminIntent | null>(() => consumeAdminIntent());
 
   // --- APPOINTMENT FILTERS & ACTIONS ---
   const [appSearch, setAppSearch] = useState('');
-  const [appointmentsSubTab, setAppointmentsSubTab] = useState<'list' | 'settings'>('list');
+  const [appointmentsSubTab, setAppointmentsSubTab] = useState<'list' | 'settings' | 'guide'>('list');
   const [appStatusFilter, setAppStatusFilter] = useState<string>('all');
   const [showAddAppModal, setShowAddAppModal] = useState(false);
   const [editingApp, setEditingApp] = useState<Appointment | null>(null);
@@ -148,11 +158,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [siteChromeDraft, setSiteChromeDraft] = useState<SiteChromeSettings>(() =>
     mergeSiteChrome(DEFAULT_CLINIC_SETTINGS.site)
   );
+  const siteChromeDraftRevisionRef = useRef(0);
+  const siteChromeSyncBlockedRef = useRef(false);
   const [contactDraft, setContactDraft] = useState<ClinicContactInfo>(() =>
     mergeContactInfo(DEFAULT_CLINIC_SETTINGS.contact)
   );
   const [modulesDraft, setModulesDraft] = useState<SiteModulesSettings>(() =>
     mergeSiteModules(DEFAULT_CLINIC_SETTINGS.modules)
+  );
+  const [freeGuideDraft, setFreeGuideDraft] = useState<FreeGuideSettings>(() =>
+    mergeFreeGuide(DEFAULT_CLINIC_SETTINGS.freeGuide)
   );
 
   const navOptions = { appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft) };
@@ -174,6 +189,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [savingSiteChrome, setSavingSiteChrome] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [savingModules, setSavingModules] = useState(false);
+  const [savingFreeGuide, setSavingFreeGuide] = useState(false);
   const [settingsSaveMsg, setSettingsSaveMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
@@ -190,6 +206,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   // --- ARTICLE CATEGORIES (must be declared before subscribe/handlers) ---
   const [articleCategories, setArticleCategories] = useState<ArticleCategory[]>([]);
+  const [articleCategoriesLoaded, setArticleCategoriesLoaded] = useState(false);
   const [articlesSubTab, setArticlesSubTab] = useState<'list' | 'categories'>('list');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategorySlug, setNewCategorySlug] = useState('');
@@ -220,9 +237,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const unsub = subscribeClinicSettings((st) => {
       if (st) {
         setSettings(st);
-        setSiteChromeDraft(mergeSiteChrome(st.site));
+        if (!siteChromeSyncBlockedRef.current) {
+          setSiteChromeDraft(mergeSiteChrome(st.site));
+        }
         setContactDraft(mergeContactInfo(st.contact, st.site?.identity));
         setModulesDraft(mergeSiteModules(st.modules));
+        setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
         setMaintenanceMode(!!st.maintenanceMode);
         setMaintenanceMessage(st.maintenanceMessage || '');
         setResBookingEnabled(st.bookingEnabled ?? true);
@@ -249,6 +269,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name, 'fa')
       );
       setArticleCategories(sorted);
+      setArticleCategoriesLoaded(true);
     });
     return () => unsub();
   }, []);
@@ -600,6 +621,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const handleSaveSiteChrome = async () => {
     setSavingSiteChrome(true);
     setSettingsSaveMsg(null);
+    const savedRevision = siteChromeDraftRevisionRef.current;
     const updated: ClinicSettings = {
       ...settings,
       site: siteChromeDraft,
@@ -611,6 +633,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         type: 'success',
         msg: 'تنظیمات ظاهر سایت (هدر، منو، فوتر و هویت) ذخیره شد.',
       });
+      window.setTimeout(() => {
+        if (siteChromeDraftRevisionRef.current === savedRevision) {
+          siteChromeSyncBlockedRef.current = false;
+        }
+      }, 7000);
       setTimeout(() => setSettingsSaveMsg(null), 4000);
     } catch {
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره ظاهر سایت' });
@@ -674,6 +701,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره ماژول‌ها' });
     } finally {
       setSavingModules(false);
+    }
+  };
+
+  const handleSaveFreeGuide = async () => {
+    setSavingFreeGuide(true);
+    setSettingsSaveMsg(null);
+    const freeGuide = mergeFreeGuide(freeGuideDraft);
+    const updated: ClinicSettings = {
+      ...settings,
+      freeGuide,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setFreeGuideDraft(freeGuide);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: 'فرم انتخاب درمانگر ذخیره شد.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره فرم انتخاب درمانگر' });
+    } finally {
+      setSavingFreeGuide(false);
     }
   };
 
@@ -1218,6 +1269,77 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     }
   };
 
+  // Resolve the toolbar request once the referenced entity is available.
+  useEffect(() => {
+    if (!pendingIntent) return;
+    const role = currentUser?.role;
+    const allowedTabIds = getAllowedTabs(role, {
+      appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
+    }).map((t) => t.id);
+    const goTab = (tab: AdminTab) => {
+      if (allowedTabIds.includes(tab)) setActiveTab(tab);
+    };
+
+    switch (pendingIntent.kind) {
+      case 'tab':
+        goTab(pendingIntent.tab);
+        break;
+
+      case 'new-page':
+        if (!canEditSitePages(role)) break;
+        goTab('pages');
+        setShowCreatePageModal(true);
+        break;
+
+      case 'new-article': {
+        if (!canManageArticles(role)) break;
+        if (!articleCategoriesLoaded) return;
+        goTab('articles');
+        handleOpenArticleEditor();
+        break;
+      }
+
+      case 'edit-page': {
+        if (!canEditSitePages(role)) break;
+        const page = managedSitePages.find((p) => p.id === pendingIntent.pageId);
+        if (!page) return;
+        goTab('pages');
+        setPageBuilderSitePage(page);
+        break;
+      }
+
+      case 'edit-service': {
+        if (!canEditServicePages(role)) break;
+        const service = services.find((s) => s.id === pendingIntent.serviceId);
+        if (!service) return;
+        goTab('personnel');
+        setPersonnelSubTab('services');
+        setPageBuilderService(service);
+        break;
+      }
+
+      case 'edit-article': {
+        if (!canManageArticles(role)) break;
+        if (!articleCategoriesLoaded) return;
+        const article = articles.find((a) => a.id === pendingIntent.articleId);
+        if (!article) return;
+        goTab('articles');
+        handleOpenArticleEditor(article);
+        break;
+      }
+    }
+
+    setPendingIntent(null);
+  }, [
+    pendingIntent,
+    currentUser?.role,
+    modulesDraft,
+    managedSitePages,
+    services,
+    articles,
+    articleCategoriesLoaded,
+  ]);
+
   const handleDeleteArticle = async (id: string) => {
     if (window.confirm('آیا از حذف این مقاله اطمینان دارید؟')) {
       onUpdateArticles(articles.filter((a) => a.id !== id));
@@ -1251,11 +1373,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       subtitle: `خوش آمدید ${currentUser?.name || ''} — ${getRoleLabel(currentUser?.role || 'admin')}`,
     },
     appointments: {
-      title: appointmentsSubTab === 'settings' ? 'تنظیمات نوبت‌دهی' : 'مدیریت نوبت‌ها',
+      title:
+        appointmentsSubTab === 'settings'
+          ? 'تنظیمات نوبت‌دهی'
+          : appointmentsSubTab === 'guide'
+            ? 'فرم انتخاب درمانگر'
+            : 'مدیریت نوبت‌ها',
       subtitle:
         appointmentsSubTab === 'settings'
           ? 'رزرو آنلاین، درگاه پرداخت و پیامک تأیید نوبت'
-          : 'پیگیری، تأیید و ثبت نوبت‌های کلینیک',
+          : appointmentsSubTab === 'guide'
+            ? 'ویرایش سوال‌ها و قوانین پیشنهاد درمانگر در راهنمای هوشمند'
+            : 'پیگیری، تأیید و ثبت نوبت‌های کلینیک',
     },
     personnel: { title: 'پرسنل و خدمات', subtitle: 'مدیریت کادر درمان و صفحات خدمات' },
     users: {
@@ -1398,8 +1527,34 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   تنظیمات نوبت‌دهی
                 </button>
               )}
+              {canManageSettings(currentUser?.role) && (
+                <button
+                  type="button"
+                  onClick={() => setAppointmentsSubTab('guide')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                    appointmentsSubTab === 'guide'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface-variant hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">psychology</span>
+                  فرم انتخاب درمانگر
+                </button>
+              )}
             </div>
           </div>
+
+          {appointmentsSubTab === 'guide' && canManageSettings(currentUser?.role) && (
+            <div className="animate-fade-in">
+              <FreeGuideSettingsPanel
+                value={freeGuideDraft}
+                onChange={setFreeGuideDraft}
+                onSave={handleSaveFreeGuide}
+                saving={savingFreeGuide}
+                saveMsg={settingsSaveMsg}
+              />
+            </div>
+          )}
 
           {appointmentsSubTab === 'settings' && canManageSettings(currentUser?.role) && (
             <div className="space-y-4">
@@ -3232,7 +3387,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <div className="lg:col-span-2">
               <SiteChromeSettingsPanel
                 value={siteChromeDraft}
-                onChange={setSiteChromeDraft}
+                onChange={(next) => {
+                  siteChromeDraftRevisionRef.current += 1;
+                  siteChromeSyncBlockedRef.current = true;
+                  setSiteChromeDraft(next);
+                }}
                 onSave={handleSaveSiteChrome}
                 saving={savingSiteChrome}
               />

@@ -317,6 +317,49 @@ export interface SiteChromeSettings {
   footer: SiteFooterSettings;
 }
 
+/** Option inside a free-guide form field */
+export interface FreeGuideOption {
+  id: string;
+  label: string;
+}
+
+export type FreeGuideFieldType = 'buttons' | 'select';
+
+/** Question shown in the therapist-matcher modal */
+export interface FreeGuideField {
+  id: string;
+  label: string;
+  type: FreeGuideFieldType;
+  options: FreeGuideOption[];
+  enabled: boolean;
+}
+
+/** Rule: when all conditions match, try these doctor specialty keys */
+export interface FreeGuideMatchRule {
+  id: string;
+  label: string;
+  conditions: { fieldId: string; optionId: string }[];
+  specialtyKeys: string[];
+}
+
+/** Configurable «مشاوره رایگان انتخاب درمانگر» form */
+export interface FreeGuideSettings {
+  enabled: boolean;
+  badge: string;
+  title: string;
+  intro: string;
+  submitLabel: string;
+  resultBadge: string;
+  resultTitle: string;
+  resultHint: string;
+  changeOptionsLabel: string;
+  /** Use {name} for the doctor's short/display name */
+  bookLabelTemplate: string;
+  fields: FreeGuideField[];
+  matchRules: FreeGuideMatchRule[];
+  fallbackSpecialtyKeys: string[];
+}
+
 export interface ClinicSettings {
   bookingEnabled?: boolean;
   /** When true, public visitors see maintenance page; logged-in users bypass */
@@ -331,6 +374,8 @@ export interface ClinicSettings {
   contact?: ClinicContactInfo;
   /** Feature modules (admin-only); e.g. auto-translate */
   modules?: SiteModulesSettings;
+  /** Therapist selector / free guide form (admin-editable) */
+  freeGuide?: FreeGuideSettings;
 }
 
 /** Catalog entry for site language switcher */

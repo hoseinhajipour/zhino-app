@@ -9,6 +9,7 @@ import type { Article, ArticleCategory, ClinicSettings, ServiceItem, SitePage, U
 import { enrichServicesWithPageBuilder } from '../src/lib/landingToBlocks';
 import { getAllDefaultSitePages } from '../src/lib/sitePageDefaults';
 import { DEFAULT_SITE_CHROME } from '../src/lib/siteChromeDefaults';
+import { DEFAULT_FREE_GUIDE } from '../src/lib/freeGuideDefaults';
 import { countEntities, listEntities, upsertEntity, getEntity } from './db';
 import { hashPassword } from './lib/password';
 
@@ -32,6 +33,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     cancelPattern: 'مراجع محترم %patient%، نوبت شما برای تاریخ %date% با موفقیت لغو شد.',
   },
   site: DEFAULT_SITE_CHROME,
+  freeGuide: DEFAULT_FREE_GUIDE,
 };
 
 export async function seedIfEmpty(): Promise<void> {

@@ -4,15 +4,33 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const PROJECT_ROOT = path.resolve(__dirname, '..');
+// This file lives in server/lib — project root is two levels up.
+export const PROJECT_ROOT = path.resolve(__dirname, '../..');
 export const ENV_PATH = path.join(PROJECT_ROOT, '.env');
 export const INSTALLED_PATH = path.join(PROJECT_ROOT, '.installed');
+/** Present while wizard steps 2–3 are still pending after DB setup. */
+export const INSTALLING_PATH = path.join(PROJECT_ROOT, '.installing');
 
 export function isInstallLocked(): boolean {
   return fs.existsSync(INSTALLED_PATH);
 }
 
+export function isInstallInProgress(): boolean {
+  return fs.existsSync(INSTALLING_PATH);
+}
+
+export function markInstallInProgress(): void {
+  fs.writeFileSync(INSTALLING_PATH, `${new Date().toISOString()}\n`, 'utf8');
+}
+
+export function clearInstallInProgress(): void {
+  if (fs.existsSync(INSTALLING_PATH)) {
+    fs.unlinkSync(INSTALLING_PATH);
+  }
+}
+
 export function writeInstallLock(): void {
+  clearInstallInProgress();
   fs.writeFileSync(INSTALLED_PATH, `${new Date().toISOString()}\n`, 'utf8');
 }
 

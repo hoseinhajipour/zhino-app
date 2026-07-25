@@ -1,7 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Article, ClinicContactInfo, Doctor, FAQItem, PageScreen, ServiceBlock, ServiceItem } from '../../../types';
 import { fetchArticleCategories } from '../../../lib/dbService';
-import { readResponsiveCols, resolveColsForWidth, resolveContainerColumnCount } from '../../../lib/responsiveGrid';
+import {
+  readResponsiveCols,
+  resolveColsForWidth,
+  resolveContainerColumnCount,
+  type ColCount,
+} from '../../../lib/responsiveGrid';
+import {
+  normalizeContainerColumn,
+  resolveColumnBoxStyle,
+  resolveColumnTrack,
+  type ContainerColumn,
+} from '../../../lib/containerColumn';
 import {
   DEFAULT_CONTACT_INFO,
   getMapEmbedSrc,
@@ -36,6 +47,10 @@ import {
   resolveImageWidth,
 } from '../../../lib/imageMediaBlock';
 import { ImageLightbox, type LightboxItem } from '../../media/ImageLightbox';
+
+const RichTextEditor = React.lazy(() =>
+  import('../RichTextEditor').then((module) => ({ default: module.RichTextEditor }))
+);
 
 export interface BlockRenderContext {
   serviceId?: string;
@@ -1031,12 +1046,32 @@ export const CtaBlock: React.FC<{ props: Record<string, unknown>; ctx: BlockRend
   </section>
 );
 
-export const RichTextBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => (
-  <section
-    className="prose prose-sm max-w-none bg-white dark:bg-surface-dim p-8 rounded-3xl border border-outline-variant/30 text-right"
-    dangerouslySetInnerHTML={{ __html: str(props.html, '<p></p>') }}
-  />
-);
+export const RichTextBlock: React.FC<{
+  props: Record<string, unknown>;
+  editable?: boolean;
+  onHtmlChange?: (html: string) => void;
+}> = ({ props, editable, onHtmlChange }) => {
+  const html = str(props.html, '<p></p>');
+
+  if (editable && onHtmlChange) {
+    return (
+      <section className="rounded-3xl border border-outline-variant/30 bg-white p-3 text-right dark:bg-surface-dim">
+        <React.Suspense
+          fallback={<div className="min-h-[260px] animate-pulse rounded-2xl bg-surface-container-low" />}
+        >
+          <RichTextEditor value={html} onChange={onHtmlChange} />
+        </React.Suspense>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="rich-text-content max-w-none rounded-3xl border border-outline-variant/30 bg-white p-8 text-right dark:bg-surface-dim"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
 
 export const HtmlCodeBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const html = str(props.html);
@@ -2860,40 +2895,114 @@ export const TabGalleryBlock: React.FC<{ props: Record<string, unknown> }> = ({ 
   );
 };
 
-type ContainerColumn = { id: string; blocks: ServiceBlock[] };
-
 export const ContainerBlock: React.FC<{
   props: Record<string, unknown>;
+  blockId?: string;
   ctx: BlockRenderContext;
   previewMode?: boolean;
   selectedBlockId?: string | null;
+  selectedColumnId?: string | null;
   onSelectBlock?: (id: string) => void;
+  onSelectColumn?: (containerId: string, columnId: string) => void;
   onContextMenuBlock?: (e: React.MouseEvent, blockId: string) => void;
-}> = ({ props, ctx, previewMode, selectedBlockId, onSelectBlock, onContextMenuBlock }) => {
+  onUpdateBlockProps?: (id: string, props: Record<string, unknown>) => void;
+  onMoveNestedBlock?: (
+    containerId: string,
+    fromCol: number,
+    fromIndex: number,
+    toCol: number,
+    toIndex: number
+  ) => void;
+}> = ({
+  props,
+  blockId,
+  ctx,
+  previewMode,
+  selectedBlockId,
+  selectedColumnId,
+  onSelectBlock,
+  onSelectColumn,
+  onContextMenuBlock,
+  onUpdateBlockProps,
+  onMoveNestedBlock,
+}) => {
   const columnCount = resolveContainerColumnCount(props);
   const gap = str(props.gap, 'md');
-  const padding = str(props.padding, 'md');
+  const paddingPreset = str(props.padding, 'md');
   const background = str(props.background, 'none');
-  let columns = arr<ContainerColumn>(props.columns);
+  const previewDevice = useBuilderDevicePreview();
+  const { mobile, tablet, desktop } = readResponsiveCols(
+    props.columnsMobile,
+    props.columnsTablet,
+    props.columnsDesktop ?? props.columnCount,
+    { mobile: 1, tablet: Math.min(2, columnCount), desktop: columnCount }
+  );
+  const displayCols: ColCount =
+    previewDevice === 'mobile'
+      ? mobile
+      : previewDevice === 'tablet'
+        ? tablet
+        : previewDevice === 'desktop'
+          ? desktop
+          : typeof window !== 'undefined'
+            ? resolveColsForWidth(window.innerWidth, mobile, tablet, desktop)
+            : desktop;
+
+  let columns = arr<unknown>(props.columns).map((raw, i) => normalizeContainerColumn(raw, i));
   if (columns.length < columnCount) {
     columns = [
       ...columns,
-      ...Array.from({ length: columnCount - columns.length }, () => ({
-        id: `col-${Math.random().toString(36).slice(2, 8)}`,
-        blocks: [] as ServiceBlock[],
-      })),
+      ...Array.from({ length: columnCount - columns.length }, (_, i) =>
+        normalizeContainerColumn({}, columns.length + i)
+      ),
     ];
   }
   columns = columns.slice(0, columnCount);
 
   const gapClass = gap === 'sm' ? 'gap-3' : gap === 'lg' ? 'gap-6 sm:gap-8' : 'gap-4 sm:gap-5';
-  const padClass =
-    padding === 'none' ? 'p-0' : padding === 'sm' ? 'p-2 sm:p-3' : padding === 'lg' ? 'p-5 sm:p-8' : 'p-3 sm:p-5';
+
+  const presetPad: Record<string, number> = { none: 0, sm: 12, md: 20, lg: 32 };
+  const useCustomPad = paddingPreset === 'custom';
+  const padX = useCustomPad
+    ? Math.max(0, Math.min(120, Number(props.paddingX) || 0))
+    : presetPad[paddingPreset] ?? 20;
+  const padY = useCustomPad
+    ? Math.max(0, Math.min(120, Number(props.paddingY) || 0))
+    : presetPad[paddingPreset] ?? 20;
+
+  const marginTop = Math.max(0, Math.min(160, Number(props.marginTop) || 0));
+  const marginBottom = Math.max(0, Math.min(160, Number(props.marginBottom) || 0));
+  const radiusRaw = Number(props.borderRadius);
+  const borderRadius = Number.isFinite(radiusRaw)
+    ? Math.max(0, Math.min(64, Math.round(radiusRaw)))
+    : 28;
+
+  const shadowValue =
+    props.shadow !== undefined && props.shadow !== null
+      ? String(props.shadow)
+      : background === 'white'
+        ? 'md'
+        : 'none';
+  const shadowKey =
+    props.shadow === true ? 'md' : props.shadow === false ? 'none' : shadowValue;
+  const shadowClass =
+    shadowKey === 'sm'
+      ? 'shadow-sm'
+      : shadowKey === 'md'
+        ? 'shadow-soft'
+        : shadowKey === 'lg'
+          ? 'shadow-xl'
+          : '';
+
+  const bgColor = str(props.backgroundColor, '#f1f5f9');
+  const bgImage = str(props.backgroundImage);
+  const overlay = Math.max(0, Math.min(80, Number(props.backgroundOverlay ?? 40)));
+
   const bgClass =
     background === 'soft'
       ? 'bg-surface-container-low border border-outline-variant/30'
       : background === 'white'
-        ? 'bg-white dark:bg-surface-dim border border-outline-variant/30 shadow-soft'
+        ? 'bg-white dark:bg-surface-dim border border-outline-variant/30'
         : '';
 
   const widthMode = str(props.widthMode, 'contained');
@@ -2901,31 +3010,160 @@ export const ContainerBlock: React.FC<{
   const maxWidth =
     Number.isFinite(maxWidthRaw) && maxWidthRaw > 0 ? maxWidthRaw : DEFAULT_CONTENT_MAX_WIDTH;
   const widthStyle = containerWidthStyle(widthMode, maxWidth);
+  const canDragNested = Boolean(previewMode && blockId && onMoveNestedBlock);
 
-  return (
-    <section className={`rounded-[28px] ${padClass} ${bgClass}`} style={widthStyle}>
-      <ResponsiveGrid
-        columnsMobile={props.columnsMobile}
-        columnsTablet={props.columnsTablet}
-        columnsDesktop={props.columnsDesktop ?? props.columnCount}
-        fallbacks={{ mobile: 1, tablet: Math.min(2, columnCount), desktop: columnCount }}
-        className={gapClass}
-      >
-        {columns.map((col, colIdx) => (
+  const hasCustomWidths = columns.some((c) => (c.widthMode || 'auto') !== 'auto');
+  const columnsDirectionRaw = str(props.columnsDirection, 'row');
+  const columnsDirection = (
+    columnsDirectionRaw === 'row-reverse' ||
+    columnsDirectionRaw === 'column' ||
+    columnsDirectionRaw === 'column-reverse'
+      ? columnsDirectionRaw
+      : 'row'
+  ) as 'row' | 'row-reverse' | 'column' | 'column-reverse';
+  const isVerticalDirection =
+    columnsDirection === 'column' || columnsDirection === 'column-reverse';
+  const templateColumns =
+    !isVerticalDirection && hasCustomWidths && displayCols >= columns.length
+      ? columns.map((c) => resolveColumnTrack(c)).join(' ')
+      : undefined;
+
+  const sectionStyle: React.CSSProperties = {
+    ...widthStyle,
+    borderRadius,
+    paddingInline: padX,
+    paddingBlock: padY,
+    marginTop: marginTop || undefined,
+    marginBottom: marginBottom || undefined,
+    ...(background === 'color' ? { backgroundColor: bgColor } : {}),
+  };
+
+  const grid = (
+    <ResponsiveGrid
+      columnsMobile={props.columnsMobile}
+      columnsTablet={props.columnsTablet}
+      columnsDesktop={props.columnsDesktop ?? props.columnCount}
+      fallbacks={{ mobile: 1, tablet: Math.min(2, columnCount), desktop: columnCount }}
+      className={gapClass}
+      templateColumns={templateColumns}
+      direction={columnsDirection}
+    >
+      {columns.map((col, colIdx) => {
+        const colBlocks = col.blocks || [];
+        const colSelected = Boolean(
+          previewMode && selectedColumnId && selectedColumnId === col.id
+        );
+        const colBoxStyle = resolveColumnBoxStyle(col);
+        const hasColBg = Boolean((col.backgroundColor || '').trim());
+
+        return (
           <div
             key={col.id || colIdx}
-            className={`min-w-0 space-y-4 ${
-              previewMode ? 'rounded-2xl border border-dashed border-primary/25 p-3 min-h-[80px]' : ''
-            }`}
+            dir="rtl"
+            className={`min-w-0 flex flex-col gap-4 ${
+              isVerticalDirection ? 'w-full shrink-0' : 'h-full'
+            } ${
+              previewMode
+                ? `rounded-2xl border border-dashed p-0.5 min-h-[80px] cursor-pointer transition-all ${
+                    colSelected
+                      ? 'border-teal-500 bg-teal-50/40 ring-2 ring-teal-500/40'
+                      : 'border-primary/25 hover:border-teal-400/60'
+                  }`
+                : ''
+            } ${hasColBg || (col.borderRadius || 0) > 0 ? 'overflow-hidden' : ''}`}
+            style={colBoxStyle}
+            onClick={(e) => {
+              if (!previewMode || !blockId || !onSelectColumn) return;
+              e.stopPropagation();
+              onSelectColumn(blockId, col.id);
+            }}
+            onDragOver={(e) => {
+              if (!canDragNested) return;
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              if (!canDragNested || !blockId || !onMoveNestedBlock) return;
+              const raw = e.dataTransfer.getData('application/x-zhino-nested');
+              if (!raw) return;
+              e.preventDefault();
+              e.stopPropagation();
+              try {
+                const payload = JSON.parse(raw) as {
+                  containerId: string;
+                  columnIndex: number;
+                  blockIndex: number;
+                };
+                if (payload.containerId !== blockId) return;
+                onMoveNestedBlock(
+                  blockId,
+                  payload.columnIndex,
+                  payload.blockIndex,
+                  colIdx,
+                  colBlocks.length
+                );
+              } catch {
+                /* ignore */
+              }
+            }}
           >
             {previewMode && (
-              <p className="text-[10px] font-bold text-primary/70">ستون {colIdx + 1}</p>
+              <p className="text-[10px] font-bold text-primary/70 shrink-0 px-1 pt-1">
+                ستون {colIdx + 1}
+                {colBlocks.length > 0 ? ` · ${colBlocks.length} ویجت` : ''}
+                {(col.widthMode || 'auto') !== 'auto'
+                  ? ` · ${col.widthValue}${col.widthMode === 'percent' ? '%' : col.widthMode}`
+                  : ''}
+              </p>
             )}
-            {(col.blocks || []).map((child) => {
+            {colBlocks.map((child, childIndex) => {
               const selected = previewMode && selectedBlockId === child.id;
               return (
                 <div
                   key={child.id}
+                  draggable={canDragNested}
+                  onDragStart={(e) => {
+                    if (!canDragNested || !blockId) return;
+                    e.stopPropagation();
+                    e.dataTransfer.setData(
+                      'application/x-zhino-nested',
+                      JSON.stringify({
+                        containerId: blockId,
+                        columnIndex: colIdx,
+                        blockIndex: childIndex,
+                      })
+                    );
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    if (!canDragNested) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    if (!canDragNested || !blockId || !onMoveNestedBlock) return;
+                    const raw = e.dataTransfer.getData('application/x-zhino-nested');
+                    if (!raw) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      const payload = JSON.parse(raw) as {
+                        containerId: string;
+                        columnIndex: number;
+                        blockIndex: number;
+                      };
+                      if (payload.containerId !== blockId) return;
+                      onMoveNestedBlock(
+                        blockId,
+                        payload.columnIndex,
+                        payload.blockIndex,
+                        colIdx,
+                        childIndex
+                      );
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
                   onClick={(e) => {
                     if (!previewMode || !onSelectBlock) return;
                     e.stopPropagation();
@@ -2939,24 +3177,71 @@ export const ContainerBlock: React.FC<{
                   }}
                   className={
                     previewMode
-                      ? `relative rounded-2xl transition-all cursor-pointer ${
+                      ? `relative w-full rounded-2xl transition-all cursor-pointer ${
                           selected
                             ? 'ring-2 ring-teal-500 ring-offset-2'
                             : 'hover:ring-1 hover:ring-teal-400/50'
+                        } ${canDragNested ? 'cursor-grab active:cursor-grabbing' : ''} ${
+                          col.alignH === 'stretch' ? '' : 'max-w-full'
                         }`
-                      : undefined
+                      : col.alignH === 'stretch'
+                        ? 'w-full'
+                        : 'max-w-full'
                   }
                 >
-                  {renderServiceBlock(child, ctx)}
+                  {canDragNested && (
+                    <div className="absolute -top-2 left-2 z-10 flex items-center gap-0.5 rounded-full bg-white/95 dark:bg-surface-dim border border-outline-variant/30 shadow px-1.5 py-0.5 pointer-events-none">
+                      <span className="material-symbols-outlined text-sm text-outline-variant">
+                        drag_indicator
+                      </span>
+                    </div>
+                  )}
+                  {renderServiceBlock(child, ctx, {
+                    previewMode,
+                    selectedBlockId,
+                    onSelectBlock,
+                    onContextMenuBlock,
+                    onUpdateBlockProps,
+                  })}
                 </div>
               );
             })}
-            {!(col.blocks || []).length && previewMode && (
-              <p className="text-[11px] text-on-surface-variant text-center py-6">خالی — از تنظیمات بلوک اضافه کنید</p>
+            {!colBlocks.length && previewMode && (
+              <p className="text-[11px] text-on-surface-variant text-center py-6">
+                خالی — انتخاب کنید تا تنظیمات ستون را ببینید
+              </p>
             )}
           </div>
-        ))}
-      </ResponsiveGrid>
+        );
+      })}
+    </ResponsiveGrid>
+  );
+
+  return (
+    <section
+      className={`relative ${
+        background === 'image' || borderRadius > 0 ? 'overflow-hidden' : ''
+      } ${bgClass} ${shadowClass}`}
+      style={sectionStyle}
+    >
+      {background === 'image' && bgImage && (
+        <>
+          <img
+            src={bgImage}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            aria-hidden
+          />
+          {overlay > 0 && (
+            <div
+              className="absolute inset-0 bg-slate-950 pointer-events-none"
+              style={{ opacity: overlay / 100 }}
+              aria-hidden
+            />
+          )}
+        </>
+      )}
+      <div className={background === 'image' && bgImage ? 'relative z-10' : undefined}>{grid}</div>
     </section>
   );
 };
@@ -3597,8 +3882,18 @@ export function renderServiceBlock(
   options?: {
     previewMode?: boolean;
     selectedBlockId?: string | null;
+    selectedColumnId?: string | null;
     onSelectBlock?: (id: string) => void;
+    onSelectColumn?: (containerId: string, columnId: string) => void;
     onContextMenuBlock?: (e: React.MouseEvent, blockId: string) => void;
+    onUpdateBlockProps?: (id: string, props: Record<string, unknown>) => void;
+    onMoveNestedBlock?: (
+      containerId: string,
+      fromCol: number,
+      fromIndex: number,
+      toCol: number,
+      toIndex: number
+    ) => void;
   }
 ) {
   switch (block.type) {
@@ -3641,7 +3936,17 @@ export function renderServiceBlock(
     case 'cta':
       return <CtaBlock props={block.props} ctx={ctx} />;
     case 'richText':
-      return <RichTextBlock props={block.props} />;
+      return (
+        <RichTextBlock
+          props={block.props}
+          editable={options?.previewMode && options.selectedBlockId === block.id}
+          onHtmlChange={
+            options?.onUpdateBlockProps
+              ? (html) => options.onUpdateBlockProps?.(block.id, { ...block.props, html })
+              : undefined
+          }
+        />
+      );
     case 'htmlCode':
       return <HtmlCodeBlock props={block.props} />;
     case 'imageCarousel':
@@ -3670,11 +3975,16 @@ export function renderServiceBlock(
       return (
         <ContainerBlock
           props={block.props}
+          blockId={block.id}
           ctx={ctx}
           previewMode={options?.previewMode}
           selectedBlockId={options?.selectedBlockId}
+          selectedColumnId={options?.selectedColumnId}
           onSelectBlock={options?.onSelectBlock}
+          onSelectColumn={options?.onSelectColumn}
           onContextMenuBlock={options?.onContextMenuBlock}
+          onUpdateBlockProps={options?.onUpdateBlockProps}
+          onMoveNestedBlock={options?.onMoveNestedBlock}
         />
       );
     default:
