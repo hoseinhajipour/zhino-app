@@ -58,14 +58,34 @@ type SystemStatus = {
   };
   update: {
     checkConfigured: boolean;
+    method: 'git' | 'manifest' | 'none';
     manifestUrl: string | null;
     applyConfigured: boolean;
   };
 };
 
+type GitUpdateInfo = {
+  available: boolean;
+  remote: string;
+  branch: string | null;
+  upstream: string | null;
+  localSha: string | null;
+  remoteSha: string | null;
+  localShort: string | null;
+  remoteShort: string | null;
+  behind: number;
+  ahead: number;
+  dirty: boolean;
+  updateAvailable: boolean;
+  remotePackageVersion: string | null;
+  latestCommitSubject: string | null;
+  error?: string;
+};
+
 type UpdateCheck = {
   currentVersion: string;
   channel: string;
+  method: 'git' | 'manifest' | 'none';
   checkConfigured: boolean;
   manifestUrl: string | null;
   checkedAt: string;
@@ -82,6 +102,7 @@ type UpdateCheck = {
     changelogUrl?: string;
     requiresManualSteps?: boolean;
   };
+  git?: GitUpdateInfo;
   message: string;
   error?: string;
 };
@@ -209,6 +230,7 @@ export const SystemStatusPanel: React.FC = () => {
       setUpdate({
         currentVersion: status?.app.version || '—',
         channel: 'stable',
+        method: 'none',
         checkConfigured: false,
         manifestUrl: null,
         checkedAt: new Date().toISOString(),
@@ -225,8 +247,16 @@ export const SystemStatusPanel: React.FC = () => {
 
   const applyUpdate = async () => {
     if (!update?.updateAvailable) return;
+    const target =
+      update.method === 'git' && update.git?.behind
+        ? `${update.git.behind} کامیت از ${update.git.upstream || 'remote'}`
+        : `نسخه ${update.latestVersion}`;
     const ok = window.confirm(
-      `آیا از اعمال به‌روزرسانی به نسخه ${update.latestVersion} مطمئن هستید؟\nدر صورت پیکربندی ناقص، عملیات متوقف می‌شود و نصب آسیب نمی‌بیند.`
+      `آیا از اعمال به‌روزرسانی (${target}) مطمئن هستید؟\n${
+        update.method === 'git'
+          ? 'عملیات: git fetch + merge --ff-only و سپس دستور پس از pull.'
+          : 'در صورت پیکربندی ناقص، عملیات متوقف می‌شود.'
+      }`
     );
     if (!ok) return;
     setApplying(true);
@@ -234,7 +264,12 @@ export const SystemStatusPanel: React.FC = () => {
     try {
       const res = await fetch('/api/system/updates/apply', { method: 'POST' });
       const data = (await res.json()) as { message?: string; steps?: string[] };
-      setApplyMsg(data.message || 'پاسخ نامشخص از سرور');
+      setApplyMsg(
+        [data.message, ...(data.steps?.length ? ['', ...data.steps.map((s) => `• ${s}`)] : [])]
+          .filter(Boolean)
+          .join('\n') || 'پاسخ نامشخص از سرور'
+      );
+      if (res.ok) void loadStatus();
     } catch {
       setApplyMsg('ارتباط با سرویس به‌روزرسانی برقرار نشد.');
     } finally {
@@ -438,7 +473,8 @@ export const SystemStatusPanel: React.FC = () => {
             <div>
               <h3 className="text-sm font-black text-on-surface">نسخه نرم‌افزار و به‌روزرسانی</h3>
               <p className="text-[11px] text-on-surface-variant mt-0.5">
-                نسخه فعلی را ببینید و در آینده از سرور مرکزی آپدیت بگیرید
+                بررسی و اعمال به‌روزرسانی از مخزن git (
+                <span dir="ltr">fetch / pull --ff-only</span>)
               </p>
             </div>
           </div>
@@ -462,13 +498,27 @@ export const SystemStatusPanel: React.FC = () => {
               <p className="text-xl font-black text-primary" dir="ltr">
                 v{status.app.version}
               </p>
+              {update?.git?.localShort && (
+                <p className="text-[10px] font-bold text-on-surface-variant mt-1" dir="ltr">
+                  {update.git.branch || 'HEAD'}@{update.git.localShort}
+                </p>
+              )}
             </div>
             {update?.latestVersion && (
               <div className="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                <p className="text-[10px] font-bold text-on-surface-variant">آخرین نسخه منتشرشده</p>
-                <p className="text-xl font-black text-on-surface" dir="ltr">
-                  v{update.latestVersion}
+                <p className="text-[10px] font-bold text-on-surface-variant">
+                  {update.method === 'git' ? 'آخرین روی remote' : 'آخرین نسخه منتشرشده'}
                 </p>
+                <p className="text-xl font-black text-on-surface" dir="ltr">
+                  {update.latestVersion.startsWith('git:')
+                    ? update.latestVersion
+                    : `v${update.latestVersion}`}
+                </p>
+                {update.git?.remoteShort && update.git.behind > 0 && (
+                  <p className="text-[10px] font-bold text-on-surface-variant mt-1" dir="ltr">
+                    {update.git.behind} commit behind · {update.git.remoteShort}
+                  </p>
+                )}
               </div>
             )}
             <div
@@ -483,21 +533,35 @@ export const SystemStatusPanel: React.FC = () => {
               }`}
             >
               {update?.status === 'update_available'
-                ? 'آپدیت موجود است'
+                ? update.method === 'git'
+                  ? 'کامیت جدید روی remote'
+                  : 'آپدیت موجود است'
                 : update?.status === 'up_to_date'
                   ? 'به‌روز هستید'
                   : update?.status === 'not_configured'
-                    ? 'سرور آپدیت پیکربندی نشده'
+                    ? 'روش آپدیت پیکربندی نشده'
                     : update
                       ? 'خطا در بررسی'
                       : 'در انتظار بررسی'}
             </div>
+            {(update?.method || status.update.method) !== 'none' && (
+              <div className="rounded-full px-3 py-1 text-[11px] font-black bg-sky-50 text-sky-800" dir="ltr">
+                via {(update?.method || status.update.method).toUpperCase()}
+              </div>
+            )}
           </div>
 
           <p className="text-xs text-on-surface-variant leading-relaxed font-medium">
             {update?.message ||
-              'برای اتصال به سرور به‌روزرسانی، متغیر ZHINO_UPDATE_URL را در .env تنظیم کنید.'}
+              'اگر این نصب clone از git باشد، دکمهٔ بررسی با git fetch وضعیت را مشخص می‌کند.'}
           </p>
+
+          {update?.git?.dirty && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-950 text-[11px] font-bold p-3">
+              پوشهٔ کاری تغییرات ذخیره‌نشده دارد؛ تا زمان commit/stash، pull مسدود می‌شود مگر
+              ZHINO_UPDATE_ALLOW_DIRTY=1.
+            </div>
+          )}
 
           {update?.manifest?.notes && (
             <pre className="text-[11px] whitespace-pre-wrap rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-3 font-medium text-on-surface">
@@ -514,17 +578,23 @@ export const SystemStatusPanel: React.FC = () => {
               title={
                 !update?.updateAvailable
                   ? 'نسخه جدیدی نیست'
-                  : 'شروع به‌روزرسانی خودکار (در صورت پیکربندی سرور)'
+                  : update.method === 'git'
+                    ? 'اجرای git pull --ff-only (نیاز به ZHINO_UPDATE_APPLY=1)'
+                    : 'شروع به‌روزرسانی خودکار'
               }
             >
               <span className={`material-symbols-outlined text-base ${applying ? 'animate-spin' : ''}`}>
                 {applying ? 'progress_activity' : 'download'}
               </span>
-              {applying ? 'در حال آماده‌سازی…' : 'به‌روزرسانی خودکار'}
+              {applying
+                ? 'در حال اعمال…'
+                : update?.method === 'git'
+                  ? 'اعمال با Git Pull'
+                  : 'به‌روزرسانی خودکار'}
             </button>
             {update?.updateAvailable && !update.applyConfigured && (
               <span className="text-[10px] font-bold text-amber-700">
-                موتور اعمال هنوز روی سرور فعال نیست — دکمه وضعیت را گزارش می‌دهد بدون تغییر فایل‌ها
+                برای اعمال، ZHINO_UPDATE_APPLY=1 را در .env سرور تنظیم کنید
               </span>
             )}
             {update?.manifest?.changelogUrl && (
@@ -540,7 +610,7 @@ export const SystemStatusPanel: React.FC = () => {
           </div>
 
           {applyMsg && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-950 text-[11px] font-bold p-3 leading-relaxed">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-950 text-[11px] font-bold p-3 leading-relaxed whitespace-pre-wrap" dir="auto">
               {applyMsg}
             </div>
           )}
@@ -548,23 +618,22 @@ export const SystemStatusPanel: React.FC = () => {
           <div className="rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 p-3 text-[11px] text-on-surface-variant leading-relaxed space-y-1">
             <p className="font-black text-on-surface flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">info</span>
-              معماری به‌روزرسانی (آینده)
+              مسیر به‌روزرسانی با Git
             </p>
             <ul className="list-disc pr-4 space-y-0.5">
               <li>
-                بررسی نسخه از طریق manifest JSON روی{' '}
-                <code className="text-[10px]" dir="ltr">
-                  ZHINO_UPDATE_URL
-                </code>
+                بررسی: <code className="text-[10px]" dir="ltr">git fetch</code> و مقایسه با{' '}
+                <code className="text-[10px]" dir="ltr">origin/&lt;branch&gt;</code>
               </li>
-              <li>دانلود امن بسته + اعتبارسنجی checksum</li>
-              <li>استقرار staging، migration، سپس جابه‌جایی اتمیک و ری‌استارت</li>
               <li>
-                فعال‌سازی اعمال خودکار فقط با{' '}
+                اعمال: <code className="text-[10px]" dir="ltr">git merge --ff-only</code> سپس{' '}
+                <code className="text-[10px]" dir="ltr">npm install && npm run build</code>
+              </li>
+              <li>
+                فعال‌سازی اعمال فقط با{' '}
                 <code className="text-[10px]" dir="ltr">
                   ZHINO_UPDATE_APPLY=1
-                </code>{' '}
-                روی سرور تولید
+                </code>
               </li>
             </ul>
           </div>

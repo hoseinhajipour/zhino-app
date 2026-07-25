@@ -10,6 +10,7 @@ import {
   compareSemver,
   type UpdateManifest,
 } from './appVersion';
+import { applyGitUpdate, inspectGitUpdates, type GitUpdateInfo } from './gitUpdate';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
@@ -73,6 +74,7 @@ export type SystemStatusPayload = {
   };
   update: {
     checkConfigured: boolean;
+    method: 'git' | 'manifest' | 'none';
     manifestUrl: string | null;
     applyConfigured: boolean;
   };
@@ -244,6 +246,17 @@ export async function collectSystemStatus(
   const memPercent = Math.round((usedMem / totalMem) * 1000) / 10;
   const cpus = os.cpus();
   const updateUrl = process.env.ZHINO_UPDATE_URL?.trim() || '';
+  const preferManifest = process.env.ZHINO_UPDATE_METHOD?.trim() === 'manifest';
+  const gitProbe = preferManifest ? null : await inspectGitUpdates({ fetch: false });
+  const method: 'git' | 'manifest' | 'none' = preferManifest
+    ? updateUrl
+      ? 'manifest'
+      : 'none'
+    : gitProbe?.available
+      ? 'git'
+      : updateUrl
+        ? 'manifest'
+        : 'none';
 
   const health = computeHealth({
     memPercent,
@@ -290,7 +303,8 @@ export async function collectSystemStatus(
     database,
     health,
     update: {
-      checkConfigured: Boolean(updateUrl),
+      checkConfigured: method !== 'none',
+      method,
       manifestUrl: updateUrl || null,
       applyConfigured: process.env.ZHINO_UPDATE_APPLY === '1',
     },
@@ -300,6 +314,7 @@ export async function collectSystemStatus(
 export type UpdateCheckResult = {
   currentVersion: string;
   channel: string;
+  method: 'git' | 'manifest' | 'none';
   checkConfigured: boolean;
   manifestUrl: string | null;
   checkedAt: string;
@@ -309,20 +324,109 @@ export type UpdateCheckResult = {
   autoUpdateSupported: boolean;
   applyConfigured: boolean;
   manifest?: UpdateManifest;
+  git?: GitUpdateInfo;
   message: string;
   error?: string;
 };
 
-export async function checkForUpdates(): Promise<UpdateCheckResult> {
-  const currentVersion = readPackageVersion();
+function preferManifestMethod(): boolean {
+  return process.env.ZHINO_UPDATE_METHOD?.trim() === 'manifest';
+}
+
+function resultFromGit(git: GitUpdateInfo, currentVersion: string, applyConfigured: boolean): UpdateCheckResult {
+  const checkedAt = new Date().toISOString();
+  const manifestUrl = process.env.ZHINO_UPDATE_URL?.trim() || null;
+
+  if (!git.available) {
+    return {
+      currentVersion,
+      channel: APP_CHANNEL,
+      method: 'none',
+      checkConfigured: false,
+      manifestUrl,
+      checkedAt,
+      status: 'not_configured',
+      updateAvailable: false,
+      autoUpdateSupported: false,
+      applyConfigured,
+      git,
+      message: git.error || 'مخزن git در دسترس نیست.',
+      error: git.error,
+    };
+  }
+
+  if (git.error && git.behind === 0 && !git.upstream) {
+    return {
+      currentVersion,
+      channel: APP_CHANNEL,
+      method: 'git',
+      checkConfigured: true,
+      manifestUrl,
+      checkedAt,
+      status: 'error',
+      updateAvailable: false,
+      autoUpdateSupported: applyConfigured,
+      applyConfigured,
+      git,
+      message: git.error,
+      error: git.error,
+    };
+  }
+
+  const latestVersion =
+    git.remotePackageVersion ||
+    (git.remoteShort ? `git:${git.remoteShort}` : undefined);
+
+  if (git.updateAvailable) {
+    const subject = git.latestCommitSubject ? ` — ${git.latestCommitSubject}` : '';
+    return {
+      currentVersion,
+      channel: APP_CHANNEL,
+      method: 'git',
+      checkConfigured: true,
+      manifestUrl,
+      checkedAt,
+      status: 'update_available',
+      latestVersion,
+      updateAvailable: true,
+      autoUpdateSupported: true,
+      applyConfigured,
+      git,
+      message: `${git.behind} کامیت جدید روی ${git.upstream} موجود است${subject}.`,
+    };
+  }
+
+  return {
+    currentVersion,
+    channel: APP_CHANNEL,
+    method: 'git',
+    checkConfigured: true,
+    manifestUrl,
+    checkedAt,
+    status: 'up_to_date',
+    latestVersion: latestVersion || currentVersion,
+    updateAvailable: false,
+    autoUpdateSupported: true,
+    applyConfigured,
+    git,
+    message: git.ahead > 0
+      ? `به‌روز هستید، ولی شاخهٔ محلی ${git.ahead} کامیت جلوتر از remote است (${git.localShort}).`
+      : `شما با remote هم‌تراز هستید (${git.localShort || currentVersion}).`,
+  };
+}
+
+async function checkManifestUpdates(
+  currentVersion: string,
+  applyConfigured: boolean
+): Promise<UpdateCheckResult> {
   const manifestUrl = process.env.ZHINO_UPDATE_URL?.trim() || '';
-  const applyConfigured = process.env.ZHINO_UPDATE_APPLY === '1';
   const checkedAt = new Date().toISOString();
 
   if (!manifestUrl) {
     return {
       currentVersion,
       channel: APP_CHANNEL,
+      method: 'none',
       checkConfigured: false,
       manifestUrl: null,
       checkedAt,
@@ -331,7 +435,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
       autoUpdateSupported: false,
       applyConfigured,
       message:
-        'آدرس سرور به‌روزرسانی تنظیم نشده است. متغیر ZHINO_UPDATE_URL را در محیط سرور تعریف کنید.',
+        'روش به‌روزرسانی پیکربندی نشده است. از مخزن git استفاده کنید یا ZHINO_UPDATE_URL را تنظیم کنید.',
     };
   }
 
@@ -354,6 +458,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
       return {
         currentVersion,
         channel: APP_CHANNEL,
+        method: 'manifest',
         checkConfigured: true,
         manifestUrl,
         checkedAt,
@@ -371,6 +476,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
       return {
         currentVersion,
         channel: APP_CHANNEL,
+        method: 'manifest',
         checkConfigured: true,
         manifestUrl,
         checkedAt,
@@ -389,6 +495,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     return {
       currentVersion,
       channel: APP_CHANNEL,
+      method: 'manifest',
       checkConfigured: true,
       manifestUrl,
       checkedAt,
@@ -406,6 +513,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     return {
       currentVersion,
       channel: APP_CHANNEL,
+      method: 'manifest',
       checkConfigured: true,
       manifestUrl,
       checkedAt,
@@ -419,14 +527,26 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   }
 }
 
+export async function checkForUpdates(): Promise<UpdateCheckResult> {
+  const currentVersion = readPackageVersion();
+  const applyConfigured = process.env.ZHINO_UPDATE_APPLY === '1';
+
+  if (!preferManifestMethod()) {
+    const git = await inspectGitUpdates({ fetch: true });
+    if (git.available) return resultFromGit(git, currentVersion, applyConfigured);
+    // Fall through to manifest if git is unavailable.
+  }
+
+  return checkManifestUpdates(currentVersion, applyConfigured);
+}
+
 /**
- * Auto-apply pipeline (staged for future).
- * Deliberately gated: never mutates the install unless ZHINO_UPDATE_APPLY=1
- * and a verified apply handler is registered.
+ * Apply updates via git pull (preferred) or gated manifest pipeline.
+ * Never mutates the install unless ZHINO_UPDATE_APPLY=1.
  */
 export type UpdateApplyResult = {
   ok: boolean;
-  status: 'started' | 'blocked' | 'not_configured' | 'unsupported';
+  status: 'started' | 'blocked' | 'not_configured' | 'unsupported' | 'error';
   message: string;
   steps?: string[];
 };
@@ -452,23 +572,36 @@ export async function applyUpdateSafe(): Promise<UpdateApplyResult> {
       ok: false,
       status: 'unsupported',
       message:
-        'اعمال خودکار هنوز روی این سرور فعال نشده است. ZHINO_UPDATE_APPLY=1 و اسکریپت اعمال امن باید پیکربندی شود.',
-      steps: [
-        'دانلود بسته از downloadUrl',
-        'اعتبارسنجی checksum',
-        'استقرار در پوشه staging',
-        'اجرای migration',
-        'جابه‌جایی اتمیک و ری‌استارت سرویس',
-      ],
+        check.method === 'git'
+          ? 'اعمال خودکار غیرفعال است. برای pull از remote، ZHINO_UPDATE_APPLY=1 را در .env سرور تنظیم کنید.'
+          : 'اعمال خودکار هنوز روی این سرور فعال نشده است. ZHINO_UPDATE_APPLY=1 باید پیکربندی شود.',
+      steps:
+        check.method === 'git'
+          ? [
+              'git fetch',
+              'git merge --ff-only @{u}',
+              process.env.ZHINO_UPDATE_POST_PULL?.trim() || 'npm install && npm run build',
+              'ری‌استارت سرویس',
+            ]
+          : [
+              'دانلود بسته از downloadUrl',
+              'اعتبارسنجی checksum',
+              'استقرار در پوشه staging',
+              'اجرای migration',
+              'جابه‌جایی اتمیک و ری‌استارت سرویس',
+            ],
     };
   }
 
-  // Future: invoke real apply runner here.
+  if (check.method === 'git') {
+    return applyGitUpdate();
+  }
+
   return {
     ok: false,
     status: 'unsupported',
     message:
-      'موتور اعمال خودکار در این نسخه آماده است ولی هنوز به اسکریپت استقرار متصل نشده. به‌روزرسانی دستی توصیه می‌شود.',
+      'موتور اعمال خودکار برای manifest در این نسخه به اسکریپت استقرار متصل نشده. از روش git استفاده کنید.',
     steps: check.manifest?.notes ? [check.manifest.notes] : undefined,
   };
 }

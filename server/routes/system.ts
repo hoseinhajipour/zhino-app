@@ -43,9 +43,14 @@ systemRouter.get('/updates/check', async (_req, res) => {
 systemRouter.post('/updates/apply', async (_req, res) => {
   try {
     const result = await applyUpdateSafe();
-    const code =
-      result.status === 'started' ? 202 : result.status === 'not_configured' ? 400 : 409;
-    res.status(result.ok ? code : code).json(result);
+    const code = result.ok
+      ? 202
+      : result.status === 'not_configured'
+        ? 400
+        : result.status === 'error'
+          ? 500
+          : 409;
+    res.status(code).json(result);
   } catch (err) {
     console.error('POST /api/system/updates/apply error:', err);
     res.status(500).json({ error: 'Failed to apply update' });
