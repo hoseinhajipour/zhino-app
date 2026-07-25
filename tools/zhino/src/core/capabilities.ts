@@ -1,0 +1,294 @@
+import {
+  ARTICLE_WIDGET_TYPES,
+  BLOCK_LABELS,
+  NESTABLE_WIDGET_TYPES,
+  SERVICE_WIDGET_TYPES,
+  SITE_WIDGET_TYPES,
+  type PageKind,
+  type ServiceBlock,
+  type ServiceBlockType,
+  uid,
+  widgetTypesForKind,
+} from './types.js';
+
+const EMPTY_PROPS: Partial<Record<ServiceBlockType, Record<string, unknown>>> = {
+  hero: {
+    title: 'عنوان خدمت',
+    subtitle: 'توضیح کوتاه خدمت',
+    badge: 'دپارتمان تخصصی',
+    heroImage: '',
+    duration: '۴۵ دقیقه',
+    format: 'حضوری و آنلاین',
+    satisfactionRate: '۹۸٪ رضایت',
+    sessionFeeNote: '',
+  },
+  pageHero: {
+    badge: 'برچسب صفحه',
+    title: 'عنوان صفحه',
+    subtitle: 'توضیح کوتاه صفحه',
+    showBooking: true,
+    primaryCtaLabel: 'رزرو نوبت',
+    secondaryCtaLabel: '',
+    secondaryCtaScreen: 'services',
+    imageMode: 'side',
+    heroImage: '',
+    imageAlt: '',
+    overlayOpacity: 45,
+  },
+  heroHeader: {
+    badge: 'مرکز روان‌درمانی و مشاوره ژینو',
+    statusText: 'پذیرش فعال',
+    showStatus: true,
+    title: 'پناهگاهی برای یافتن آرامش و تعادل روان',
+    titleHighlight: 'آرامش و تعادل روان',
+    subtitle: 'مسیر درمان اختصاصی شما را طراحی می‌کنیم.',
+    contentAlign: 'start',
+    mediaSide: 'end',
+    titleSize: 'lg',
+    accentColor: 'primary',
+    showCta: true,
+    ctaLabel: 'راهنمای آنلاین انتخاب درمانگر',
+    ctaAction: 'guide',
+    showDepartments: true,
+    showCarousel: true,
+    showStats: true,
+    departments: [],
+    slides: [],
+    stats: [],
+  },
+  highlights: {
+    items: [{ icon: 'schedule', label: 'مدت جلسه', value: '۴۵ دقیقه' }],
+    columnsMobile: 1,
+    columnsTablet: 2,
+    columnsDesktop: 4,
+  },
+  symptoms: {
+    title: 'چه زمانی مراجعه ضرورت دارد؟',
+    subtitle: 'اگر با این چالش‌ها روبه‌رو هستید...',
+    items: [{ icon: 'psychology', title: 'عنوان', desc: 'توضیح کوتاه' }],
+  },
+  process: {
+    title: 'مراحل دریافت خدمت',
+    eyebrow: 'فرآیند',
+    steps: [
+      { number: '۰۱', title: 'گام اول', desc: 'توضیح' },
+      { number: '۰۲', title: 'گام دوم', desc: 'توضیح' },
+    ],
+  },
+  features: {
+    title: 'چرا کلینیک ژینو؟',
+    items: [{ icon: 'security', title: 'ویژگی', desc: 'توضیح' }],
+  },
+  doctors: {
+    title: 'تیم متخصصین این خدمت',
+    subtitle: 'روانشناسان دارای پروانه',
+    specialtiesFilter: [],
+    maxCount: 3,
+  },
+  staffCarousel: {
+    badge: 'کادر درمانی',
+    title: 'متخصصین برجسته ما',
+    subtitle: '',
+    showViewAll: true,
+    showArrows: true,
+    showDots: true,
+    onlyActive: true,
+  },
+  testimonials: {
+    title: 'نظرات مراجعین',
+    subtitle: 'بازخورد واقعی',
+    items: [{ name: 'مراجع', role: 'مراجع کلینیک', comment: 'تجربه خوب', rating: 5 }],
+  },
+  faqs: {
+    title: 'سوالات متداول',
+    subtitle: 'پاسخ به ابهامات',
+    items: [{ question: 'سوال؟', answer: 'پاسخ...' }],
+  },
+  latestFaqs: {
+    badge: 'پاسخ‌های تخصصی',
+    title: 'آخرین سوالات متداول',
+    maxCount: 6,
+    showCategory: true,
+    showLikes: true,
+    showViewAll: true,
+    openFirst: true,
+  },
+  contactInfo: {
+    badge: 'ارتباط با ما',
+    title: 'اطلاعات تماس',
+    layout: 'cards',
+    showPhones: true,
+    showSocials: true,
+    showAddresses: true,
+    showMap: true,
+  },
+  cta: {
+    badge: 'اقدام کنید',
+    title: 'رزرو نوبت',
+    subtitle: 'کمتر از ۲ دقیقه',
+    phoneLabel: 'تماس با پذیرش',
+    phoneHref: 'tel:02188776655',
+  },
+  richText: { html: '<p>متن دلخواه خود را اینجا بنویسید.</p>' },
+  htmlCode: {
+    html: '<!-- کد HTML -->\n<div style="padding:16px;text-align:center">نمونه</div>',
+    padded: true,
+    maxWidth: 'full',
+  },
+  otherServices: { title: 'سایر خدمات کلینیک' },
+  servicesGrid: { title: 'خدمات کلینیک', subtitle: 'انتخاب خدمت مناسب' },
+  contactCards: {
+    address: 'تهران، میدان ونک',
+    phone1: '۰۲۱-۸۸۷۷۶۶۵۵',
+    hours: 'شنبه تا پنجشنبه ۹ الی ۲۰',
+    email: 'info@zhinoclinic.ir',
+  },
+  contactForm: { title: '', subtitle: '', formId: 'form-contact' },
+  articlesGrid: {
+    title: 'مقالات',
+    sortBy: 'newest',
+    layout: 'grid',
+    maxCount: 6,
+    showExcerpt: true,
+  },
+  imageCarousel: {
+    autoplay: true,
+    intervalMs: 4500,
+    showDots: true,
+    showArrows: true,
+    aspect: 'video',
+    slides: [],
+  },
+  videoPlayer: {
+    title: '',
+    sourceType: 'upload',
+    videoUrl: '',
+    posterImage: '',
+    autoplay: false,
+    muted: true,
+    controls: true,
+    aspect: 'video',
+  },
+  container: {
+    columnCount: 2,
+    columnsMobile: 1,
+    columnsTablet: 2,
+    columnsDesktop: 2,
+    gap: 'md',
+    columnsDirection: 'row',
+    padding: 'md',
+    widthMode: 'contained',
+    columns: [
+      { id: uid('col'), blocks: [], widthMode: 'auto', widthValue: 50 },
+      { id: uid('col'), blocks: [], widthMode: 'auto', widthValue: 50 },
+    ],
+  },
+  icon: { icon: 'psychology', label: '', size: 48, color: 'primary', align: 'center' },
+  iconList: {
+    iconSize: 28,
+    color: 'primary',
+    items: [{ icon: 'check_circle', text: 'آیتم نمونه', link: '' }],
+  },
+  button: {
+    label: 'رزرو نوبت',
+    icon: 'calendar_month',
+    showIcon: true,
+    action: 'booking',
+    variant: 'solid',
+    size: 'md',
+    align: 'center',
+  },
+  googleMap: {
+    mode: 'coords',
+    lat: 35.7575,
+    lng: 51.41,
+    address: 'تهران، میدان ونک',
+    zoom: 15,
+    height: 360,
+    showMarker: true,
+  },
+  tabGallery: {
+    badge: '',
+    title: 'گالری تب',
+    subtitle: '',
+    items: [],
+  },
+  divider: {
+    widthMode: 'full',
+    thickness: 2,
+    lineStyle: 'solid',
+    orientation: 'horizontal',
+    contentMode: 'none',
+  },
+  spacer: { linked: true, size: 'md', height: 32, showGuide: true },
+  singleImage: {
+    image: '',
+    alt: '',
+    caption: '',
+    widthMode: 'full',
+    aspect: 'auto',
+    objectFit: 'cover',
+    clickBehavior: 'lightbox',
+  },
+  imageGallery: {
+    title: '',
+    columnsMobile: 1,
+    columnsTablet: 2,
+    columnsDesktop: 3,
+    gap: 'md',
+    aspect: 'square',
+    items: [],
+  },
+  verticalImageGallery: {
+    title: '',
+    columnsMobile: 1,
+    columnsTablet: 2,
+    columnsDesktop: 2,
+    gap: 'md',
+    items: [],
+  },
+};
+
+export function createEmptyBlock(type: ServiceBlockType): ServiceBlock {
+  const props = EMPTY_PROPS[type] ? structuredClone(EMPTY_PROPS[type])! : {};
+  if (type === 'container' && Array.isArray(props.columns)) {
+    props.columns = (props.columns as Array<Record<string, unknown>>).map((col) => ({
+      ...col,
+      id: uid('col'),
+      blocks: [],
+    }));
+  }
+  return { id: uid(type), type, props };
+}
+
+export function getCapabilities(pageKind?: PageKind) {
+  const kinds: PageKind[] = pageKind ? [pageKind] : ['site', 'service', 'article'];
+  const palettes: Record<string, Array<{ type: string; label: string }>> = {};
+  for (const kind of kinds) {
+    palettes[kind] = widgetTypesForKind(kind).map((type) => ({
+      type,
+      label: BLOCK_LABELS[type] || type,
+    }));
+  }
+
+  return {
+    rules: [
+      'Only use widget types from the palette for the target pageKind',
+      'container cannot nest inside another container',
+      'Inside columns only NESTABLE_WIDGET_TYPES are allowed',
+      'Each block needs a unique id',
+      'Scroll animation: animateEnabled + animateType (fade-in|fade-up|fade-down)',
+      'Prefer data-driven widgets (doctors, servicesGrid, latestFaqs, contactInfo) over hardcoding clinic data',
+      'Icons: Material Symbols names',
+    ],
+    nestable: NESTABLE_WIDGET_TYPES.map((type) => ({ type, label: BLOCK_LABELS[type] || type })),
+    labels: BLOCK_LABELS,
+    palettes,
+    counts: {
+      site: SITE_WIDGET_TYPES.length,
+      service: SERVICE_WIDGET_TYPES.length,
+      article: ARTICLE_WIDGET_TYPES.length,
+      nestable: NESTABLE_WIDGET_TYPES.length,
+    },
+  };
+}

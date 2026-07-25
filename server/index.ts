@@ -22,6 +22,7 @@ import { systemRouter } from './routes/system';
 import { backupRouter } from './routes/backup';
 import { isInstallInProgress, isInstallLocked } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
+import { logApiTokenStatus, requireApiTokenForWrites } from './middleware/apiToken';
 import {
   seedIfEmpty,
   ensureServicePageBuilders,
@@ -32,7 +33,7 @@ import {
 } from './seed';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env'), quiet: true });
 
 const PORT = Number(process.env.PORT || 3001);
 const app = express();
@@ -44,6 +45,9 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Install routes must work even when DB is down
 app.use('/api/install', installRouter);
+
+// Protect CMS writes when ZHINO_API_TOKEN is set (public GETs + form submit / login stay open)
+app.use('/api', requireApiTokenForWrites);
 
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/doctors', doctorsRouter);
@@ -150,6 +154,7 @@ async function main() {
   const dbOk = await bootstrapDatabase();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Zhino server listening on http://0.0.0.0:${PORT}`);
+    logApiTokenStatus();
     if (!isInstallLocked()) {
       console.log(
         'Waiting for installer — open the site to complete setup (database is created only in the wizard).'

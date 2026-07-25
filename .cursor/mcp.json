@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "zhino": {
+      "command": "npx",
+      "args": ["tsx", "tools/zhino/src/mcp/index.ts"],
+      "env": {
+        "ZHINO_API_BASE": "http://127.0.0.1:3001"
+      },
+      "envFile": ".env"
+    }
+  }
+}

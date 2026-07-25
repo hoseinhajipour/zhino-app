@@ -11,10 +11,13 @@
     "start": "tsx server/index.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "zhino": "tsx tools/zhino/src/cli/index.ts",
+    "zhino-mcp": "tsx tools/zhino/src/mcp/index.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tiptap/extension-color": "^3.29.0",
     "@tiptap/extension-image": "^3.29.0",
@@ -25,6 +28,7 @@
     "@tiptap/react": "^3.29.0",
     "@tiptap/starter-kit": "^3.29.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "commander": "^15.0.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
@@ -35,7 +39,8 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "tsx": "^4.21.0",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.25",

@@ -14,6 +14,29 @@
    npm run dev
    ```
 
+## CLI و MCP مدیریت سایت
+
+برای مدیریت صفحه‌ساز، تنظیمات، پزشکان، FAQ و فرم‌ها از ترمینال یا Cursor:
+
+1. در `.env` یک توکن بگذارید (وقتی ست شود، نوشتن روی `/api` فقط با این توکن مجاز است):
+   ```env
+   ZHINO_API_TOKEN=your-secret-token
+   ZHINO_API_BASE=http://127.0.0.1:3001
+   VITE_ZHINO_API_TOKEN=your-secret-token
+   ```
+2. سرور را روشن کنید (`npm run dev`).
+3. CLI:
+   ```bash
+   npm run zhino -- health
+   npm run zhino -- pages list
+   npm run zhino -- blocks get page home
+   npm run zhino -- capabilities --page-kind site
+   npm run zhino -- --help
+   ```
+4. MCP برای Cursor: فایل `.cursor/mcp.json` از قبل تنظیم شده؛ بعد از restart Cursor سرور `zhino` را در MCP ببینید. ابزارهایی مثل `get_capabilities`, `get_blocks`, `replace_blocks`, `list_pages` در دسترس‌اند.
+
+`VITE_ZHINO_API_TOKEN` همان مقدار توکن است تا پنل ادمین در مرورگر وقتی توکن سرور فعال است بتواند ذخیره کند.
+
 ## دیپلوی روی هاست اشتراکی Node.js
 
 1. در پنل هاست یک دیتابیس MySQL بسازید.

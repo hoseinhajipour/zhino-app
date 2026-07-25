@@ -1,0 +1,11 @@
+{
+  "name": "zhino-cms-tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "zhino": "./src/cli/index.ts",
+    "zhino-mcp": "./src/mcp/index.ts"
+  },
+  "description": "CLI and MCP tools for Zhino clinic CMS"
+}

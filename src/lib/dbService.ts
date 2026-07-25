@@ -66,9 +66,18 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
 const POLL_MS = 6000;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method || 'GET').toUpperCase();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  const writeToken = import.meta.env.VITE_ZHINO_API_TOKEN || '';
+  if (writeToken && method !== 'GET' && method !== 'HEAD') {
+    headers['X-Zhino-Token'] = writeToken;
+  }
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init,
+    headers,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
