@@ -78,7 +78,7 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
 const POLL_MS = 6000;
 
 /** Attach write token when ZHINO_API_TOKEN is enforced on the server. */
-function writeAuthHeaders(): Record<string, string> {
+export function writeAuthHeaders(): Record<string, string> {
   const writeToken = import.meta.env.VITE_ZHINO_API_TOKEN || '';
   return writeToken ? { 'X-Zhino-Token': writeToken } : {};
 }

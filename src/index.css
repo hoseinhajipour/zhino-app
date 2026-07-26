@@ -247,6 +247,74 @@ body {
   animation: float 4s ease-in-out infinite;
 }
 
+/* Hero header — animated hatch / stripe background */
+@keyframes hero-hatch-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--hero-hatch-shift, 28px), var(--hero-hatch-shift, 28px), 0);
+  }
+}
+
+.hero-hatch-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.hero-hatch-pattern__layer {
+  position: absolute;
+  inset: -40%;
+  width: 180%;
+  height: 180%;
+  background-repeat: repeat;
+  will-change: transform;
+}
+
+.hero-hatch-pattern--animate .hero-hatch-pattern__layer {
+  animation: hero-hatch-drift var(--hero-hatch-speed, 28s) linear infinite;
+}
+
+.hero-hatch-pattern--cross .hero-hatch-pattern__layer--b {
+  animation-direction: reverse;
+  animation-duration: calc(var(--hero-hatch-speed, 28s) * 1.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-hatch-pattern--animate .hero-hatch-pattern__layer {
+    animation: none !important;
+  }
+}
+
+/* Hero header — staggered stats + count-up */
+.hero-stat-card {
+  opacity: 1;
+  transform: none;
+}
+.hero-stat-card--pending {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.hero-stat-card--in {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stat-card--pending,
+  .hero-stat-card--in {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;

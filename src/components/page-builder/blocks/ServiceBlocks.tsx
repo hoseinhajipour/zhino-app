@@ -49,7 +49,11 @@ import {
   sectionTitleSizeClass,
 } from '../../../lib/blockTitleTypography';
 import {
+  formatHeroStatNumber,
   heroHasCustomVerticalPadding,
+  heroHexToRgba,
+  normalizeHeroPatternStyle,
+  parseHeroStatValue,
   resolveHeroDevice,
   resolveHeroOuterStyle,
 } from '../../../lib/heroHeaderLayout';
@@ -1310,6 +1314,165 @@ type HeroHeaderSlide = {
 type HeroHeaderDept = { icon?: string; label?: string; link?: string };
 type HeroHeaderStat = { icon?: string; value?: string; label?: string };
 
+const HeroStatCountValue: React.FC<{
+  value: string;
+  active: boolean;
+  className?: string;
+  durationMs?: number;
+}> = ({ value, active, className, durationMs = 900 }) => {
+  const parsed = useMemo(() => parseHeroStatValue(value), [value]);
+  const [display, setDisplay] = useState(() =>
+    parsed.target == null
+      ? value
+      : `${parsed.prefix}${formatHeroStatNumber(0, parsed.decimals, parsed.usePersian)}${parsed.suffix}`
+  );
+
+  useEffect(() => {
+    if (!active || parsed.target == null) {
+      setDisplay(value);
+      return;
+    }
+
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      setDisplay(value);
+      return;
+    }
+
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const to = parsed.target;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const current = from + (to - from) * eased;
+      setDisplay(
+        `${parsed.prefix}${formatHeroStatNumber(current, parsed.decimals, parsed.usePersian)}${parsed.suffix}`
+      );
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else
+        setDisplay(
+          `${parsed.prefix}${formatHeroStatNumber(to, parsed.decimals, parsed.usePersian)}${parsed.suffix}`
+        );
+    };
+    setDisplay(
+      `${parsed.prefix}${formatHeroStatNumber(0, parsed.decimals, parsed.usePersian)}${parsed.suffix}`
+    );
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, durationMs, parsed, value]);
+
+  return <span className={className}>{display}</span>;
+};
+
+const HeroStatsStrip: React.FC<{
+  stats: HeroHeaderStat[];
+  accentSoft: string;
+  isCompact: boolean;
+  animate: boolean;
+}> = ({ stats, accentSoft, isCompact, animate }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(!animate);
+  const [revealed, setRevealed] = useState(() => (!animate ? stats.length : 0));
+
+  useEffect(() => {
+    if (!animate) {
+      setVisible(true);
+      setRevealed(stats.length);
+      return;
+    }
+
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      setVisible(true);
+      setRevealed(stats.length);
+      return;
+    }
+
+    setVisible(false);
+    setRevealed(0);
+    const el = ref.current;
+    if (!el) return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -6% 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [animate, stats.length]);
+
+  useEffect(() => {
+    if (!animate || !visible) return;
+    if (revealed >= stats.length) return;
+    const staggerMs = 140;
+    const t = window.setTimeout(() => setRevealed((n) => Math.min(stats.length, n + 1)), staggerMs);
+    return () => window.clearTimeout(t);
+  }, [animate, visible, revealed, stats.length]);
+
+  return (
+    <div
+      ref={ref}
+      className={`mt-5 ${
+        isCompact
+          ? 'flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-0.5 px-0.5'
+          : 'grid grid-cols-3 gap-4 mt-14'
+      }`}
+      style={isCompact ? { WebkitOverflowScrolling: 'touch' } : undefined}
+    >
+      {stats.map((stat, i) => {
+        const shown = !animate || i < revealed;
+        return (
+          <div
+            key={i}
+            className={`hero-stat-card flex items-center bg-white dark:bg-surface-dim border border-outline-variant/25 shadow-soft ${
+              isCompact
+                ? 'gap-2 rounded-xl p-2.5 shrink-0 min-w-[148px]'
+                : 'gap-3 rounded-2xl p-4'
+            } ${animate ? (shown ? 'hero-stat-card--in' : 'hero-stat-card--pending') : ''}`}
+          >
+            <span
+              className={`${accentSoft} flex items-center justify-center shrink-0 ${
+                isCompact ? 'w-8 h-8 rounded-lg' : 'w-11 h-11 rounded-xl'
+              }`}
+            >
+              <span className={`material-symbols-outlined ${isCompact ? 'text-lg' : 'text-2xl'}`}>
+                {str(stat.icon, 'analytics')}
+              </span>
+            </span>
+            <div className="min-w-0">
+              <p className={`font-black text-on-surface leading-none ${isCompact ? 'text-sm' : 'text-lg'}`}>
+                {animate ? (
+                  <HeroStatCountValue value={str(stat.value)} active={shown} />
+                ) : (
+                  str(stat.value)
+                )}
+              </p>
+              <p
+                className={`text-on-surface-variant font-bold mt-0.5 ${
+                  isCompact ? 'text-[9px]' : 'text-[11px] mt-1'
+                }`}
+              >
+                {str(stat.label)}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const HERO_ACCENT: Record<string, { text: string; soft: string; border: string; gradient: string }> = {
   primary: {
     text: 'text-primary',
@@ -1380,6 +1543,7 @@ export const HeroHeaderBlock: React.FC<{
   const showCta = props.showCta !== false;
   const showDepartments = props.showDepartments !== false;
   const showStats = props.showStats !== false;
+  const statsAnimate = props.statsAnimate === true;
   const showRating = props.showRatingBadge !== false;
   const showFloating = props.showFloatingBadge !== false;
   const showDots = props.showCarouselDots !== false;
@@ -1416,6 +1580,43 @@ export const HeroHeaderBlock: React.FC<{
   const bgMode = str(props.background, 'none');
   const bgImage = str(props.backgroundImage);
   const overlay = Math.max(0, Math.min(80, Number(props.backgroundOverlay ?? 35)));
+  const patternStyle = normalizeHeroPatternStyle(props.patternStyle);
+  const patternAnimate = props.patternAnimate !== false;
+  const patternOpacity = Math.max(0.03, Math.min(0.35, Number(props.patternOpacity ?? 0.1)));
+  const patternSize = Math.max(8, Math.min(48, Number(props.patternSize) || 16));
+  const patternLine = str(props.patternColor, '#b5106a');
+  const patternSpeed = Math.max(12, Math.min(60, Number(props.patternSpeed) || 28));
+  const hatchLine = heroHexToRgba(patternLine, patternOpacity);
+  const hatchGap = patternSize;
+  const hatchSoft = patternStyle === 'soft' ? Math.max(2, Math.round(patternSize * 0.35)) : 1;
+  const dotRadius = Math.max(1.2, Math.min(4.5, patternSize * 0.12));
+  const dotCell = Math.max(14, patternSize * 1.35);
+  const diagonalBg = `repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent ${hatchGap - hatchSoft}px,
+    ${hatchLine} ${hatchGap - hatchSoft}px,
+    ${hatchLine} ${hatchGap}px
+  )`;
+  const crossBg = `repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent ${hatchGap - hatchSoft}px,
+    ${hatchLine} ${hatchGap - hatchSoft}px,
+    ${hatchLine} ${hatchGap}px
+  )`;
+  const softBg = `repeating-linear-gradient(
+    115deg,
+    transparent 0,
+    transparent ${hatchGap * 1.4}px,
+    ${heroHexToRgba(patternLine, patternOpacity * 0.55)} ${hatchGap * 1.4}px,
+    ${heroHexToRgba(patternLine, patternOpacity * 0.55)} ${hatchGap * 1.4 + hatchSoft * 2}px
+  )`;
+  const dotsBg = `radial-gradient(circle, ${heroHexToRgba(patternLine, patternOpacity * 0.7)} ${dotRadius}px, transparent ${dotRadius + 0.6}px)`;
+  const hasBgLayer = (bgMode === 'image' && !!bgImage) || bgMode === 'pattern';
+
+  const patternLayerBg =
+    patternStyle === 'soft' ? softBg : patternStyle === 'dots' ? dotsBg : diagonalBg;
 
   useEffect(() => {
     if (!autoplay || slides.length < 2) return;
@@ -1485,7 +1686,7 @@ export const HeroHeaderBlock: React.FC<{
   const radius = isCompact ? Math.min(mediaRadius, 20) : mediaRadius;
 
   const mediaColumn = showCarousel && current && (
-    <div className={`relative w-full min-w-0 ${isCompact ? '' : 'max-w-xl'}`}>
+    <div className="relative w-full min-w-0">
       <div
         className="relative overflow-hidden border border-outline-variant/20 bg-surface-container shadow-lg"
         style={{ borderRadius: radius }}
@@ -1799,7 +2000,50 @@ export const HeroHeaderBlock: React.FC<{
           />
         </>
       )}
-      <div className={bgMode === 'image' && bgImage ? 'relative z-10' : undefined}>
+      {bgMode === 'pattern' && (
+        <div
+          className={`hero-hatch-pattern ${patternAnimate ? 'hero-hatch-pattern--animate' : ''} ${
+            patternStyle === 'cross' || patternStyle === 'dots' ? 'hero-hatch-pattern--cross' : ''
+          }`}
+          aria-hidden
+          style={
+            {
+              '--hero-hatch-speed': `${patternSpeed}s`,
+              '--hero-hatch-shift': `${hatchGap * 1.75}px`,
+            } as React.CSSProperties
+          }
+        >
+          <div
+            className="hero-hatch-pattern__layer"
+            style={{
+              backgroundImage: patternLayerBg,
+              ...(patternStyle === 'dots'
+                ? {
+                    backgroundSize: `${dotCell}px ${dotCell}px`,
+                    backgroundPosition: '0 0',
+                  }
+                : {}),
+            }}
+          />
+          {patternStyle === 'cross' && (
+            <div
+              className="hero-hatch-pattern__layer hero-hatch-pattern__layer--b"
+              style={{ backgroundImage: crossBg }}
+            />
+          )}
+          {patternStyle === 'dots' && (
+            <div
+              className="hero-hatch-pattern__layer hero-hatch-pattern__layer--b"
+              style={{
+                backgroundImage: `radial-gradient(circle, ${heroHexToRgba(patternLine, patternOpacity * 0.35)} ${Math.max(0.8, dotRadius * 0.7)}px, transparent ${dotRadius}px)`,
+                backgroundSize: `${dotCell}px ${dotCell}px`,
+                backgroundPosition: `${dotCell / 2}px ${dotCell / 2}px`,
+              }}
+            />
+          )}
+        </div>
+      )}
+      <div className={hasBgLayer ? 'relative z-10' : undefined}>
       {isCompact ? (
         <div className="flex flex-col gap-4 w-full">
           {mediaColumn}
@@ -1822,69 +2066,68 @@ export const HeroHeaderBlock: React.FC<{
       )}
 
       {showStats && stats.length > 0 && (
-        <div
-          className={`mt-5 ${
-            isCompact
-              ? 'flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-0.5 px-0.5'
-              : 'grid grid-cols-3 gap-4 mt-14'
-          }`}
-          style={isCompact ? { WebkitOverflowScrolling: 'touch' } : undefined}
-        >
-          {stats.map((stat, i) => (
-            <div
-              key={i}
-              className={`flex items-center bg-white dark:bg-surface-dim border border-outline-variant/25 shadow-soft ${
-                isCompact
-                  ? 'gap-2 rounded-xl p-2.5 shrink-0 min-w-[148px]'
-                  : 'gap-3 rounded-2xl p-4'
-              }`}
-            >
-              <span
-                className={`${accent.soft} flex items-center justify-center shrink-0 ${
-                  isCompact ? 'w-8 h-8 rounded-lg' : 'w-11 h-11 rounded-xl'
-                }`}
-              >
-                <span className={`material-symbols-outlined ${isCompact ? 'text-lg' : 'text-2xl'}`}>
-                  {str(stat.icon, 'analytics')}
-                </span>
-              </span>
-              <div className="min-w-0">
-                <p className={`font-black text-on-surface leading-none ${isCompact ? 'text-sm' : 'text-lg'}`}>
-                  {str(stat.value)}
-                </p>
-                <p
-                  className={`text-on-surface-variant font-bold mt-0.5 ${
-                    isCompact ? 'text-[9px]' : 'text-[11px] mt-1'
-                  }`}
-                >
-                  {str(stat.label)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <HeroStatsStrip
+          stats={stats}
+          accentSoft={accent.soft}
+          isCompact={isCompact}
+          animate={statsAnimate}
+        />
       )}
       </div>
     </section>
   );
 };
 
+function aparatEmbedSrc(hash: string) {
+  return `https://www.aparat.com/video/video/embed/videohash/${hash}/vt/frame`;
+}
+
+/** Accepts a direct URL, page URL, or pasted Aparat/YouTube embed HTML. */
 function toVideoEmbed(url: string): { kind: 'iframe' | 'file'; src: string } | null {
   const raw = url.trim();
   if (!raw) return null;
+
+  // Paste of full <iframe ...> embed markup (Aparat / YouTube)
+  const iframeSrc = raw.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i)?.[1]?.trim();
+  const candidate = iframeSrc || raw;
+
+  // Aparat script embed: <script src="https://www.aparat.com/embed/HASH?...">
+  const aparatScript = candidate.match(/aparat\.com\/embed\/([A-Za-z0-9_-]+)/i);
+  if (aparatScript?.[1]) return { kind: 'iframe', src: aparatEmbedSrc(aparatScript[1]) };
+
+  // Aparat iframe / share URL with videohash
+  const aparatHash = candidate.match(
+    /aparat\.com\/video\/video\/embed\/videohash\/([A-Za-z0-9_-]+)/i
+  );
+  if (aparatHash?.[1]) return { kind: 'iframe', src: aparatEmbedSrc(aparatHash[1]) };
+
   const yt =
-    raw.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,})/) ||
-    raw.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
+    candidate.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,})/) ||
+    candidate.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
   if (yt?.[1]) return { kind: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}` };
-  const aparat = raw.match(/aparat\.com\/v\/([A-Za-z0-9_-]+)/i);
-  if (aparat?.[1]) return { kind: 'iframe', src: `https://www.aparat.com/video/video/embed/videohash/${aparat[1]}/vt/frame` };
-  if (/\.(mp4|webm|ogg)(\?|$)/i.test(raw) || raw.startsWith('/uploads/') || raw.startsWith('blob:')) {
-    return { kind: 'file', src: raw };
+
+  const aparat = candidate.match(/aparat\.com\/v\/([A-Za-z0-9_-]+)/i);
+  if (aparat?.[1]) return { kind: 'iframe', src: aparatEmbedSrc(aparat[1]) };
+
+  if (
+    /\.(mp4|webm|ogg)(\?|$)/i.test(candidate) ||
+    candidate.startsWith('/uploads/') ||
+    candidate.startsWith('blob:')
+  ) {
+    return { kind: 'file', src: candidate };
   }
-  if (raw.includes('youtube.com/embed/') || raw.includes('aparat.com/video/video/embed')) {
-    return { kind: 'iframe', src: raw };
+
+  if (
+    candidate.includes('youtube.com/embed/') ||
+    candidate.includes('aparat.com/video/video/embed')
+  ) {
+    return { kind: 'iframe', src: candidate };
   }
-  return { kind: 'file', src: raw };
+
+  // Generic iframe src from pasted HTML (non-Aparat providers)
+  if (iframeSrc) return { kind: 'iframe', src: iframeSrc };
+
+  return { kind: 'file', src: candidate };
 }
 
 export const ImageCarouselBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
@@ -1969,6 +2212,7 @@ export const ImageCarouselBlock: React.FC<{ props: Record<string, unknown> }> = 
 
 export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
   const title = str(props.title);
+  const sourceType = str(props.sourceType, 'upload');
   const videoUrl = str(props.videoUrl);
   const poster = str(props.posterImage);
   const embed = toVideoEmbed(videoUrl);
@@ -1978,6 +2222,12 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
   const controls = props.controls !== false;
   const autoplay = props.autoplay === true;
   const muted = props.muted !== false;
+  const emptyHint =
+    sourceType === 'aparatEmbed'
+      ? 'کد امبد آپارات را در تنظیمات بچسبانید'
+      : sourceType === 'embed'
+        ? 'لینک یوتیوب یا آپارات را وارد کنید'
+        : 'آدرس ویدئو را در تنظیمات وارد کنید';
 
   return (
     <section className="space-y-3">
@@ -1986,7 +2236,7 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
         {!embed ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70 text-sm">
             <span className="material-symbols-outlined text-4xl">smart_display</span>
-            <span>آدرس ویدئو را در تنظیمات وارد کنید</span>
+            <span>{emptyHint}</span>
           </div>
         ) : embed.kind === 'iframe' ? (
           <iframe

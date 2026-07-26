@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { writeAuthHeaders } from '../../lib/dbService';
 
 type EntityKey =
   | 'pages'
@@ -85,7 +86,7 @@ export const ImportExportPanel: React.FC = () => {
       if (!selected.length) throw new Error('حداقل یک بخش را انتخاب کنید.');
       const res = await fetch('/api/backup/export', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...writeAuthHeaders() },
         body: JSON.stringify({ entities: selected, includeUserSecrets }),
       });
       const data = await res.json();
@@ -118,7 +119,7 @@ export const ImportExportPanel: React.FC = () => {
       const backup = JSON.parse(text);
       const res = await fetch('/api/backup/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...writeAuthHeaders() },
         body: JSON.stringify({ backup, entities: selected, mode: importMode }),
       });
       const data = await res.json();
@@ -145,7 +146,11 @@ export const ImportExportPanel: React.FC = () => {
       form.append('importPages', String(wpPages));
       form.append('downloadMedia', String(wpMedia));
       form.append('statusMode', wpStatus);
-      const res = await fetch('/api/backup/wordpress', { method: 'POST', body: form });
+      const res = await fetch('/api/backup/wordpress', {
+        method: 'POST',
+        headers: writeAuthHeaders(),
+        body: form,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'درون‌ریزی وردپرس ناموفق بود.');
       setMessage(

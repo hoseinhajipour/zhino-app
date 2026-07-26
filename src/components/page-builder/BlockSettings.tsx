@@ -17,6 +17,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { ContainerBlockSettings } from './ContainerBlockSettings';
 import {
   defaultHeroWidthValue,
+  normalizeHeroPatternStyle,
   normalizeHeroWidthMode,
   readHeroWidthForDevice,
   setHeroWidthForDevice,
@@ -845,7 +846,7 @@ function HeroHeaderBlockSettings({
   onChange: (props: Record<string, unknown>) => void;
 }) {
   const set = (key: string, value: unknown) => onChange({ ...props, [key]: value });
-  const [tab, setTab] = useState<'content' | 'size'>('content');
+  const [tab, setTab] = useState<'content' | 'carousel' | 'stats' | 'size'>('content');
   const [widthDevice, setWidthDevice] = useState<HeroDevice>('desktop');
   const slides = (
     Array.isArray(props.slides) ? props.slides : []
@@ -867,14 +868,17 @@ function HeroHeaderBlockSettings({
   const ctaAction = String(props.ctaAction || 'booking');
   const widthCfg = readHeroWidthForDevice(props, widthDevice);
   const bgMode = String(props.background || 'none');
+  const patternStyle = normalizeHeroPatternStyle(props.patternStyle);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/20">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 rounded-xl bg-surface-container-low border border-outline-variant/20">
         {(
           [
             { id: 'content' as const, label: 'محتوا', icon: 'edit_note' },
-            { id: 'size' as const, label: 'اندازه و ظاهر', icon: 'aspect_ratio' },
+            { id: 'carousel' as const, label: 'کروسل', icon: 'view_carousel' },
+            { id: 'stats' as const, label: 'آمار', icon: 'monitoring' },
+            { id: 'size' as const, label: 'ظاهر', icon: 'aspect_ratio' },
           ] as const
         ).map((t) => (
           <button
@@ -1030,12 +1034,15 @@ function HeroHeaderBlockSettings({
               >
                 <option value="none">شفاف</option>
                 <option value="color">رنگ</option>
+                <option value="pattern">پترن</option>
                 <option value="image">تصویر</option>
               </select>
             </label>
-            {bgMode === 'color' && (
+            {(bgMode === 'color' || bgMode === 'pattern') && (
               <label className="block space-y-1">
-                <span className="text-[11px] font-bold text-on-surface-variant">رنگ پس‌زمینه</span>
+                <span className="text-[11px] font-bold text-on-surface-variant">
+                  {bgMode === 'pattern' ? 'رنگ پایه' : 'رنگ پس‌زمینه'}
+                </span>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -1056,6 +1063,97 @@ function HeroHeaderBlockSettings({
                   />
                 </div>
               </label>
+            )}
+            {bgMode === 'pattern' && (
+              <div className="space-y-2 pt-1 border-t border-outline-variant/15">
+                <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                  هاشور، نوار یا نقاط دایره‌ای ظریف با حرکت آرام؛ مناسب فضای کلینیکی و لوکس.
+                </p>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-on-surface-variant">سبک پترن</span>
+                  <select
+                    value={patternStyle}
+                    onChange={(e) => set('patternStyle', e.target.value)}
+                    className={fieldClass}
+                  >
+                    <option value="diagonal">هاشور مورب</option>
+                    <option value="cross">هاشور متقاطع</option>
+                    <option value="soft">نوار نرم</option>
+                    <option value="dots">دایره‌ای سبک</option>
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-on-surface-variant">رنگ خطوط</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={
+                        /^#[0-9A-Fa-f]{6}$/.test(String(props.patternColor || ''))
+                          ? String(props.patternColor)
+                          : '#b5106a'
+                      }
+                      onChange={(e) => set('patternColor', e.target.value)}
+                      className="h-9 w-12 rounded-lg border border-outline-variant/30 bg-transparent cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={String(props.patternColor || '#b5106a')}
+                      onChange={(e) => set('patternColor', e.target.value)}
+                      className={fieldClass}
+                      dir="ltr"
+                    />
+                  </div>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-on-surface-variant">
+                    تراکم خطوط ({Number(props.patternSize) || 16}px)
+                  </span>
+                  <input
+                    type="range"
+                    min={8}
+                    max={48}
+                    value={Number(props.patternSize) || 16}
+                    onChange={(e) => set('patternSize', Number(e.target.value))}
+                    className="w-full"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-on-surface-variant">
+                    شفافیت خطوط ({Math.round((Number(props.patternOpacity ?? 0.1) || 0.1) * 100)}٪)
+                  </span>
+                  <input
+                    type="range"
+                    min={3}
+                    max={35}
+                    value={Math.round((Number(props.patternOpacity ?? 0.1) || 0.1) * 100)}
+                    onChange={(e) => set('patternOpacity', Number(e.target.value) / 100)}
+                    className="w-full"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold">
+                  <input
+                    type="checkbox"
+                    checked={props.patternAnimate !== false}
+                    onChange={(e) => set('patternAnimate', e.target.checked)}
+                  />
+                  انیمیشن آرام پترن
+                </label>
+                {props.patternAnimate !== false && (
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-bold text-on-surface-variant">
+                      سرعت حرکت ({Number(props.patternSpeed) || 28}ث)
+                    </span>
+                    <input
+                      type="range"
+                      min={12}
+                      max={60}
+                      value={Number(props.patternSpeed) || 28}
+                      onChange={(e) => set('patternSpeed', Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </label>
+                )}
+              </div>
             )}
             {bgMode === 'image' && (
               <div className="space-y-2">
@@ -1416,185 +1514,306 @@ function HeroHeaderBlockSettings({
       >
         + افزودن دپارتمان
       </button>
-
-      <p className="text-[11px] font-black text-on-surface border-b border-outline-variant/20 pb-2 pt-1">
-        کروسل تصویر
-      </p>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showCarousel !== false}
-          onChange={(e) => set('showCarousel', e.target.checked)}
-        />
-        نمایش کروسل
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.carouselAutoplay !== false}
-          onChange={(e) => set('carouselAutoplay', e.target.checked)}
-        />
-        پخش خودکار
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showCarouselArrows !== false}
-          onChange={(e) => set('showCarouselArrows', e.target.checked)}
-        />
-        فلش‌ها
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showCarouselDots !== false}
-          onChange={(e) => set('showCarouselDots', e.target.checked)}
-        />
-        نقاط صفحه‌بندی
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showRatingBadge !== false}
-          onChange={(e) => set('showRatingBadge', e.target.checked)}
-        />
-        نشان امتیاز
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showFloatingBadge !== false}
-          onChange={(e) => set('showFloatingBadge', e.target.checked)}
-        />
-        نشان شناور پایین تصویر
-      </label>
-      {slides.map((slide, idx) => (
-        <div
-          key={idx}
-          className="p-3 rounded-xl border border-outline-variant/20 space-y-2 bg-surface-container-low/50"
-        >
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-bold">اسلاید {idx + 1}</span>
-            <button
-              type="button"
-              className="text-rose-500 text-[10px] font-bold"
-              onClick={() => set('slides', slides.filter((_, i) => i !== idx))}
-            >
-              حذف
-            </button>
-          </div>
-          <MediaField
-            label="تصویر"
-            value={String(slide.image || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { image: v }))}
-            accept="image"
-            aspect="video"
-          />
-          <TextInput
-            label="برچسب روی تصویر"
-            value={String(slide.badge || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { badge: v }))}
-          />
-          <TextInput
-            label="عنوان اسلاید"
-            value={String(slide.title || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { title: v }))}
-          />
-          <TextInput
-            label="توضیح اسلاید"
-            value={String(slide.description || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { description: v }))}
-            multiline
-          />
-          <TextInput
-            label="امتیاز (مثل ۴.۹ از ۵.۰)"
-            value={String(slide.rating || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { rating: v }))}
-          />
-          <TextInput
-            label="متن نشان شناور"
-            value={String(slide.floatingBadge || '')}
-            onChange={(v) => set('slides', updateItemArray(slides, idx, { floatingBadge: v }))}
-          />
-          <ItemIconPicker
-            value={String(slide.floatingIcon || 'calendar_month')}
-            onChange={(icon) => set('slides', updateItemArray(slides, idx, { floatingIcon: icon }))}
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
-        onClick={() =>
-          set('slides', [
-            ...slides,
-            {
-              image: '',
-              badge: 'اتاق جدید',
-              title: 'عنوان اسلاید',
-              description: 'توضیح کوتاه',
-              rating: '۵.۰ از ۵.۰',
-              floatingBadge: 'نوبت‌دهی آنلاین',
-              floatingIcon: 'calendar_month',
-            },
-          ])
-        }
-      >
-        + افزودن اسلاید کروسل
-      </button>
-
-      <p className="text-[11px] font-black text-on-surface border-b border-outline-variant/20 pb-2 pt-1">
-        آمار پایین
-      </p>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input
-          type="checkbox"
-          checked={props.showStats !== false}
-          onChange={(e) => set('showStats', e.target.checked)}
-        />
-        نمایش آمار
-      </label>
-      {stats.map((stat, idx) => (
-        <div
-          key={idx}
-          className="p-3 rounded-xl border border-outline-variant/20 space-y-2 bg-surface-container-low/50"
-        >
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-bold">آمار {idx + 1}</span>
-            <button
-              type="button"
-              className="text-rose-500 text-[10px] font-bold"
-              onClick={() => set('stats', stats.filter((_, i) => i !== idx))}
-            >
-              حذف
-            </button>
-          </div>
-          <ItemIconPicker
-            value={String(stat.icon || 'analytics')}
-            onChange={(icon) => set('stats', updateItemArray(stats, idx, { icon }))}
-          />
-          <TextInput
-            label="مقدار"
-            value={String(stat.value || '')}
-            onChange={(v) => set('stats', updateItemArray(stats, idx, { value: v }))}
-          />
-          <TextInput
-            label="برچسب"
-            value={String(stat.label || '')}
-            onChange={(v) => set('stats', updateItemArray(stats, idx, { label: v }))}
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
-        onClick={() =>
-          set('stats', [...stats, { icon: 'analytics', value: '۰', label: 'برچسب آمار' }])
-        }
-      >
-        + افزودن آمار
-      </button>
     </div>
+      )}
+
+      {tab === 'stats' && (
+        <div className="space-y-4">
+          <p className="text-[11px] font-black text-on-surface border-b border-outline-variant/20 pb-2">
+            آمار پایین هیرو
+          </p>
+          <p className="text-[10px] text-on-surface-variant leading-relaxed -mt-2">
+            کارت‌های آماری صفحه اصلی را اینجا مدیریت کنید. با فعال‌کردن انیمیشن، آیتم‌ها یکی‌یکی ظاهر می‌شوند و اعداد به‌صورت شمارنده بالا می‌روند.
+          </p>
+
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={props.showStats !== false}
+              onChange={(e) => set('showStats', e.target.checked)}
+            />
+            نمایش آمار
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={props.statsAnimate === true}
+              onChange={(e) => set('statsAnimate', e.target.checked)}
+            />
+            انیمیشن شمارنده و ظاهر شدن تدریجی
+          </label>
+
+          {stats.map((stat, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-outline-variant/20 space-y-2 bg-surface-container-low/50"
+            >
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold">آمار {idx + 1}</span>
+                <div className="flex items-center gap-2">
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      className="text-on-surface-variant text-[10px] font-bold"
+                      onClick={() => {
+                        const next = [...stats];
+                        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                        set('stats', next);
+                      }}
+                    >
+                      بالا
+                    </button>
+                  )}
+                  {idx < stats.length - 1 && (
+                    <button
+                      type="button"
+                      className="text-on-surface-variant text-[10px] font-bold"
+                      onClick={() => {
+                        const next = [...stats];
+                        [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                        set('stats', next);
+                      }}
+                    >
+                      پایین
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-rose-500 text-[10px] font-bold"
+                    onClick={() => set('stats', stats.filter((_, i) => i !== idx))}
+                  >
+                    حذف
+                  </button>
+                </div>
+              </div>
+              <ItemIconPicker
+                value={String(stat.icon || 'analytics')}
+                onChange={(icon) => set('stats', updateItemArray(stats, idx, { icon }))}
+              />
+              <TextInput
+                label="مقدار (مثل +۱۲,۰۰۰ یا ۹۸.۴٪)"
+                value={String(stat.value || '')}
+                onChange={(v) => set('stats', updateItemArray(stats, idx, { value: v }))}
+              />
+              <TextInput
+                label="برچسب"
+                value={String(stat.label || '')}
+                onChange={(v) => set('stats', updateItemArray(stats, idx, { label: v }))}
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
+            onClick={() =>
+              set('stats', [...stats, { icon: 'analytics', value: '۰', label: 'برچسب آمار' }])
+            }
+          >
+            + افزودن آمار
+          </button>
+        </div>
+      )}
+
+      {tab === 'carousel' && (
+        <div className="space-y-4">
+          <p className="text-[11px] font-black text-on-surface border-b border-outline-variant/20 pb-2">
+            کروسل تصویر
+          </p>
+          <p className="text-[10px] text-on-surface-variant leading-relaxed -mt-2">
+            تصاویر، برچسب‌ها و تنظیمات پخش کروسل هیرو را اینجا مدیریت کنید.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.showCarousel !== false}
+                onChange={(e) => set('showCarousel', e.target.checked)}
+              />
+              نمایش کروسل
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.carouselAutoplay !== false}
+                onChange={(e) => set('carouselAutoplay', e.target.checked)}
+              />
+              پخش خودکار
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.showCarouselArrows !== false}
+                onChange={(e) => set('showCarouselArrows', e.target.checked)}
+              />
+              فلش‌ها
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.showCarouselDots !== false}
+                onChange={(e) => set('showCarouselDots', e.target.checked)}
+              />
+              نقاط صفحه‌بندی
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.showRatingBadge !== false}
+                onChange={(e) => set('showRatingBadge', e.target.checked)}
+              />
+              نشان امتیاز
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={props.showFloatingBadge !== false}
+                onChange={(e) => set('showFloatingBadge', e.target.checked)}
+              />
+              نشان شناور
+            </label>
+          </div>
+
+          {props.carouselAutoplay !== false && (
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">
+                فاصله پخش ({Math.round((Number(props.carouselIntervalMs) || 5000) / 1000)}ث)
+              </span>
+              <input
+                type="range"
+                min={2500}
+                max={12000}
+                step={500}
+                value={Number(props.carouselIntervalMs) || 5000}
+                onChange={(e) => set('carouselIntervalMs', Number(e.target.value))}
+                className="w-full"
+              />
+            </label>
+          )}
+
+          {slides.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {slides.map((slide, idx) => (
+                <div
+                  key={idx}
+                  className="shrink-0 w-16 h-12 rounded-lg overflow-hidden border border-outline-variant/30 bg-surface-container relative"
+                  title={`اسلاید ${idx + 1}`}
+                >
+                  {slide.image ? (
+                    <img src={String(slide.image)} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] text-on-surface-variant font-bold">
+                      {idx + 1}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {slides.map((slide, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-outline-variant/20 space-y-2 bg-surface-container-low/50"
+            >
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold">اسلاید {idx + 1}</span>
+                <div className="flex items-center gap-2">
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      className="text-on-surface-variant text-[10px] font-bold"
+                      onClick={() => {
+                        const next = [...slides];
+                        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                        set('slides', next);
+                      }}
+                    >
+                      بالا
+                    </button>
+                  )}
+                  {idx < slides.length - 1 && (
+                    <button
+                      type="button"
+                      className="text-on-surface-variant text-[10px] font-bold"
+                      onClick={() => {
+                        const next = [...slides];
+                        [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                        set('slides', next);
+                      }}
+                    >
+                      پایین
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-rose-500 text-[10px] font-bold"
+                    onClick={() => set('slides', slides.filter((_, i) => i !== idx))}
+                  >
+                    حذف
+                  </button>
+                </div>
+              </div>
+              <MediaField
+                label="تصویر"
+                value={String(slide.image || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { image: v }))}
+                accept="image"
+                aspect="video"
+              />
+              <TextInput
+                label="برچسب روی تصویر"
+                value={String(slide.badge || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { badge: v }))}
+              />
+              <TextInput
+                label="عنوان اسلاید"
+                value={String(slide.title || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { title: v }))}
+              />
+              <TextInput
+                label="توضیح اسلاید"
+                value={String(slide.description || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { description: v }))}
+                multiline
+              />
+              <TextInput
+                label="امتیاز (مثل ۴.۹ از ۵.۰)"
+                value={String(slide.rating || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { rating: v }))}
+              />
+              <TextInput
+                label="متن نشان شناور"
+                value={String(slide.floatingBadge || '')}
+                onChange={(v) => set('slides', updateItemArray(slides, idx, { floatingBadge: v }))}
+              />
+              <ItemIconPicker
+                value={String(slide.floatingIcon || 'calendar_month')}
+                onChange={(icon) => set('slides', updateItemArray(slides, idx, { floatingIcon: icon }))}
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
+            onClick={() =>
+              set('slides', [
+                ...slides,
+                {
+                  image: '',
+                  badge: 'اتاق جدید',
+                  title: 'عنوان اسلاید',
+                  description: 'توضیح کوتاه',
+                  rating: '۵.۰ از ۵.۰',
+                  floatingBadge: 'نوبت‌دهی آنلاین',
+                  floatingIcon: 'calendar_month',
+                },
+              ])
+            }
+          >
+            + افزودن اسلاید کروسل
+          </button>
+        </div>
       )}
     </div>
   );
@@ -2687,22 +2906,26 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
       );
     }
 
-    case 'videoPlayer':
+    case 'videoPlayer': {
+      const sourceType = String(p.sourceType || 'upload');
+      const isUpload = sourceType === 'upload';
+      const isAparatEmbed = sourceType === 'aparatEmbed';
       return (
         <div className="space-y-3">
           <TextInput label="عنوان (اختیاری)" value={String(p.title || '')} onChange={(v) => set('title', v)} />
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-on-surface-variant">نوع منبع</span>
             <select
-              value={String(p.sourceType || 'upload')}
+              value={sourceType}
               onChange={(e) => set('sourceType', e.target.value)}
               className={fieldClass}
             >
               <option value="upload">فایل آپلود / لینک مستقیم</option>
-              <option value="embed">یوتیوب / آپارات</option>
+              <option value="embed">یوتیوب / آپارات (لینک)</option>
+              <option value="aparatEmbed">کد امبد آپارات</option>
             </select>
           </label>
-          {String(p.sourceType || 'upload') === 'upload' ? (
+          {isUpload ? (
             <MediaField
               label="ویدئو"
               value={String(p.videoUrl || '')}
@@ -2710,6 +2933,22 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               accept="video"
               aspect="video"
             />
+          ) : isAparatEmbed ? (
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-on-surface-variant">کد امبد آپارات</span>
+              <textarea
+                rows={5}
+                value={String(p.videoUrl || '')}
+                onChange={(e) => set('videoUrl', e.target.value)}
+                dir="ltr"
+                spellCheck={false}
+                placeholder={`<iframe src="https://www.aparat.com/video/video/embed/videohash/.../vt/frame" ...></iframe>`}
+                className={`${fieldClass} font-mono text-[11px] leading-relaxed`}
+              />
+              <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                کد iframe یا اسکریپت امبد را از بخش «دریافت کد امبد» در آپارات کپی و اینجا بچسبانید.
+              </p>
+            </label>
           ) : (
             <TextInput
               label="لینک یوتیوب یا آپارات"
@@ -2717,13 +2956,15 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               onChange={(v) => set('videoUrl', v)}
             />
           )}
-          <MediaField
-            label="کاور (Poster)"
-            value={String(p.posterImage || '')}
-            onChange={(v) => set('posterImage', v)}
-            accept="image"
-            aspect="video"
-          />
+          {isUpload && (
+            <MediaField
+              label="کاور (Poster)"
+              value={String(p.posterImage || '')}
+              onChange={(v) => set('posterImage', v)}
+              accept="image"
+              aspect="video"
+            />
+          )}
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-on-surface-variant">نسبت تصویر</span>
             <select
@@ -2736,14 +2977,26 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               <option value="square">۱:۱</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-xs font-bold">
-            <input
-              type="checkbox"
-              checked={p.controls !== false}
-              onChange={(e) => set('controls', e.target.checked)}
-            />
-            نمایش کنترل‌ها
-          </label>
+          {isUpload && (
+            <>
+              <label className="flex items-center gap-2 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={p.controls !== false}
+                  onChange={(e) => set('controls', e.target.checked)}
+                />
+                نمایش کنترل‌ها
+              </label>
+              <label className="flex items-center gap-2 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={p.muted !== false}
+                  onChange={(e) => set('muted', e.target.checked)}
+                />
+                بی‌صدا
+              </label>
+            </>
+          )}
           <label className="flex items-center gap-2 text-xs font-bold">
             <input
               type="checkbox"
@@ -2752,16 +3005,9 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
             />
             پخش خودکار
           </label>
-          <label className="flex items-center gap-2 text-xs font-bold">
-            <input
-              type="checkbox"
-              checked={p.muted !== false}
-              onChange={(e) => set('muted', e.target.checked)}
-            />
-            بی‌صدا
-          </label>
         </div>
       );
+    }
 
     case 'icon':
       return <IconBlockSettings props={p} onChange={onChange} />;

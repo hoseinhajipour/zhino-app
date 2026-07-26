@@ -3,7 +3,97 @@ import { DESKTOP_MIN_PX, TABLET_MIN_PX } from './responsiveGrid';
 
 export type HeroWidthMode = 'full' | 'percent' | 'px';
 export type HeroDevice = 'mobile' | 'tablet' | 'desktop';
-export type HeroBackgroundMode = 'none' | 'color' | 'image';
+export type HeroBackgroundMode = 'none' | 'color' | 'image' | 'pattern';
+
+export type HeroPatternStyle = 'diagonal' | 'cross' | 'soft' | 'dots';
+
+export function normalizeHeroPatternStyle(value: unknown): HeroPatternStyle {
+  if (value === 'cross' || value === 'soft' || value === 'dots') return value;
+  return 'diagonal';
+}
+
+/** Parse #rgb / #rrggbb into rgba() for hatch lines. */
+export function heroHexToRgba(hex: string, alpha: number): string {
+  const raw = hex.trim().replace(/^#/, '');
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  if (!/^[0-9A-Fa-f]{6}$/.test(full)) {
+    return `rgba(181, 16, 106, ${alpha})`;
+  }
+  const n = parseInt(full, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+
+export function toLatinDigits(input: string): string {
+  return input.replace(/[۰-۹٠-٩]/g, (ch) => {
+    const pi = PERSIAN_DIGITS.indexOf(ch);
+    if (pi >= 0) return String(pi);
+    const ai = ARABIC_DIGITS.indexOf(ch);
+    return ai >= 0 ? String(ai) : ch;
+  });
+}
+
+export function toPersianDigits(input: string): string {
+  return input.replace(/\d/g, (d) => PERSIAN_DIGITS[Number(d)] || d);
+}
+
+export type ParsedHeroStatValue = {
+  prefix: string;
+  target: number | null;
+  decimals: number;
+  suffix: string;
+  usePersian: boolean;
+  raw: string;
+};
+
+/** Split a display value like «+۱۲,۰۰۰» or «۹۸.۴٪» for count-up animation. */
+export function parseHeroStatValue(raw: string): ParsedHeroStatValue {
+  const text = String(raw || '').trim();
+  const usePersian = /[۰-۹٠-٩]/.test(text);
+  const latin = toLatinDigits(text).replace(/٬/g, ',').replace(/٫/g, '.');
+  const match = latin.match(/(\d+(?:[.,]\d+)?)/);
+  if (!match || match.index == null) {
+    return { prefix: '', target: null, decimals: 0, suffix: '', usePersian, raw: text };
+  }
+  const numRaw = match[1];
+  const normalized = numRaw.replace(/,/g, '');
+  const target = Number(normalized);
+  if (!Number.isFinite(target)) {
+    return { prefix: '', target: null, decimals: 0, suffix: '', usePersian, raw: text };
+  }
+  const dot = normalized.includes('.') ? normalized.split('.')[1]?.length || 0 : 0;
+  return {
+    prefix: latin.slice(0, match.index),
+    target,
+    decimals: Math.min(2, dot),
+    suffix: latin.slice(match.index + numRaw.length),
+    usePersian,
+    raw: text,
+  };
+}
+
+export function formatHeroStatNumber(
+  value: number,
+  decimals: number,
+  usePersian: boolean
+): string {
+  const fixed = decimals > 0 ? value.toFixed(decimals) : String(Math.round(value));
+  const withSep = decimals > 0
+    ? fixed
+    : Math.round(value).toLocaleString('en-US');
+  return usePersian ? toPersianDigits(withSep) : withSep;
+}
 
 const WIDTH_MODE_KEYS: Record<HeroDevice, string> = {
   mobile: 'widthModeMobile',
@@ -136,7 +226,7 @@ export function resolveHeroOuterStyle(
   if (Number.isFinite(marginTop) && marginTop !== 0) style.marginTop = marginTop;
   if (Number.isFinite(marginBottom) && marginBottom !== 0) style.marginBottom = marginBottom;
 
-  if (bgMode === 'color' && bgColor) {
+  if ((bgMode === 'color' || bgMode === 'pattern') && bgColor) {
     style.backgroundColor = bgColor;
   }
 
