@@ -4,6 +4,7 @@ import { ArticleDetailPage } from './ArticleDetailPage';
 import { BlockRenderer } from '../components/page-builder/BlockRenderer';
 import { createDefaultSitePage } from '../lib/sitePageDefaults';
 import { fetchArticleCategories, fetchSitePage } from '../lib/dbService';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 
 interface BlogPageProps {
   articles: Article[];
@@ -162,7 +163,7 @@ export const BlogPage: React.FC<BlogPageProps> = ({
   });
 
   return (
-    <div className="space-y-12 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6 animate-fade-in">
+    <div className={`space-y-12 pb-16 text-right ${SITE_CONTAINER_CLASS} animate-fade-in`}>
       <BlockRenderer
         blocks={displayBlocks}
         ctx={{

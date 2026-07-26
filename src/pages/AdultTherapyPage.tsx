@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DOCTORS, FAQS_ADULT } from '../data/clinicData';
 import { PageScreen } from '../types';
 import { useAppNavigation } from '../context/AppContext';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 
 interface AdultTherapyPageProps {
   onNavigate?: (screen: PageScreen) => void;
@@ -24,7 +25,7 @@ export const AdultTherapyPage: React.FC<AdultTherapyPageProps> = (props) => {
   );
 
   return (
-    <div className="space-y-20 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6">
+    <div className={`space-y-20 pb-16 text-right ${SITE_CONTAINER_CLASS}`}>
       {/* Hero Section */}
       <section className="bg-surface-container-low p-8 md:p-12 rounded-[40px] border border-outline-variant/30 grid grid-cols-1 md:grid-cols-2 items-center gap-10">
         <div className="space-y-5">

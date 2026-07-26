@@ -2,9 +2,14 @@ import type {
   PageScreen,
   SiteChromeSettings,
   SiteIdentitySettings,
+  SiteLayoutSettings,
   SiteNavItem,
 } from '../types';
 import { CLINIC_INFO } from '../data/clinicData';
+import {
+  normalizeSiteContainerMode,
+  siteContentMaxWidthCssValue,
+} from './contentWidth';
 
 export const BUILTIN_NAV_TARGETS: Array<{ value: string; label: string }> = [
   { value: 'home', label: 'صفحه اصلی' },
@@ -28,11 +33,11 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
     tagline: 'مرکز تخصصی روان‌درمانی، مشاوره و نوروفیدبک',
     logoUrl: CLINIC_INFO.logoUrl,
     faviconUrl: '/favicon.ico',
-    primaryColor: '#b5106a',
-    secondaryColor: '#2c694e',
-    buttonColor: '#b5106a',
-    backgroundColor: '#f8f9fa',
-    accentColor: '#13677b',
+    primaryColor: '#CB2EBB',
+    secondaryColor: '#5E40B0',
+    buttonColor: '#CB2EBB',
+    backgroundColor: '#F5F0FA',
+    accentColor: '#487EAD',
     textColor: '#191c1d',
     fontFamily: 'vazirmatn',
     phone1: CLINIC_INFO.phone1,
@@ -106,6 +111,10 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
       { id: 'f-faq', label: 'سوالات متداول (FAQ)', target: 'faq', visible: true },
     ],
   },
+  layout: {
+    containerMode: '1200',
+    customMaxWidth: 1600,
+  },
 };
 
 const PAGE_SCREENS = new Set<string>([
@@ -120,6 +129,12 @@ const PAGE_SCREENS = new Set<string>([
   'contact',
   'blog',
   'faq',
+  'shop',
+  'shop-product',
+  'cart',
+  'checkout',
+  'order-confirmation',
+  'payment-callback',
   'admin',
   'user-panel',
   'login',
@@ -128,6 +143,17 @@ const PAGE_SCREENS = new Set<string>([
 
 export function isPageScreenTarget(target: string): target is PageScreen {
   return PAGE_SCREENS.has(target);
+}
+
+export function mergeSiteLayout(partial?: Partial<SiteLayoutSettings> | null): SiteLayoutSettings {
+  const base = DEFAULT_SITE_CHROME.layout;
+  const p = partial || {};
+  const customRaw = Number(p.customMaxWidth ?? base.customMaxWidth);
+  return {
+    containerMode: normalizeSiteContainerMode(p.containerMode ?? base.containerMode),
+    customMaxWidth:
+      Number.isFinite(customRaw) && customRaw > 0 ? Math.round(customRaw) : base.customMaxWidth,
+  };
 }
 
 export function mergeSiteChrome(partial?: Partial<SiteChromeSettings> | null): SiteChromeSettings {
@@ -147,6 +173,7 @@ export function mergeSiteChrome(partial?: Partial<SiteChromeSettings> | null): S
         ? p.footer.quickLinks
         : DEFAULT_SITE_CHROME.footer.quickLinks,
     },
+    layout: mergeSiteLayout(p.layout),
   };
 }
 
@@ -276,6 +303,16 @@ function lightenHex(hex: string, amount = 0.18): string {
   g = mix(g);
   b = mix(b);
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+/** Apply site-wide content max-width CSS variable used by header/footer/pages. */
+export function applySiteLayout(layout?: Partial<SiteLayoutSettings> | null) {
+  if (typeof document === 'undefined') return;
+  const merged = mergeSiteLayout(layout);
+  document.documentElement.style.setProperty(
+    '--site-content-max-width',
+    siteContentMaxWidthCssValue(merged)
+  );
 }
 
 export function applySiteTheme(identity: Partial<SiteIdentitySettings> | SiteIdentitySettings) {

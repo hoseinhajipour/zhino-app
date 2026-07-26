@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MAIN_SERVICES } from '../data/clinicData';
 import { PageScreen } from '../types';
 import { useAppNavigation } from '../context/AppContext';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 
 interface ServicesPageProps {
   onNavigate?: (screen: PageScreen) => void;
@@ -27,7 +28,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = (props) => {
   });
 
   return (
-    <div className="space-y-16 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6">
+    <div className={`space-y-16 pb-16 text-right ${SITE_CONTAINER_CLASS}`}>
       {/* Hero Banner */}
       <section className="bg-surface-container-low p-8 md:p-12 rounded-[36px] border border-outline-variant/30 text-center space-y-4">
         <span className="bg-primary/10 text-primary text-xs font-bold px-4 py-1.5 rounded-full inline-block">

@@ -48,6 +48,11 @@
   --color-button: #b5106a;
 }
 
+:root {
+  /* Site chrome + page shell max width (overridden by applySiteLayout) */
+  --site-content-max-width: 1200px;
+}
+
 body {
   font-family: var(--font-site), 'Vazirmatn', sans-serif;
   background-color: var(--color-background, #f8f9fa);

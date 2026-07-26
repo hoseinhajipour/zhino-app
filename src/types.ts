@@ -10,6 +10,12 @@ export type PageScreen =
   | 'contact'
   | 'blog'
   | 'faq'
+  | 'shop'
+  | 'shop-product'
+  | 'cart'
+  | 'checkout'
+  | 'order-confirmation'
+  | 'payment-callback'
   | 'admin'
   | 'user-panel'
   | 'login'
@@ -128,7 +134,9 @@ export type ServiceBlockType =
   | 'spacer'
   | 'singleImage'
   | 'imageGallery'
-  | 'verticalImageGallery';
+  | 'verticalImageGallery'
+  | 'beforeAfter'
+  | 'audioPlayer';
 
 /** Scroll-into-view reveal for page-builder widgets */
 export type BlockScrollAnimation = 'fade-in' | 'fade-up' | 'fade-down';
@@ -250,6 +258,16 @@ export interface ZarinpalSettings {
   merchantId: string;
   defaultFee: string;
   callbackUrl: string;
+}
+
+/** Behpardakht (Bank Mellat) IPG credentials */
+export interface MellatSettings {
+  enabled: boolean;
+  terminalId: string;
+  username: string;
+  password: string;
+  /** Optional override; default is site /api/shop/payment/callback/mellat */
+  callbackUrl?: string;
 }
 
 export interface KavenegarSettings {
@@ -392,11 +410,22 @@ export interface SiteFooterSettings {
   showMapIcon: boolean;
 }
 
+/** Default content container width for header, footer, and site pages */
+export type SiteContainerMode = '1200' | '1400' | 'full' | 'custom';
+
+export interface SiteLayoutSettings {
+  /** Preset or custom max width for the site chrome + page shells */
+  containerMode: SiteContainerMode;
+  /** Used when containerMode === 'custom' (px) */
+  customMaxWidth: number;
+}
+
 export interface SiteChromeSettings {
   identity: SiteIdentitySettings;
   header: SiteHeaderSettings;
   menu: SiteMenuSettings;
   footer: SiteFooterSettings;
+  layout: SiteLayoutSettings;
 }
 
 /** Option inside a free-guide form field */
@@ -465,6 +494,8 @@ export interface ClinicSettings {
   /** When true, login screens show demo credentials and quick-login shortcuts */
   developmentMode?: boolean;
   zarinpal: ZarinpalSettings;
+  /** Bank Mellat (Behpardakht) — used by shop online checkout */
+  mellat?: MellatSettings;
   kavenegar: KavenegarSettings;
   /** Branding, header, menus, footer — editable in admin settings */
   site?: SiteChromeSettings;
@@ -472,6 +503,8 @@ export interface ClinicSettings {
   contact?: ClinicContactInfo;
   /** Feature modules (admin-only); e.g. auto-translate */
   modules?: SiteModulesSettings;
+  /** Shop catalog / checkout options (when modules.shop is enabled) */
+  shop?: ShopSettings;
   /** Therapist selector / free guide form (admin-editable) */
   freeGuide?: FreeGuideSettings;
   /** AI provider connection (GapGPT / OpenAI-compatible) */
@@ -510,6 +543,154 @@ export interface SiteModulesSettings {
   appointments: FeatureModuleSettings;
   /** Rank Math–style SEO score & focus keyword for pages/articles */
   seoOptimizer: FeatureModuleSettings;
+  /** Product catalog, cart, checkout, and admin shop tabs */
+  shop: FeatureModuleSettings;
+}
+
+/** Shop product kind */
+export type ShopProductType = 'physical' | 'digital';
+/** Simple product vs variable (with attributes/variations) */
+export type ShopProductKind = 'simple' | 'variable';
+export type ShopProductStatus = 'draft' | 'published';
+export type ShopOrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'processing'
+  | 'shipped'
+  | 'completed'
+  | 'cancelled';
+export type ShopPaymentMethod =
+  | 'bank_transfer'
+  | 'cod'
+  | 'manual'
+  | 'zarinpal'
+  | 'mellat';
+
+export type ShopPaymentStatus = 'unpaid' | 'awaiting' | 'paid' | 'failed';
+
+/** One selectable attribute/variation on a variable product */
+export interface ShopProductVariation {
+  id: string;
+  /** Attribute label shown to customer (e.g. سایز L) */
+  name: string;
+  /** Price in toman for this variation */
+  price: number;
+  /** Rich HTML description for this variation */
+  description?: string;
+  imageUrl?: string;
+  /** null = unlimited; ignored if undefined → fall back to product stock */
+  stock?: number | null;
+  digitalFileUrl?: string;
+}
+
+/** Product category for the shop catalog */
+export interface ShopProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder?: number;
+  active?: boolean;
+}
+
+/** Shop storefront & checkout settings (stored in clinic_settings.shop) */
+export interface ShopSettings {
+  storeName: string;
+  storeDescription: string;
+  currencyLabel: string;
+  showPrices: boolean;
+  /** Enabled payment methods on checkout */
+  paymentMethods: {
+    bank_transfer: boolean;
+    cod: boolean;
+    manual: boolean;
+    zarinpal: boolean;
+    mellat: boolean;
+  };
+  /** Shown when bank_transfer is selected */
+  bankTransferInstructions: string;
+  /** Note under shipping / physical products */
+  shippingNote: string;
+  emptyCartMessage: string;
+  orderSuccessMessage: string;
+  requireAddressForPhysical: boolean;
+  /** 0 = no minimum */
+  minOrderAmount: number;
+}
+
+export interface ShopProduct {
+  id: string;
+  name: string;
+  slug: string;
+  /** Rich HTML product description */
+  description: string;
+  /** Display name (synced from ShopProductCategory.name) */
+  category?: string;
+  categoryId?: string;
+  /** Base / starting price (toman). For variable products = display from-price */
+  price: number;
+  type: ShopProductType;
+  /** Default simple for legacy products */
+  kind?: ShopProductKind;
+  status: ShopProductStatus;
+  /** null = unlimited */
+  stock: number | null;
+  /** Featured / main product image */
+  imageUrl?: string;
+  /** Extra gallery images (excluding or in addition to imageUrl) */
+  galleryUrls?: string[];
+  /** Download URL for digital simple products */
+  digitalFileUrl?: string;
+  /** Optional display weight for physical products */
+  weightGrams?: number;
+  /** Variations when kind === 'variable' */
+  variations?: ShopProductVariation[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShopOrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+  type: ShopProductType;
+  digitalFileUrl?: string;
+  variationId?: string;
+  variationName?: string;
+}
+
+export interface ShopOrderCustomer {
+  name: string;
+  mobile: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface ShopOrder {
+  id: string;
+  orderNumber: string;
+  status: ShopOrderStatus;
+  paymentMethod: ShopPaymentMethod;
+  /** Online gateway payment lifecycle */
+  paymentStatus?: ShopPaymentStatus;
+  paymentAuthority?: string;
+  paymentRefId?: string;
+  /** Numeric order id for Mellat bpPayRequest */
+  mellatOrderId?: number;
+  customer: ShopOrderCustomer;
+  items: ShopOrderItem[];
+  subtotal: number;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShopCartItem {
+  productId: string;
+  /** Required when adding a variable product */
+  variationId?: string;
+  qty: number;
 }
 
 /** Per-content SEO fields (articles & site pages) */

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Doctor, PageScreen } from '../types';
 import { useAppNavigation } from '../context/AppContext';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 
 const SPECIALTY_LABELS: Record<string, string> = {
   individual: 'مشاوره فردی',
@@ -71,7 +72,7 @@ export const TeamPage: React.FC<TeamPageProps> = (props) => {
   });
 
   return (
-    <div className="space-y-12 pb-16 text-right max-w-[1200px] mx-auto px-4 md:px-6">
+    <div className={`space-y-12 pb-16 text-right ${SITE_CONTAINER_CLASS}`}>
       <section className="bg-surface-container-low p-8 md:p-12 rounded-[40px] border border-outline-variant/30 text-center space-y-4">
         <span className="bg-primary/10 text-primary text-xs font-bold px-4 py-1.5 rounded-full inline-block">
           دیرکتوری تخصصی کادر درمان

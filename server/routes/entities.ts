@@ -121,6 +121,46 @@ export const pagesRouter = createCrudRouter('pages');
 export const articleCategoriesRouter = createCrudRouter('article_categories');
 export const formsCrudRouter = createCrudRouter('forms');
 export const formSubmissionsRouter = createCrudRouter('form_submissions');
+export const productsRouter = createCrudRouter('products');
+export const productCategoriesRouter = createCrudRouter('product_categories');
+
+/** Orders CRUD — blocks writes when shop module is disabled */
+export const ordersRouter = Router();
+const ordersCrud = createCrudRouter('orders');
+
+async function isShopEnabled(): Promise<boolean> {
+  try {
+    const settings = (await getEntity('settings', 'clinic_settings')) as
+      | { modules?: { shop?: { enabled?: boolean } } }
+      | null;
+    return settings?.modules?.shop?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+ordersRouter.post('/', async (req, res, next) => {
+  if (!(await isShopEnabled())) {
+    res.status(403).json({ error: 'Shop module is disabled' });
+    return;
+  }
+  next();
+});
+ordersRouter.put('/:id', async (req, res, next) => {
+  if (!(await isShopEnabled())) {
+    res.status(403).json({ error: 'Shop module is disabled' });
+    return;
+  }
+  next();
+});
+ordersRouter.patch('/:id', async (req, res, next) => {
+  if (!(await isShopEnabled())) {
+    res.status(403).json({ error: 'Shop module is disabled' });
+    return;
+  }
+  next();
+});
+ordersRouter.use('/', ordersCrud);
 
 export const settingsRouter = Router();
 

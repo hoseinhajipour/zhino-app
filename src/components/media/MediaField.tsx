@@ -30,10 +30,14 @@ export const MediaField: React.FC<MediaFieldProps> = ({
   compact = false,
 }) => {
   const [open, setOpen] = useState(false);
-  const isVideo = accept === 'video' || (value && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(value));
+  const isVideo =
+    accept === 'video' || (Boolean(value) && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(value));
+  const isAudio =
+    accept === 'audio' ||
+    (Boolean(value) && /\.(mp3|wav|m4a|aac|flac|oga|opus)(\?|$)/i.test(value));
   const previewBox = compact
-    ? `relative ${aspectClass[aspect]} w-full max-w-[120px] mx-auto rounded-xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`
-    : `relative ${aspectClass[aspect]} w-full rounded-2xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`;
+    ? `relative ${isAudio ? 'min-h-[88px]' : aspectClass[aspect]} w-full max-w-[120px] mx-auto rounded-xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`
+    : `relative ${isAudio ? 'min-h-[96px]' : aspectClass[aspect]} w-full rounded-2xl overflow-hidden border border-outline-variant/40 shadow-sm bg-surface-container group`;
 
   return (
     <div className={`space-y-2 text-right ${compact ? 'text-[11px]' : ''}`}>
@@ -54,7 +58,17 @@ export const MediaField: React.FC<MediaFieldProps> = ({
 
       {value ? (
         <div className={previewBox}>
-          {isVideo ? (
+          {isAudio ? (
+            <div className="w-full h-full flex flex-col items-stretch justify-center gap-2 p-3 bg-surface-container-low">
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <span className="material-symbols-outlined text-primary">audio_file</span>
+                <span className="text-[10px] font-bold truncate" dir="ltr">
+                  {value.split('/').pop()}
+                </span>
+              </div>
+              <audio src={value} controls className="w-full h-8" />
+            </div>
+          ) : isVideo ? (
             <video src={value} className="w-full h-full object-cover" controls />
           ) : (
             <img src={value} alt={label} className="w-full h-full object-contain bg-white" />
@@ -85,9 +99,11 @@ export const MediaField: React.FC<MediaFieldProps> = ({
           }`}
         >
           <span className={`material-symbols-outlined ${compact ? 'text-2xl' : 'text-3xl'}`}>
-            add_photo_alternate
+            {accept === 'audio' ? 'library_music' : 'add_photo_alternate'}
           </span>
-          <span className={`font-extrabold ${compact ? 'text-[10px]' : 'text-xs'}`}>انتخاب رسانه</span>
+          <span className={`font-extrabold ${compact ? 'text-[10px]' : 'text-xs'}`}>
+            {accept === 'audio' ? 'انتخاب فایل صوتی' : 'انتخاب رسانه'}
+          </span>
           {helperText && <span className="text-[10px] text-on-surface-variant">{helperText}</span>}
         </button>
       )}

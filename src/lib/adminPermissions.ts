@@ -9,6 +9,9 @@ export type AdminTabId =
   | 'articles'
   | 'faqs'
   | 'forms'
+  | 'products'
+  | 'orders'
+  | 'shop-settings'
   | 'contact'
   | 'modules'
   | 'system'
@@ -43,6 +46,9 @@ const ALL_NAV: AdminNavEntry[] = [
   { id: 'articles', label: 'مقالات', icon: 'article' },
   { id: 'faqs', label: 'سوالات متداول', icon: 'help' },
   { id: 'forms', label: 'فرم‌ها', icon: 'dynamic_form' },
+  { id: 'products', label: 'محصولات', icon: 'inventory_2' },
+  { id: 'orders', label: 'سفارش‌ها', icon: 'receipt_long' },
+  { id: 'shop-settings', label: 'تنظیمات فروشگاه', icon: 'storefront' },
   { id: 'contact', label: 'اطلاعات تماس', icon: 'contact_phone' },
   { id: 'modules', label: 'ماژول‌ها', icon: 'extension' },
   { id: 'system', label: 'وضعیت سیستم', icon: 'monitor_heart' },
@@ -65,6 +71,9 @@ const TABS_BY_ROLE: Record<'admin' | 'doctor' | 'operator', AdminTabId[]> = {
     'articles',
     'faqs',
     'forms',
+    'products',
+    'orders',
+    'shop-settings',
     'contact',
     'modules',
     'system',
@@ -90,7 +99,7 @@ export function getStaffRole(role?: UserRole | string | null): 'admin' | 'doctor
 /** Flat list of leaf tabs (for permission checks). */
 export function getAllowedTabs(
   role?: UserRole | string | null,
-  options?: { appointmentsModuleEnabled?: boolean }
+  options?: { appointmentsModuleEnabled?: boolean; shopModuleEnabled?: boolean }
 ): AdminNavItem[] {
   return flattenNav(getAllowedNav(role, options));
 }
@@ -98,11 +107,12 @@ export function getAllowedTabs(
 /** Sidebar structure including groups like «ابزارها». */
 export function getAllowedNav(
   role?: UserRole | string | null,
-  options?: { appointmentsModuleEnabled?: boolean }
+  options?: { appointmentsModuleEnabled?: boolean; shopModuleEnabled?: boolean }
 ): AdminNavEntry[] {
   const r = getStaffRole(role);
   const allowed = TABS_BY_ROLE[r];
   const appointmentsOn = options?.appointmentsModuleEnabled !== false;
+  const shopOn = options?.shopModuleEnabled === true;
 
   const out: AdminNavEntry[] = [];
   for (const entry of ALL_NAV) {
@@ -110,6 +120,8 @@ export function getAllowedNav(
       const children = entry.children.filter((c) => {
         if (!allowed.includes(c.id)) return false;
         if (c.id === 'appointments' && !appointmentsOn) return false;
+        if ((c.id === 'products' || c.id === 'orders' || c.id === 'shop-settings') && !shopOn)
+          return false;
         return true;
       });
       if (children.length) out.push({ ...entry, children });
@@ -117,6 +129,8 @@ export function getAllowedNav(
     }
     if (!allowed.includes(entry.id)) continue;
     if (entry.id === 'appointments' && !appointmentsOn) continue;
+    if ((entry.id === 'products' || entry.id === 'orders' || entry.id === 'shop-settings') && !shopOn)
+      continue;
     out.push(entry);
   }
   return out;

@@ -1,4 +1,11 @@
-import {
+import { DEFAULT_CONTACT_INFO, mergeContactInfo } from './contactInfo';
+import { DEFAULT_FREE_GUIDE, mergeFreeGuide } from './freeGuideDefaults';
+import { DEFAULT_SITE_CHROME, mergeSiteChrome } from './siteChromeDefaults';
+import { DEFAULT_SITE_MODULES, mergeSiteModules } from './siteModules';
+import { DEFAULT_AI_SETTINGS, mergeAiSettings } from './aiSettingsDefaults';
+import { DEFAULT_SHOP_SETTINGS, mergeShopSettings } from './shopSettingsDefaults';
+import { DEFAULT_MELLAT_SETTINGS, mergeMellatSettings } from './mellatSettingsDefaults';
+import type {
   Appointment,
   Doctor,
   ServiceItem,
@@ -12,12 +19,10 @@ import {
   FormDefinition,
   FormSubmission,
   FormAnswerValue,
+  ShopProduct,
+  ShopProductCategory,
+  ShopOrder,
 } from '../types';
-import { DEFAULT_CONTACT_INFO, mergeContactInfo } from './contactInfo';
-import { DEFAULT_FREE_GUIDE, mergeFreeGuide } from './freeGuideDefaults';
-import { DEFAULT_SITE_CHROME, mergeSiteChrome } from './siteChromeDefaults';
-import { DEFAULT_SITE_MODULES, mergeSiteModules } from './siteModules';
-import { DEFAULT_AI_SETTINGS, mergeAiSettings } from './aiSettingsDefaults';
 
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   bookingEnabled: true,
@@ -31,6 +36,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     defaultFee: '۸۵۰,۰۰۰',
     callbackUrl: 'https://zhinoclinic.ir/verify-payment',
   },
+  mellat: DEFAULT_MELLAT_SETTINGS,
   kavenegar: {
     enabled: true,
     apiKey: '7856412359876543210987654321098765432109',
@@ -46,6 +52,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   modules: DEFAULT_SITE_MODULES,
   freeGuide: DEFAULT_FREE_GUIDE,
   ai: DEFAULT_AI_SETTINGS,
+  shop: DEFAULT_SHOP_SETTINGS,
 };
 
 export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): ClinicSettings {
@@ -57,16 +64,24 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
     maintenanceMessage: raw?.maintenanceMessage ?? base.maintenanceMessage ?? '',
     developmentMode: raw?.developmentMode ?? base.developmentMode,
     zarinpal: { ...base.zarinpal, ...(raw?.zarinpal || {}) },
+    mellat: mergeMellatSettings(raw?.mellat || base.mellat),
     kavenegar: { ...base.kavenegar, ...(raw?.kavenegar || {}) },
     site,
     contact: mergeContactInfo(raw?.contact || base.contact, site.identity),
     modules: mergeSiteModules(raw?.modules || base.modules),
     freeGuide: mergeFreeGuide(raw?.freeGuide || base.freeGuide),
     ai: mergeAiSettings(raw?.ai || base.ai),
+    shop: mergeShopSettings(raw?.shop || base.shop),
   };
 }
 
 const POLL_MS = 6000;
+
+/** Attach write token when ZHINO_API_TOKEN is enforced on the server. */
+function writeAuthHeaders(): Record<string, string> {
+  const writeToken = import.meta.env.VITE_ZHINO_API_TOKEN || '';
+  return writeToken ? { 'X-Zhino-Token': writeToken } : {};
+}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const method = (init?.method || 'GET').toUpperCase();
@@ -74,9 +89,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   };
-  const writeToken = import.meta.env.VITE_ZHINO_API_TOKEN || '';
-  if (writeToken && method !== 'GET' && method !== 'HEAD') {
-    headers['X-Zhino-Token'] = writeToken;
+  if (method !== 'GET' && method !== 'HEAD') {
+    Object.assign(headers, writeAuthHeaders());
   }
   const res = await fetch(path, {
     ...init,
@@ -126,10 +140,22 @@ function subscribeList<T>(
 export async function uploadFile(file: File): Promise<string> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch('/api/uploads', { method: 'POST', body: form });
+  // Do not set Content-Type — browser must add multipart boundary.
+  const res = await fetch('/api/uploads', {
+    method: 'POST',
+    headers: writeAuthHeaders(),
+    body: form,
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || 'Upload failed');
+    let message = text || 'Upload failed';
+    try {
+      const parsed = JSON.parse(text) as { error?: string; message?: string };
+      if (parsed?.message || parsed?.error) message = parsed.message || parsed.error || message;
+    } catch {
+      // keep raw text
+    }
+    throw new Error(message);
   }
   const data = (await res.json()) as { url: string };
   return data.url;
@@ -140,12 +166,14 @@ export interface MediaLibraryItem {
   filename: string;
   size: number;
   mimetype: string;
-  kind: 'image' | 'video' | 'other';
+  kind: 'image' | 'video' | 'audio' | 'document' | 'other';
   source: 'uploads' | 'staff';
   uploadedAt: string;
 }
 
-export async function fetchMediaLibrary(kind: 'all' | 'image' | 'video' = 'all'): Promise<MediaLibraryItem[]> {
+export async function fetchMediaLibrary(
+  kind: 'all' | 'image' | 'video' | 'audio' = 'all'
+): Promise<MediaLibraryItem[]> {
   const qs = kind === 'all' ? '' : `?kind=${kind}`;
   return api<MediaLibraryItem[]>(`/api/uploads${qs}`);
 }
@@ -440,3 +468,140 @@ export async function deleteUser(id: string): Promise<void> {
 export async function fetchUsers(): Promise<UserProfile[]> {
   return api<UserProfile[]>('/api/users');
 }
+
+// ---------------------------------------------------------------------
+// SHOP — PRODUCTS
+// ---------------------------------------------------------------------
+export function subscribeProducts(callback: (data: ShopProduct[]) => void) {
+  return subscribeList<ShopProduct>('/api/products', callback, 'Products');
+}
+
+export async function saveProduct(product: ShopProduct) {
+  await api(`/api/products/${encodeURIComponent(product.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(product),
+  });
+}
+
+export async function deleteProduct(id: string) {
+  await api(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------
+// SHOP — PRODUCT CATEGORIES
+// ---------------------------------------------------------------------
+export function subscribeProductCategories(callback: (data: ShopProductCategory[]) => void) {
+  return subscribeList<ShopProductCategory>(
+    '/api/product-categories',
+    callback,
+    'ProductCategories'
+  );
+}
+
+export async function saveProductCategory(category: ShopProductCategory) {
+  await api(`/api/product-categories/${encodeURIComponent(category.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(category),
+  });
+}
+
+export async function deleteProductCategory(id: string) {
+  await api(`/api/product-categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------
+// SHOP — ORDERS
+// ---------------------------------------------------------------------
+export function subscribeOrders(callback: (data: ShopOrder[]) => void) {
+  return subscribeList<ShopOrder>('/api/orders', callback, 'Orders');
+}
+
+export async function saveOrder(order: ShopOrder) {
+  await api(`/api/orders/${encodeURIComponent(order.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(order),
+  });
+}
+
+export async function createOrder(order: ShopOrder) {
+  return api<ShopOrder>('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify(order),
+  });
+}
+
+export async function deleteOrder(id: string) {
+  await api(`/api/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export type ShopPaymentStartResult =
+  | { ok: true; gateway: 'zarinpal'; paymentUrl: string; authority: string; orderId: string }
+  | {
+      ok: true;
+      gateway: 'mellat';
+      type: 'mellat_form';
+      gatewayUrl: string;
+      refId: string;
+      orderId: string;
+    };
+
+export async function startShopPayment(input: {
+  order: ShopOrder;
+  gateway: 'zarinpal' | 'mellat';
+  returnBaseUrl?: string;
+}): Promise<ShopPaymentStartResult> {
+  return api<ShopPaymentStartResult>('/api/shop/payment/start', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function verifyZarinpalShopPayment(input: {
+  orderId: string;
+  authority: string;
+  status?: string;
+}): Promise<{ ok: boolean; order?: ShopOrder; refId?: string; error?: string; alreadyPaid?: boolean }> {
+  return api('/api/shop/payment/verify/zarinpal', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchShopOrder(id: string): Promise<ShopOrder | null> {
+  try {
+    return await api<ShopOrder>(`/api/shop/payment/order/${encodeURIComponent(id)}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Redirect browser to Mellat startpay via auto-submitted form */
+export function redirectToMellatGateway(gatewayUrl: string, refId: string) {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = gatewayUrl;
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'RefId';
+  input.value = refId;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+export async function uploadShopDocument(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const headers = writeAuthHeaders();
+  const res = await fetch('/api/uploads?purpose=shop', {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'Upload failed');
+  }
+  return res.json();
+}
+

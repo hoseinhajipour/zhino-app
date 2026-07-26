@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Article,
   ClinicContactInfo,
@@ -2012,6 +2012,317 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
   );
 };
 
+type AudioTrackItem = {
+  url?: string;
+  title?: string;
+  artist?: string;
+  coverImage?: string;
+};
+
+function formatAudioTime(sec: number) {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+export const AudioPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const mode = str(props.mode, 'single') === 'playlist' ? 'playlist' : 'single';
+  const title = str(props.title);
+  const sectionSubtitle = str(props.subtitle);
+  const showCover = props.showCover !== false;
+  const showPlaylist = props.showPlaylist !== false;
+  const autoplay = props.autoplay === true;
+  const loop = props.loop === true;
+  const layout = str(props.layout, 'card') === 'minimal' ? 'minimal' : 'card';
+  const radius = clampRadius(props.borderRadius ?? 20);
+
+  const tracks = useMemo(() => {
+    if (mode === 'playlist') {
+      return arr<AudioTrackItem>(props.tracks)
+        .map((t, i) => ({
+          url: str(t.url),
+          title: str(t.title) || `قطعه ${i + 1}`,
+          artist: str(t.artist),
+          coverImage: str(t.coverImage),
+        }))
+        .filter((t) => t.url);
+    }
+    const url = str(props.audioUrl);
+    if (!url) return [];
+    return [
+      {
+        url,
+        title: str(props.trackTitle) || 'قطعه صوتی',
+        artist: str(props.artist),
+        coverImage: str(props.coverImage),
+      },
+    ];
+  }, [
+    mode,
+    props.tracks,
+    props.audioUrl,
+    props.trackTitle,
+    props.artist,
+    props.coverImage,
+  ]);
+
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const pendingPlayRef = useRef(false);
+  const current = tracks[Math.min(index, Math.max(0, tracks.length - 1))];
+  const trackKey = tracks.map((t) => t.url).join('|');
+
+  useEffect(() => {
+    setIndex(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setPlaying(false);
+    pendingPlayRef.current = autoplay;
+    // Reset only when the track list / mode changes — use latest autoplay at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [mode, trackKey]);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !current?.url) return;
+    el.load();
+    setCurrentTime(0);
+    const shouldPlay = pendingPlayRef.current;
+    pendingPlayRef.current = false;
+    if (shouldPlay) {
+      void el
+        .play()
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+    } else {
+      setPlaying(false);
+    }
+  }, [current?.url]);
+
+  const playPause = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) {
+      void el
+        .play()
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+    } else {
+      el.pause();
+      setPlaying(false);
+    }
+  };
+
+  const seek = (ratio: number) => {
+    const el = audioRef.current;
+    if (!el || !duration) return;
+    el.currentTime = Math.min(duration, Math.max(0, ratio * duration));
+  };
+
+  const goTo = (next: number) => {
+    if (!tracks.length) return;
+    const wrapped = ((next % tracks.length) + tracks.length) % tracks.length;
+    if (wrapped === index) {
+      const el = audioRef.current;
+      if (el) {
+        el.currentTime = 0;
+        void el.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      }
+      return;
+    }
+    pendingPlayRef.current = true;
+    setIndex(wrapped);
+  };
+
+  if (!tracks.length) {
+    return (
+      <section className="rounded-2xl border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+        فایل صوتی انتخاب نشده است.
+      </section>
+    );
+  }
+
+  const cover = showCover ? current?.coverImage : '';
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <section className="w-full min-w-0 space-y-5">
+      {(title || sectionSubtitle) && (
+        <div className="text-center space-y-1.5 max-w-2xl mx-auto">
+          {title && <h2 className="text-xl md:text-2xl font-black text-on-surface">{title}</h2>}
+          {sectionSubtitle && (
+            <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+              {sectionSubtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      <audio
+        ref={audioRef}
+        src={current.url}
+        preload="metadata"
+        loop={mode === 'single' && loop}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => {
+          if (mode === 'playlist') {
+            if (index < tracks.length - 1) goTo(index + 1);
+            else if (loop) goTo(0);
+            else setPlaying(false);
+          } else if (!loop) {
+            setPlaying(false);
+          }
+        }}
+      />
+
+      <div
+        className={`w-full max-w-2xl mx-auto border border-outline-variant/25 bg-white dark:bg-surface-dim overflow-hidden ${
+          layout === 'card' ? 'shadow-soft' : ''
+        }`}
+        style={{ borderRadius: radius }}
+      >
+        <div className={`flex gap-4 ${layout === 'minimal' ? 'p-3.5 items-center' : 'p-4 md:p-5 items-stretch'}`}>
+          {showCover && (
+            <div
+              className={`shrink-0 overflow-hidden bg-surface-container-low flex items-center justify-center ${
+                layout === 'minimal' ? 'w-14 h-14 rounded-xl' : 'w-24 h-24 md:w-28 md:h-28 rounded-2xl'
+              }`}
+            >
+              {cover ? (
+                <img src={cover} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-3xl text-primary/70">album</span>
+              )}
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
+            <div className="min-w-0">
+              <p className="text-sm md:text-base font-black text-on-surface truncate">
+                {current.title}
+              </p>
+              {current.artist && (
+                <p className="text-[11px] md:text-xs text-on-surface-variant truncate mt-0.5">
+                  {current.artist}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <input
+                type="range"
+                min={0}
+                max={1000}
+                value={Math.round(progress * 10)}
+                onChange={(e) => seek(Number(e.target.value) / 1000)}
+                className="w-full accent-primary h-1.5 cursor-pointer"
+                aria-label="پیشرفت پخش"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-on-surface-variant tabular-nums" dir="ltr">
+                <span>{formatAudioTime(currentTime)}</span>
+                <span>{formatAudioTime(duration)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {mode === 'playlist' && (
+                <button
+                  type="button"
+                  onClick={() => goTo(index - 1)}
+                  className="w-9 h-9 rounded-full border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-low"
+                  aria-label="قبلی"
+                >
+                  <span className="material-symbols-outlined text-lg">skip_previous</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={playPause}
+                className="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:brightness-105"
+                aria-label={playing ? 'توقف' : 'پخش'}
+              >
+                <span className="material-symbols-outlined text-2xl">
+                  {playing ? 'pause' : 'play_arrow'}
+                </span>
+              </button>
+              {mode === 'playlist' && (
+                <button
+                  type="button"
+                  onClick={() => goTo(index + 1)}
+                  className="w-9 h-9 rounded-full border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-low"
+                  aria-label="بعدی"
+                >
+                  <span className="material-symbols-outlined text-lg">skip_next</span>
+                </button>
+              )}
+              {mode === 'playlist' && (
+                <span className="mr-auto text-[10px] font-bold text-on-surface-variant">
+                  {index + 1} / {tracks.length}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {mode === 'playlist' && showPlaylist && tracks.length > 1 && (
+          <ul className="border-t border-outline-variant/20 max-h-64 overflow-y-auto divide-y divide-outline-variant/15">
+            {tracks.map((track, i) => {
+              const active = i === index;
+              return (
+                <li key={`${track.url}-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => goTo(i)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-right transition-colors ${
+                      active
+                        ? 'bg-primary/8 text-primary'
+                        : 'hover:bg-surface-container-low text-on-surface'
+                    }`}
+                  >
+                    <span className="w-6 text-[11px] font-black text-on-surface-variant tabular-nums">
+                      {active && playing ? (
+                        <span className="material-symbols-outlined text-base text-primary">equalizer</span>
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    {showCover && (
+                      <span className="w-9 h-9 rounded-lg overflow-hidden bg-surface-container shrink-0 flex items-center justify-center">
+                        {track.coverImage ? (
+                          <img src={track.coverImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-base text-on-surface-variant">
+                            music_note
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-xs font-bold truncate">{track.title}</span>
+                      {track.artist && (
+                        <span className="block text-[10px] text-on-surface-variant truncate">
+                          {track.artist}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+};
+
 function DividerLineSegment({
   color,
   thickness,
@@ -2807,6 +3118,221 @@ export const VerticalImageGalleryBlock: React.FC<{ props: Record<string, unknown
         onClose={() => setLightboxOpen(false)}
         onIndexChange={setLightboxIndex}
       />
+    </section>
+  );
+};
+
+export const BeforeAfterBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const beforeImage = str(props.beforeImage);
+  const afterImage = str(props.afterImage);
+  const title = str(props.title);
+  const sectionSubtitle = str(props.subtitle);
+  const caption = str(props.caption);
+  const beforeLabel = str(props.beforeLabel, 'قبل');
+  const afterLabel = str(props.afterLabel, 'بعد');
+  const beforeAlt = str(props.beforeAlt) || beforeLabel || 'قبل';
+  const afterAlt = str(props.afterAlt) || afterLabel || 'بعد';
+  const showLabels = props.showLabels !== false;
+  const orientation = str(props.orientation, 'horizontal') === 'vertical' ? 'vertical' : 'horizontal';
+  const widthMode = str(props.widthMode, 'full');
+  const aspectRaw = str(props.aspect, 'video');
+  const aspect = aspectRaw === 'auto' || aspectRaw === 'original' ? 'video' : aspectRaw;
+  const objectFit = str(props.objectFit, 'cover') === 'contain' ? 'object-contain' : 'object-cover';
+  const radius = clampRadius(props.borderRadius);
+  const align = str(props.align, 'center');
+  const shadow = props.shadow !== false;
+  const initial = Math.min(90, Math.max(10, Number(props.initialPosition) || 50));
+
+  const [position, setPosition] = useState(initial);
+  const [dragging, setDragging] = useState(false);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPosition(initial);
+  }, [initial, beforeImage, afterImage]);
+
+  const updateFromClient = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = frameRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      let next: number;
+      if (orientation === 'vertical') {
+        next = ((clientY - rect.top) / rect.height) * 100;
+      } else {
+        next = ((clientX - rect.left) / rect.width) * 100;
+      }
+      setPosition(Math.min(95, Math.max(5, next)));
+    },
+    [orientation]
+  );
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: PointerEvent) => updateFromClient(e.clientX, e.clientY);
+    const onUp = () => setDragging(false);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [dragging, updateFromClient]);
+
+  const justify =
+    align === 'start' ? 'justify-start' : align === 'end' ? 'justify-end' : 'justify-center';
+  const width = resolveImageWidth(
+    widthMode,
+    Number(props.widthPercent) || 100,
+    Number(props.widthPx) || 800
+  );
+  const aspectCls = imageAspectClass(aspect) || 'aspect-video';
+
+  if (!beforeImage && !afterImage) {
+    return (
+      <section className="rounded-2xl border border-dashed border-outline-variant/40 py-12 text-center text-sm text-on-surface-variant">
+        تصاویر قبل و بعد انتخاب نشده‌اند.
+      </section>
+    );
+  }
+
+  const clipStyle: React.CSSProperties =
+    orientation === 'vertical'
+      ? { clipPath: `inset(0 0 ${100 - position}% 0)` }
+      : { clipPath: `inset(0 ${100 - position}% 0 0)` };
+
+  const handleStyle: React.CSSProperties =
+    orientation === 'vertical'
+      ? { top: `${position}%`, left: 0, right: 0, transform: 'translateY(-50%)' }
+      : { left: `${position}%`, top: 0, bottom: 0, transform: 'translateX(-50%)' };
+
+  return (
+    <section className="w-full min-w-0 space-y-5">
+      {(title || sectionSubtitle) && (
+        <div className="text-center space-y-1.5 max-w-2xl mx-auto">
+          {title && <h2 className="text-xl md:text-2xl font-black text-on-surface">{title}</h2>}
+          {sectionSubtitle && (
+            <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+              {sectionSubtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className={`w-full min-w-0 flex ${justify}`}>
+        <figure className="min-w-0 space-y-2" style={{ width, maxWidth: '100%' }} dir="ltr">
+          <div
+            ref={frameRef}
+            className={`relative overflow-hidden select-none touch-none bg-surface-container ${aspectCls} ${
+              shadow ? 'shadow-soft border border-outline-variant/25' : ''
+            } ${dragging ? 'cursor-grabbing' : 'cursor-col-resize'}`}
+            style={{ borderRadius: radius }}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              setDragging(true);
+              updateFromClient(e.clientX, e.clientY);
+            }}
+            role="slider"
+            aria-valuemin={5}
+            aria-valuemax={95}
+            aria-valuenow={Math.round(position)}
+            aria-label="مقایسه تصویر قبل و بعد"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? 10 : 3;
+              if (orientation === 'vertical') {
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setPosition((p) => Math.max(5, p - step));
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setPosition((p) => Math.min(95, p + step));
+                }
+              } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setPosition((p) => Math.max(5, p - step));
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                setPosition((p) => Math.min(95, p + step));
+              }
+            }}
+          >
+            {afterImage ? (
+              <img
+                src={afterImage}
+                alt={afterAlt}
+                className={`absolute inset-0 w-full h-full ${objectFit} pointer-events-none`}
+                draggable={false}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-on-surface-variant bg-surface-container-low">
+                تصویر بعد موجود نیست
+              </div>
+            )}
+
+            {beforeImage ? (
+              <div className="absolute inset-0" style={clipStyle}>
+                <img
+                  src={beforeImage}
+                  alt={beforeAlt}
+                  className={`absolute inset-0 w-full h-full ${objectFit} pointer-events-none`}
+                  draggable={false}
+                />
+              </div>
+            ) : null}
+
+            {showLabels && (
+              <>
+                {beforeLabel && (
+                  <span
+                    className={`absolute z-[2] px-2.5 py-1 rounded-lg bg-black/55 text-white text-[10px] md:text-xs font-bold backdrop-blur-sm pointer-events-none ${
+                      orientation === 'vertical' ? 'top-3 right-3' : 'top-3 left-3'
+                    }`}
+                  >
+                    {beforeLabel}
+                  </span>
+                )}
+                {afterLabel && (
+                  <span
+                    className={`absolute z-[2] px-2.5 py-1 rounded-lg bg-black/55 text-white text-[10px] md:text-xs font-bold backdrop-blur-sm pointer-events-none ${
+                      orientation === 'vertical' ? 'bottom-3 right-3' : 'top-3 right-3'
+                    }`}
+                  >
+                    {afterLabel}
+                  </span>
+                )}
+              </>
+            )}
+
+            <div
+              className={`absolute z-[3] pointer-events-none ${
+                orientation === 'vertical' ? 'h-0.5 bg-white/90' : 'w-0.5 bg-white/90'
+              }`}
+              style={handleStyle}
+            >
+              <span
+                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white text-on-surface shadow-md border border-black/10 flex items-center justify-center ${
+                  dragging ? 'scale-105' : ''
+                }`}
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {orientation === 'vertical' ? 'swap_vert' : 'swap_horiz'}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {caption && (
+            <figcaption className="text-xs text-on-surface-variant leading-relaxed px-0.5 text-center" dir="rtl">
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      </div>
     </section>
   );
 };
@@ -4486,6 +5012,8 @@ export function renderServiceBlock(
       return <ImageCarouselBlock props={block.props} />;
     case 'videoPlayer':
       return <VideoPlayerBlock props={block.props} />;
+    case 'audioPlayer':
+      return <AudioPlayerBlock props={block.props} />;
     case 'icon':
       return <IconBlock props={block.props} />;
     case 'iconList':
@@ -4502,6 +5030,8 @@ export function renderServiceBlock(
       return <ImageGalleryBlock props={block.props} />;
     case 'verticalImageGallery':
       return <VerticalImageGalleryBlock props={block.props} />;
+    case 'beforeAfter':
+      return <BeforeAfterBlock props={block.props} />;
     case 'googleMap':
       return <GoogleMapBlock props={block.props} />;
     case 'tabGallery':

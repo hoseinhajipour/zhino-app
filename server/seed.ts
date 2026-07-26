@@ -4,11 +4,23 @@ import {
   INITIAL_ARTICLES,
   DEFAULT_FAQS,
 } from '../src/data/clinicData';
-import type { Article, ArticleCategory, ClinicSettings, FormDefinition, ServiceItem, SitePage, UserRecord } from '../src/types';
+import type {
+  Article,
+  ArticleCategory,
+  ClinicSettings,
+  FormDefinition,
+  ServiceItem,
+  ShopProduct,
+  ShopProductCategory,
+  SitePage,
+  UserRecord,
+} from '../src/types';
 import { enrichServicesWithPageBuilder } from '../src/lib/landingToBlocks';
 import { getAllDefaultSitePages } from '../src/lib/sitePageDefaults';
 import { DEFAULT_SITE_CHROME } from '../src/lib/siteChromeDefaults';
 import { DEFAULT_FREE_GUIDE } from '../src/lib/freeGuideDefaults';
+import { DEFAULT_SHOP_SETTINGS } from '../src/lib/shopSettingsDefaults';
+import { DEFAULT_MELLAT_SETTINGS } from '../src/lib/mellatSettingsDefaults';
 import { createDefaultContactForm, DEFAULT_CONTACT_FORM_ID } from '../src/lib/formDefaults';
 import { countEntities, listEntities, upsertEntity, getEntity } from './db';
 import { hashPassword } from './lib/password';
@@ -23,6 +35,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     defaultFee: '۸۵۰,۰۰۰',
     callbackUrl: 'https://zhinoclinic.ir/verify-payment',
   },
+  mellat: DEFAULT_MELLAT_SETTINGS,
   kavenegar: {
     enabled: true,
     apiKey: '7856412359876543210987654321098765432109',
@@ -35,6 +48,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   },
   site: DEFAULT_SITE_CHROME,
   freeGuide: DEFAULT_FREE_GUIDE,
+  shop: DEFAULT_SHOP_SETTINGS,
 };
 
 export async function seedIfEmpty(): Promise<void> {
@@ -81,6 +95,7 @@ export async function seedIfEmpty(): Promise<void> {
 
   await ensureDefaultUsers();
   await ensureArticleCategories();
+  await ensureProductCategories();
 }
 
 const DEFAULT_PASSWORD = 'zhino1403';
@@ -261,6 +276,61 @@ export async function ensureArticleCategories(): Promise<void> {
     const cat = byName.get(name)!;
     if (art.categoryId !== cat.id) {
       await upsertEntity('articles', art.id, { ...art, categoryId: cat.id, category: cat.name });
+    }
+  }
+}
+
+const DEFAULT_PRODUCT_CATEGORIES: Array<{ name: string; sortOrder: number }> = [
+  { name: 'کتاب و محتوا', sortOrder: 1 },
+  { name: 'دوره و آموزش', sortOrder: 2 },
+  { name: 'ابزار و لوازم', sortOrder: 3 },
+  { name: 'عمومی', sortOrder: 4 },
+];
+
+/** Seed product categories + sync categoryId on existing products. */
+export async function ensureProductCategories(): Promise<void> {
+  const existing = await listEntities<ShopProductCategory>('product_categories');
+  const byName = new Map(existing.map((c) => [c.name, c]));
+
+  let order = existing.length;
+  for (const def of DEFAULT_PRODUCT_CATEGORIES) {
+    if (byName.has(def.name)) continue;
+    const id = `pcat-${slugifyCategory(def.name)}`;
+    const cat: ShopProductCategory = {
+      id,
+      name: def.name,
+      slug: slugifyCategory(def.name),
+      sortOrder: def.sortOrder,
+      active: true,
+    };
+    await upsertEntity('product_categories', id, cat);
+    byName.set(def.name, cat);
+  }
+
+  const products = await listEntities<ShopProduct>('products');
+  for (const product of products) {
+    const name = (product.category || '').trim();
+    if (!name) continue;
+    if (!byName.has(name)) {
+      order += 1;
+      const id = `pcat-${slugifyCategory(name)}`;
+      const cat: ShopProductCategory = {
+        id,
+        name,
+        slug: slugifyCategory(name),
+        sortOrder: order,
+        active: true,
+      };
+      await upsertEntity('product_categories', id, cat);
+      byName.set(name, cat);
+    }
+    const cat = byName.get(name)!;
+    if (product.categoryId !== cat.id) {
+      await upsertEntity('products', product.id, {
+        ...product,
+        categoryId: cat.id,
+        category: cat.name,
+      });
     }
   }
 }

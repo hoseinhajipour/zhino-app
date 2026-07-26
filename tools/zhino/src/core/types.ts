@@ -35,7 +35,9 @@ export type ServiceBlockType =
   | 'spacer'
   | 'singleImage'
   | 'imageGallery'
-  | 'verticalImageGallery';
+  | 'verticalImageGallery'
+  | 'beforeAfter'
+  | 'audioPlayer';
 
 export interface ServiceBlock {
   id: string;
@@ -87,6 +89,8 @@ export const BLOCK_LABELS: Record<string, string> = {
   singleImage: 'تصویر تکی',
   imageGallery: 'گالری تصاویر',
   verticalImageGallery: 'گالری تصاویر عمودی',
+  beforeAfter: 'قبل / بعد',
+  audioPlayer: 'پخش‌کننده صدا',
 };
 
 export const NESTABLE_WIDGET_TYPES: ServiceBlockType[] = [
@@ -108,6 +112,8 @@ export const NESTABLE_WIDGET_TYPES: ServiceBlockType[] = [
   'singleImage',
   'imageGallery',
   'verticalImageGallery',
+  'beforeAfter',
+  'audioPlayer',
 ];
 
 export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
@@ -120,6 +126,8 @@ export const SITE_WIDGET_TYPES: ServiceBlockType[] = [
   'singleImage',
   'imageGallery',
   'verticalImageGallery',
+  'beforeAfter',
+  'audioPlayer',
   'videoPlayer',
   'icon',
   'iconList',
@@ -155,6 +163,8 @@ export const SERVICE_WIDGET_TYPES: ServiceBlockType[] = [
   'singleImage',
   'imageGallery',
   'verticalImageGallery',
+  'beforeAfter',
+  'audioPlayer',
   'videoPlayer',
   'icon',
   'iconList',
@@ -189,6 +199,8 @@ export const ARTICLE_WIDGET_TYPES: ServiceBlockType[] = [
   'singleImage',
   'imageGallery',
   'verticalImageGallery',
+  'beforeAfter',
+  'audioPlayer',
   'videoPlayer',
   'icon',
   'iconList',

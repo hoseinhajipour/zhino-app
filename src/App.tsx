@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { PageScreen, Doctor, ServiceItem, Appointment, Article, UserProfile, FAQItem, ClinicSettings, SitePage } from './types';
+import { PageScreen, Doctor, ServiceItem, Appointment, Article, UserProfile, FAQItem, ClinicSettings, SitePage, ShopOrder } from './types';
 import {
   DOCTORS as DEFAULT_DOCTORS,
   MAIN_SERVICES as DEFAULT_SERVICES,
@@ -18,7 +18,12 @@ import {
   saveFaq,
   saveUserProfile,
 } from './lib/dbService';
-import { applySiteTheme, isPageScreenTarget, mergeSiteChrome } from './lib/siteChromeDefaults';
+import {
+  applySiteLayout,
+  applySiteTheme,
+  isPageScreenTarget,
+  mergeSiteChrome,
+} from './lib/siteChromeDefaults';
 import { fetchInstallStatus } from './lib/installApi';
 import { AdminIntent, getSystemPageIdForScreen, setAdminIntent } from './lib/adminIntent';
 
@@ -36,7 +41,7 @@ import { SiteTranslateProvider } from './components/SiteTranslateProvider';
 import { InstallerWizardPage } from './pages/InstallerWizardPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { mergeContactInfo } from './lib/contactInfo';
-import { mergeSiteModules } from './lib/siteModules';
+import { isShopModuleEnabled, mergeSiteModules } from './lib/siteModules';
 
 // Lazy-loaded page components for optimal code-splitting & performance
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -49,6 +54,15 @@ const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m
 const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
 const BlogPage = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
 const FaqPage = lazy(() => import('./pages/FaqPage').then((m) => ({ default: m.FaqPage })));
+const ShopPage = lazy(() => import('./pages/ShopPage').then((m) => ({ default: m.ShopPage })));
+const ShopProductPage = lazy(() =>
+  import('./pages/ShopProductPage').then((m) => ({ default: m.ShopProductPage }))
+);
+const CartPage = lazy(() => import('./pages/CartPage').then((m) => ({ default: m.CartPage })));
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
+const PaymentCallbackPage = lazy(() =>
+  import('./pages/PaymentCallbackPage').then((m) => ({ default: m.PaymentCallbackPage }))
+);
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const ServiceDetailPage = lazy(() => import('./pages/ServiceDetailPage').then((m) => ({ default: m.ServiceDetailPage })));
@@ -86,6 +100,12 @@ const getScreenFromPath = (pathname: string): PageScreen => {
   if (clean === 'contact') return 'contact';
   if (clean === 'blog' || clean.startsWith('blog/')) return 'blog';
   if (clean === 'faq') return 'faq';
+  if (clean === 'shop') return 'shop';
+  if (clean.startsWith('shop/')) return 'shop-product';
+  if (clean === 'cart') return 'cart';
+  if (clean === 'checkout') return 'checkout';
+  if (clean === 'order-confirmation') return 'order-confirmation';
+  if (clean === 'payment-callback' || clean === 'verify-payment') return 'payment-callback';
   if (clean.startsWith('p/')) return 'custom-page';
   if (clean === 'not-found' || clean === '404') return 'not-found';
   return 'not-found';
@@ -120,6 +140,18 @@ const getInitialServiceFromPath = (pathname: string): string => {
 const getArticleSlugFromPath = (pathname: string): string | null => {
   const clean = pathname.replace(/^\/+/, '');
   if (!clean.toLowerCase().startsWith('blog/')) return null;
+  const parts = clean.split('/').filter(Boolean);
+  if (parts.length < 2) return null;
+  try {
+    return decodeURIComponent(parts[1]);
+  } catch {
+    return parts[1];
+  }
+};
+
+const getProductSlugFromPath = (pathname: string): string | null => {
+  const clean = pathname.replace(/^\/+/, '');
+  if (!clean.toLowerCase().startsWith('shop/')) return null;
   const parts = clean.split('/').filter(Boolean);
   if (parts.length < 2) return null;
   try {
@@ -213,9 +245,13 @@ export function App() {
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(() =>
     getArticleSlugFromPath(window.location.pathname)
   );
+  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(() =>
+    getProductSlugFromPath(window.location.pathname)
+  );
   const [selectedCustomPageSlug, setSelectedCustomPageSlug] = useState<string | null>(() =>
     getCustomPageSlugFromPath(window.location.pathname)
   );
+  const [lastShopOrder, setLastShopOrder] = useState<ShopOrder | null>(null);
 
   // Sync state with URL popstate
   useEffect(() => {
@@ -233,6 +269,11 @@ export function App() {
         setSelectedArticleSlug(getArticleSlugFromPath(path));
       } else {
         setSelectedArticleSlug(null);
+      }
+      if (scr === 'shop-product') {
+        setSelectedProductSlug(getProductSlugFromPath(path));
+      } else if (scr !== 'shop') {
+        setSelectedProductSlug(null);
       }
       if (scr === 'custom-page') {
         setSelectedCustomPageSlug(getCustomPageSlugFromPath(path));
@@ -341,15 +382,27 @@ export function App() {
   };
 
   const handleNavigate = (screen: PageScreen) => {
-    if (screen === 'custom-page') return;
+    if (screen === 'custom-page' || screen === 'shop-product') return;
     setCurrentScreen(screen);
     setSelectedArticleSlug(null);
     setSelectedCustomPageSlug(null);
+    setSelectedProductSlug(null);
     if (screen === 'login') {
       setLoginMode('login');
     }
+    if (screen !== 'order-confirmation') {
+      setLastShopOrder(null);
+    }
     const path =
-      screen === 'home' ? '/' : screen === 'not-found' ? '/404' : `/${screen}`;
+      screen === 'home'
+        ? '/'
+        : screen === 'not-found'
+          ? '/404'
+          : screen === 'order-confirmation'
+            ? '/order-confirmation'
+            : screen === 'payment-callback'
+              ? '/payment-callback'
+              : `/${screen}`;
     if (window.location.pathname !== path) {
       window.history.pushState({}, '', path);
     }
@@ -402,6 +455,7 @@ export function App() {
     setCurrentScreen(scr);
     setSelectedArticleSlug(scr === 'blog' ? getArticleSlugFromPath(path) : null);
     setSelectedCustomPageSlug(scr === 'custom-page' ? getCustomPageSlugFromPath(path) : null);
+    setSelectedProductSlug(scr === 'shop-product' ? getProductSlugFromPath(path) : null);
     if (scr === 'service-detail') setSelectedServiceId(getInitialServiceFromPath(path));
     if (window.location.pathname !== path) window.history.pushState({}, '', path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -410,10 +464,12 @@ export function App() {
   const siteChrome = mergeSiteChrome(settings.site);
   const contactInfo = mergeContactInfo(settings.contact, siteChrome.identity);
   const siteModules = mergeSiteModules(settings.modules);
+  const shopEnabled = isShopModuleEnabled(siteModules);
 
   useEffect(() => {
     applySiteTheme(siteChrome.identity);
-  }, [siteChrome.identity]);
+    applySiteLayout(siteChrome.layout);
+  }, [siteChrome.identity, siteChrome.layout]);
 
   const handleSelectService = (serviceId: string) => {
     setSelectedServiceId(serviceId);
@@ -444,6 +500,61 @@ export function App() {
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const handleSelectProduct = (slug: string) => {
+    setSelectedProductSlug(slug);
+    setCurrentScreen('shop-product');
+    const path = `/shop/${encodeURIComponent(slug)}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToShop = () => {
+    setSelectedProductSlug(null);
+    setCurrentScreen('shop');
+    if (window.location.pathname !== '/shop') {
+      window.history.pushState({}, '', '/shop');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGoToCart = () => {
+    setLastShopOrder(null);
+    handleNavigate('cart');
+  };
+
+  const handleGoToCheckout = () => {
+    setLastShopOrder(null);
+    handleNavigate('checkout');
+  };
+
+  const handleShopOrderPlaced = (order: ShopOrder) => {
+    setLastShopOrder(order);
+    setCurrentScreen('order-confirmation');
+    if (window.location.pathname !== '/order-confirmation') {
+      window.history.pushState({}, '', '/order-confirmation');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Redirect shop routes when module is off
+  useEffect(() => {
+    if (shopEnabled) return;
+    const shopScreens: PageScreen[] = [
+      'shop',
+      'shop-product',
+      'cart',
+      'checkout',
+      'order-confirmation',
+      'payment-callback',
+    ];
+    if (shopScreens.includes(currentScreen)) {
+      handleNavigate('home');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopEnabled, currentScreen]);
 
   const handleAddAppointment = (newApp: Appointment) => {
     setAppointments((prev) => [newApp, ...prev]);
@@ -723,6 +834,7 @@ export function App() {
           onToggleTheme={handleToggleTheme}
           siteChrome={siteChrome}
           contact={contactInfo}
+          shopEnabled={shopEnabled}
         />
       )}
 
@@ -899,6 +1011,50 @@ export function App() {
               onSubmitQuestion={handleSubmitQuestion}
               onNavigate={handleNavigate}
               onLikeFaq={handleLikeFaq}
+            />
+          )}
+
+          {shopEnabled && currentScreen === 'shop' && (
+            <ShopPage onNavigate={handleNavigate} onSelectProduct={handleSelectProduct} />
+          )}
+
+          {shopEnabled && currentScreen === 'shop-product' && selectedProductSlug && (
+            <ShopProductPage
+              slug={selectedProductSlug}
+              onNavigate={handleNavigate}
+              onBackToShop={handleBackToShop}
+              onGoToCart={handleGoToCart}
+            />
+          )}
+
+          {shopEnabled && currentScreen === 'cart' && (
+            <CartPage
+              onNavigate={handleNavigate}
+              onGoToShop={handleBackToShop}
+              onCheckout={handleGoToCheckout}
+            />
+          )}
+
+          {shopEnabled &&
+            (currentScreen === 'checkout' || currentScreen === 'order-confirmation') && (
+              <CheckoutPage
+                onNavigate={handleNavigate}
+                onGoToCart={handleGoToCart}
+                onGoToShop={handleBackToShop}
+                confirmationOrder={
+                  currentScreen === 'order-confirmation' ? lastShopOrder : null
+                }
+                onOrderPlaced={handleShopOrderPlaced}
+              />
+            )}
+
+          {shopEnabled && currentScreen === 'payment-callback' && (
+            <PaymentCallbackPage
+              onNavigate={handleNavigate}
+              onGoToShop={handleBackToShop}
+              onOrderPaid={(order) => {
+                setLastShopOrder(order);
+              }}
             />
           )}
 

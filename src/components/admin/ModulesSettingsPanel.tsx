@@ -12,6 +12,7 @@ import {
   mergeSiteModules,
   DEFAULT_APPOINTMENTS_MODULE,
   DEFAULT_SEO_OPTIMIZER_MODULE,
+  DEFAULT_SHOP_MODULE,
 } from '../../lib/siteModules';
 
 interface ModulesSettingsPanelProps {
@@ -40,6 +41,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   const auto = mergeAutoTranslate(draft.autoTranslate);
   const appointments = mergeFeatureModule(draft.appointments, DEFAULT_APPOINTMENTS_MODULE);
   const seoOptimizer = mergeFeatureModule(draft.seoOptimizer, DEFAULT_SEO_OPTIMIZER_MODULE);
+  const shop = mergeFeatureModule(draft.shop, DEFAULT_SHOP_MODULE);
 
   const patchAuto = (partial: Partial<AutoTranslateModuleSettings>) => {
     const next = mergeSiteModules({
@@ -63,6 +65,15 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
     const next = mergeSiteModules({
       ...draft,
       seoOptimizer: { ...seoOptimizer, ...partial },
+    });
+    setDraft(next);
+    onChange(next);
+  };
+
+  const patchShop = (partial: Partial<FeatureModuleSettings>) => {
+    const next = mergeSiteModules({
+      ...draft,
+      shop: { ...shop, ...partial },
     });
     setDraft(next);
     onChange(next);
@@ -376,6 +387,59 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
                 <p className="flex items-start gap-1.5 font-bold">
                   <span className="material-symbols-outlined text-sm shrink-0">visibility_off</span>
                   ماژول خاموش است — ابزار سئو در داشبورد و ویرایشگرها نمایش داده نمی‌شود.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* Module card: Shop */}
+          <section className="rounded-2xl border border-outline-variant/40 overflow-hidden">
+            <div className="flex items-start justify-between gap-4 p-4 bg-surface-container-low/60">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined">storefront</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-black text-on-surface">فروشگاه</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                      محصولات · سفارش
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">
+                    فروش محصولات فیزیکی و دیجیتال با سبد خرید، ثبت سفارش و پرداخت دستی. با فعال‌سازی،
+                    جداول محصولات/سفارش‌ها و منوی ادمین به‌همراه صفحات عمومی فروشگاه در دسترس قرار
+                    می‌گیرند.
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={shop.enabled}
+                  onChange={(e) => patchShop({ enabled: e.target.checked })}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+              </label>
+            </div>
+            <div
+              className={`px-4 pb-4 text-[11px] leading-relaxed border-t border-outline-variant/30 pt-3 ${
+                shop.enabled ? 'text-on-surface-variant' : 'text-amber-800 bg-amber-50/50'
+              }`}
+            >
+              {shop.enabled ? (
+                <p className="flex items-start gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-emerald-600 shrink-0">
+                    check_circle
+                  </span>
+                  ماژول فعال است — پس از ذخیره، تب‌های «محصولات» و «سفارش‌ها» در داشبورد و مسیرهای
+                  /shop، /cart و /checkout در سایت نمایش داده می‌شوند.
+                </p>
+              ) : (
+                <p className="flex items-start gap-1.5 font-bold">
+                  <span className="material-symbols-outlined text-sm shrink-0">visibility_off</span>
+                  ماژول خاموش است — منوی فروشگاه و صفحات عمومی فروش مخفی می‌مانند.
                 </p>
               )}
             </div>

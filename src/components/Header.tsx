@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { ClinicContactInfo, PageScreen, SiteChromeSettings, UserProfile } from '../types';
 import { DEFAULT_SITE_CHROME, isPageScreenTarget, mergeSiteChrome } from '../lib/siteChromeDefaults';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 import { DEFAULT_CONTACT_INFO, getTelHref, mergeContactInfo } from '../lib/contactInfo';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { getShopCartCount, subscribeShopCart } from '../lib/shopCart';
 
 interface HeaderProps {
   currentScreen: PageScreen;
@@ -20,6 +22,8 @@ interface HeaderProps {
   contact?: ClinicContactInfo | null;
   /** Sticky offset, so the header parks below the admin toolbar when it is shown. */
   stickyTopClass?: string;
+  /** Show shop link + cart when shop module is enabled */
+  shopEnabled?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   siteChrome,
   contact,
   stickyTopClass = 'top-0',
+  shopEnabled = false,
 }) => {
   const chrome = useMemo(() => mergeSiteChrome(siteChrome || DEFAULT_SITE_CHROME), [siteChrome]);
   const { identity, header, menu } = chrome;
@@ -48,8 +53,20 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    if (!shopEnabled) {
+      setCartCount(0);
+      return;
+    }
+    return subscribeShopCart(() => setCartCount(getShopCartCount()));
+  }, [shopEnabled]);
 
   const mainNavLinks = menu.mainItems.filter((i) => i.visible !== false);
+  const hasShopInMenu = mainNavLinks.some(
+    (i) => i.target === 'shop' || i.target === '/shop'
+  );
 
   const go = (target: string) => {
     if (onNavigateTarget) onNavigateTarget(target);
@@ -80,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
       <header
         className={`${stickyClass} z-50 bg-surface/90 dark:bg-surface-container-highest/90 backdrop-blur-md shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-20 transition-all duration-300`}
       >
-        <nav className="flex justify-between items-center w-full h-full px-4 md:px-6 max-w-[1200px] mx-auto">
+        <nav className={`flex justify-between items-center h-full ${SITE_CONTAINER_CLASS}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -176,9 +193,37 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               );
             })}
+            {shopEnabled && !hasShopInMenu && (
+              <button
+                onClick={() => go('shop')}
+                className={`py-1.5 transition-all relative whitespace-nowrap ${
+                  currentScreen === 'shop' || currentScreen === 'shop-product'
+                    ? 'text-primary font-bold border-b-2 border-primary'
+                    : 'text-on-surface-variant hover:text-primary'
+                }`}
+              >
+                فروشگاه
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
+            {shopEnabled && (
+              <button
+                type="button"
+                onClick={() => go('cart')}
+                className="relative p-2.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant/30 transition-all active:scale-95"
+                title="سبد خرید"
+                aria-label="سبد خرید"
+              >
+                <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -start-0.5 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center">
+                    {cartCount > 99 ? '۹۹+' : cartCount.toLocaleString('fa-IR')}
+                  </span>
+                )}
+              </button>
+            )}
             {header.showPhone && primaryPhone?.number && (
               <a
                 href={primaryTel || '#'}
@@ -329,6 +374,35 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             );
           })}
+          {shopEnabled && !hasShopInMenu && (
+            <button
+              onClick={() => go('shop')}
+              className={`w-full text-right px-4 py-3 rounded-xl text-sm font-bold ${
+                currentScreen === 'shop' || currentScreen === 'shop-product'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container'
+              }`}
+            >
+              فروشگاه
+            </button>
+          )}
+          {shopEnabled && (
+            <button
+              onClick={() => go('cart')}
+              className={`w-full text-right px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-between ${
+                currentScreen === 'cart'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container'
+              }`}
+            >
+              <span>سبد خرید</span>
+              {cartCount > 0 && (
+                <span className="text-[10px] font-black bg-primary text-white rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center">
+                  {cartCount.toLocaleString('fa-IR')}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         <div className="p-5 border-t border-outline-variant/30 space-y-3 bg-surface-container-low">

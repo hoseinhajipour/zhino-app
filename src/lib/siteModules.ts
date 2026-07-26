@@ -38,10 +38,16 @@ export const DEFAULT_SEO_OPTIMIZER_MODULE: FeatureModuleSettings = {
   enabled: false,
 };
 
+/** Off by default — admin opts in from Modules tab */
+export const DEFAULT_SHOP_MODULE: FeatureModuleSettings = {
+  enabled: false,
+};
+
 export const DEFAULT_SITE_MODULES: SiteModulesSettings = {
   autoTranslate: DEFAULT_AUTO_TRANSLATE,
   appointments: DEFAULT_APPOINTMENTS_MODULE,
   seoOptimizer: DEFAULT_SEO_OPTIMIZER_MODULE,
+  shop: DEFAULT_SHOP_MODULE,
 };
 
 export function getTranslateLanguage(code?: string): TranslateLanguageOption | undefined {
@@ -90,6 +96,7 @@ export function mergeSiteModules(partial?: Partial<SiteModulesSettings> | null):
     autoTranslate: mergeAutoTranslate(partial?.autoTranslate),
     appointments: mergeFeatureModule(partial?.appointments, DEFAULT_APPOINTMENTS_MODULE),
     seoOptimizer: mergeFeatureModule(partial?.seoOptimizer, DEFAULT_SEO_OPTIMIZER_MODULE),
+    shop: mergeFeatureModule(partial?.shop, DEFAULT_SHOP_MODULE),
   };
 }
 
@@ -103,6 +110,12 @@ export function isSeoOptimizerModuleEnabled(
   modules?: Partial<SiteModulesSettings> | null
 ): boolean {
   return mergeSiteModules(modules).seoOptimizer.enabled;
+}
+
+export function isShopModuleEnabled(
+  modules?: Partial<SiteModulesSettings> | null
+): boolean {
+  return mergeSiteModules(modules).shop.enabled;
 }
 
 const LANG_STORAGE_KEY = 'zhino_site_lang';

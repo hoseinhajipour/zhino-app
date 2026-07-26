@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { ClinicContactInfo, PageScreen, SiteChromeSettings } from '../types';
 import { DEFAULT_SITE_CHROME, isPageScreenTarget, mergeSiteChrome } from '../lib/siteChromeDefaults';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 import {
   DEFAULT_CONTACT_INFO,
   getMapHref,
@@ -68,7 +69,7 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer className="w-full bg-surface-container-low dark:bg-surface-dim border-t border-outline-variant/30 pt-16 pb-8 text-right text-on-surface">
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className={`${SITE_CONTAINER_CLASS} grid grid-cols-1 md:grid-cols-4 gap-8`}>
         <div className="space-y-4">
           <img
             src={identity.logoUrl}
@@ -221,7 +222,7 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 mt-12 pt-6 border-t border-outline-variant/30 text-center text-xs text-on-surface-variant">
+      <div className={`${SITE_CONTAINER_CLASS} mt-12 pt-6 border-t border-outline-variant/30 text-center text-xs text-on-surface-variant`}>
         {footer.copyrightText}
       </div>
     </footer>

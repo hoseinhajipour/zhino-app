@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FAQItem, PageScreen } from '../types';
 import { FAQ_CATEGORIES } from '../data/clinicData';
+import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 
 interface FaqPageProps {
   faqs: FAQItem[];
@@ -269,7 +270,7 @@ export const FaqPage: React.FC<FaqPageProps> = ({
     );
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-6 md:py-12 text-right space-y-6 md:space-y-10 pb-28 md:pb-12">
+    <div className={`${SITE_CONTAINER_CLASS} py-6 md:py-12 text-right space-y-6 md:space-y-10 pb-28 md:pb-12`}>
       {/* Hero */}
       <div className="bg-gradient-to-br from-primary/10 via-surface-container-low to-primary/5 rounded-3xl p-5 md:p-10 border border-outline-variant/30 space-y-4 relative overflow-hidden">
         <div className="max-w-2xl space-y-3 relative z-10">

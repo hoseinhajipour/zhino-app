@@ -40,6 +40,8 @@ export const BLOCK_LABELS: Record<string, string> = {
   singleImage: 'تصویر تکی',
   imageGallery: 'گالری تصاویر',
   verticalImageGallery: 'گالری تصاویر عمودی',
+  beforeAfter: 'قبل / بعد',
+  audioPlayer: 'پخش‌کننده صدا',
 };
 
 export const BLOCK_ICONS: Record<string, string> = {
@@ -77,6 +79,8 @@ export const BLOCK_ICONS: Record<string, string> = {
   singleImage: 'image',
   imageGallery: 'photo_library',
   verticalImageGallery: 'view_column',
+  beforeAfter: 'compare',
+  audioPlayer: 'headphones',
 };
 
 /** Widgets safe to nest inside container columns */
@@ -99,6 +103,8 @@ export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = [
   'singleImage',
   'imageGallery',
   'verticalImageGallery',
+  'beforeAfter',
+  'audioPlayer',
 ];
 
 export const WIDGET_GROUPS: Array<{
@@ -114,7 +120,18 @@ export const WIDGET_GROUPS: Array<{
   {
     id: 'media',
     label: 'رسانه',
-    types: ['imageCarousel', 'singleImage', 'imageGallery', 'verticalImageGallery', 'videoPlayer', 'icon', 'googleMap', 'tabGallery'],
+    types: [
+      'imageCarousel',
+      'singleImage',
+      'imageGallery',
+      'verticalImageGallery',
+      'beforeAfter',
+      'audioPlayer',
+      'videoPlayer',
+      'icon',
+      'googleMap',
+      'tabGallery',
+    ],
   },
   {
     id: 'content',
@@ -910,6 +927,59 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
           caption: '',
         },
       ],
+    },
+    beforeAfter: {
+      title: '',
+      subtitle: '',
+      beforeImage:
+        'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200',
+      afterImage:
+        'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&q=80&w=1200',
+      beforeLabel: 'قبل',
+      afterLabel: 'بعد',
+      beforeAlt: '',
+      afterAlt: '',
+      caption: '',
+      showLabels: true,
+      initialPosition: 50,
+      orientation: 'horizontal',
+      widthMode: 'full',
+      widthPercent: 100,
+      widthPx: 800,
+      aspect: 'video',
+      objectFit: 'cover',
+      borderRadius: 16,
+      align: 'center',
+      shadow: true,
+    },
+    audioPlayer: {
+      mode: 'single',
+      title: '',
+      subtitle: '',
+      audioUrl: '',
+      trackTitle: 'عنوان قطعه',
+      artist: '',
+      coverImage: '',
+      tracks: [
+        {
+          url: '',
+          title: 'قطعه ۱',
+          artist: '',
+          coverImage: '',
+        },
+        {
+          url: '',
+          title: 'قطعه ۲',
+          artist: '',
+          coverImage: '',
+        },
+      ],
+      autoplay: false,
+      loop: false,
+      showCover: true,
+      showPlaylist: true,
+      layout: 'card',
+      borderRadius: 20,
     },
   };
 

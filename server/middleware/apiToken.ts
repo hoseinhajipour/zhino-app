@@ -13,6 +13,8 @@ export function isPublicWrite(req: Request): boolean {
   const url = (req.originalUrl || req.url || '').split('?')[0];
   if (req.method === 'POST' && /^\/api\/forms\/[^/]+\/submit\/?$/.test(url)) return true;
   if (req.method === 'POST' && /^\/api\/users\/(login|register)\/?$/.test(url)) return true;
+  if (req.method === 'POST' && /^\/api\/shop\/payment\/(start|verify\/zarinpal|callback\/mellat)\/?$/.test(url))
+    return true;
   if (url.startsWith('/api/install')) return true;
   return false;
 }

@@ -45,6 +45,10 @@ import { ContactInfoSettingsPanel } from '../components/admin/ContactInfoSetting
 import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
 import { FreeGuideSettingsPanel } from '../components/admin/FreeGuideSettingsPanel';
 import { FormsAdminPanel } from '../components/admin/FormsAdminPanel';
+import { ShopProductsPanel } from '../components/admin/ShopProductsPanel';
+import { ShopOrdersPanel } from '../components/admin/ShopOrdersPanel';
+import { ShopProductCategoriesPanel } from '../components/admin/ShopProductCategoriesPanel';
+import { ShopSettingsPanel } from '../components/admin/ShopSettingsPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { ImportExportPanel } from '../components/admin/ImportExportPanel';
@@ -55,7 +59,7 @@ import {
   identityPatchFromContact,
   mergeContactInfo,
 } from '../lib/contactInfo';
-import { isAppointmentsModuleEnabled, isSeoOptimizerModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import { isAppointmentsModuleEnabled, isSeoOptimizerModuleEnabled, isShopModuleEnabled, mergeSiteModules } from '../lib/siteModules';
 import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
 import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
@@ -183,7 +187,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     mergeAiSettings(DEFAULT_CLINIC_SETTINGS.ai || DEFAULT_AI_SETTINGS)
   );
 
-  const navOptions = { appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft) };
+  const navOptions = {
+    appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
+    shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+  };
   const seoOptimizerEnabled = isSeoOptimizerModuleEnabled(modulesDraft);
   const allowedNav = getAllowedNav(currentUser?.role, navOptions);
   const allowedTabs = getAllowedTabs(currentUser?.role, navOptions);
@@ -191,6 +198,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   useEffect(() => {
     const allowed = getAllowedTabs(currentUser?.role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
+      shopModuleEnabled: isShopModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     if (!allowed.includes(activeTab)) {
       setActiveTab(allowed[0] || 'overview');
@@ -225,6 +233,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [articleCategories, setArticleCategories] = useState<ArticleCategory[]>([]);
   const [articleCategoriesLoaded, setArticleCategoriesLoaded] = useState(false);
   const [articlesSubTab, setArticlesSubTab] = useState<'list' | 'categories'>('list');
+  const [productsSubTab, setProductsSubTab] = useState<'list' | 'categories'>('list');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategorySlug, setNewCategorySlug] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
@@ -1342,6 +1351,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const role = currentUser?.role;
     const allowedTabIds = getAllowedTabs(role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
+      shopModuleEnabled: isShopModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     const goTab = (tab: AdminTab) => {
       if (allowedTabIds.includes(tab)) setActiveTab(tab);
@@ -1468,13 +1478,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title: 'فرم‌ها',
       subtitle: 'تعریف فرم‌های سایت و مشاهده ارسال‌های ثبت‌شده',
     },
+    products: {
+      title: productsSubTab === 'categories' ? 'دسته‌بندی محصولات' : 'محصولات فروشگاه',
+      subtitle:
+        productsSubTab === 'categories'
+          ? 'تعریف و مرتب‌سازی دسته‌های کاتالوگ فروشگاه'
+          : 'مدیریت محصولات فیزیکی و دیجیتال',
+    },
+    orders: {
+      title: 'سفارش‌های فروشگاه',
+      subtitle: 'پیگیری و تغییر وضعیت سفارش‌ها',
+    },
+    'shop-settings': {
+      title: 'تنظیمات فروشگاه',
+      subtitle: 'نام فروشگاه، پرداخت، ارسال و پیام‌های خرید',
+    },
     contact: {
       title: 'اطلاعات تماس',
       subtitle: 'تلفن‌ها، پیام‌رسان‌ها، ایمیل و آدرس‌های کلینیک',
     },
     modules: {
       title: 'ماژول‌ها',
-      subtitle: 'قابلیت‌های اختیاری سایت — ترجمه خودکار و ماژول‌های بعدی',
+      subtitle: 'قابلیت‌های اختیاری سایت — ترجمه خودکار، فروشگاه و ماژول‌های بعدی',
     },
     system: {
       title: 'وضعیت سیستم',
@@ -1496,7 +1521,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           ? 'حالت تعمیر و حالت توسعه'
           : settingsSubTab === 'ai'
             ? 'اتصال GapGPT / OpenAI و MCP برای Cursor'
-            : 'هویت برند، هدر، منو و فوتر سایت',
+            : 'هویت برند، عرض کانتینر، هدر، منو و فوتر سایت',
     },
   };
 
@@ -3340,6 +3365,48 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           canManageFormSubmissions(currentUser?.role)) && (
           <FormsAdminPanel role={currentUser?.role} />
         )}
+
+      {activeTab === 'products' && isShopModuleEnabled(modulesDraft) && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-1.5 bg-white dark:bg-surface-dim p-1 rounded-2xl border border-outline-variant/30 shadow-soft">
+              <button
+                type="button"
+                onClick={() => setProductsSubTab('list')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  productsSubTab === 'list'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">inventory_2</span>
+                محصولات
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductsSubTab('categories')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  productsSubTab === 'categories'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">category</span>
+                دسته‌بندی
+              </button>
+            </div>
+          </div>
+          {productsSubTab === 'list' ? <ShopProductsPanel /> : <ShopProductCategoriesPanel />}
+        </div>
+      )}
+
+      {activeTab === 'orders' && isShopModuleEnabled(modulesDraft) && (
+        <ShopOrdersPanel />
+      )}
+
+      {activeTab === 'shop-settings' && isShopModuleEnabled(modulesDraft) && (
+        <ShopSettingsPanel />
+      )}
 
       {/* ========================================================================= */}
       {/* TAB: CONTACT INFO */}

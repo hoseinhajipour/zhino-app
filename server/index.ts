@@ -13,6 +13,9 @@ import {
   pagesRouter,
   articleCategoriesRouter,
   formSubmissionsRouter,
+  productsRouter,
+  productCategoriesRouter,
+  ordersRouter,
 } from './routes/entities';
 import { formsRouter } from './routes/forms';
 import { uploadsRouter, uploadsDir } from './routes/uploads';
@@ -20,6 +23,7 @@ import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
 import { systemRouter } from './routes/system';
 import { backupRouter } from './routes/backup';
+import { shopPaymentRouter } from './routes/shopPayment';
 import { isInstallInProgress, isInstallLocked } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
 import { logApiTokenStatus, requireApiTokenForWrites } from './middleware/apiToken';
@@ -29,6 +33,7 @@ import {
   ensureSitePages,
   ensureDefaultUsers,
   ensureArticleCategories,
+  ensureProductCategories,
   ensureDefaultForms,
 } from './seed';
 
@@ -57,6 +62,10 @@ app.use('/api/article-categories', articleCategoriesRouter);
 app.use('/api/faqs', faqsRouter);
 app.use('/api/forms', formsRouter);
 app.use('/api/form-submissions', formSubmissionsRouter);
+app.use('/api/products', productsRouter);
+app.use('/api/product-categories', productCategoriesRouter);
+app.use('/api/orders', ordersRouter);
+app.use('/api/shop/payment', shopPaymentRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/pages', pagesRouter);
 app.use('/api/users', usersRouter);
@@ -142,6 +151,7 @@ async function bootstrapDatabase(): Promise<boolean> {
     await ensureSitePages();
     await ensureDefaultUsers();
     await ensureArticleCategories();
+    await ensureProductCategories();
     await ensureDefaultForms();
     return true;
   } catch (err) {

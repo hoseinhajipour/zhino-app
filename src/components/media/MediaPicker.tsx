@@ -6,7 +6,7 @@ import {
   uploadFile,
 } from '../../lib/dbService';
 
-export type MediaAccept = 'image' | 'video' | 'all';
+export type MediaAccept = 'image' | 'video' | 'audio' | 'all';
 
 interface MediaPickerProps {
   open: boolean;
@@ -70,7 +70,15 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     setLoading(true);
     setError('');
     try {
-      const data = await fetchMediaLibrary(accept === 'video' ? 'video' : accept === 'all' ? 'all' : 'image');
+      const data = await fetchMediaLibrary(
+        accept === 'video'
+          ? 'video'
+          : accept === 'audio'
+            ? 'audio'
+            : accept === 'all'
+              ? 'all'
+              : 'image'
+      );
       setItems(data);
     } catch {
       setError('خطا در بارگذاری کتابخانه رسانه');
@@ -102,7 +110,13 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
   if (!open) return null;
 
   const acceptAttr =
-    accept === 'image' ? 'image/*' : accept === 'video' ? 'video/*' : 'image/*,video/*';
+    accept === 'image'
+      ? 'image/*'
+      : accept === 'video'
+        ? 'video/*'
+        : accept === 'audio'
+          ? 'audio/*,.mp3,.wav,.m4a,.aac,.flac,.oga,.opus'
+          : 'image/*,video/*,audio/*';
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -116,6 +130,13 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
         }
         if (accept === 'video' && !file.type.startsWith('video/')) {
           throw new Error('فقط ویدیو مجاز است');
+        }
+        if (
+          accept === 'audio' &&
+          !file.type.startsWith('audio/') &&
+          !/\.(mp3|wav|m4a|aac|flac|oga|opus)$/i.test(file.name)
+        ) {
+          throw new Error('فقط فایل صوتی مجاز است');
         }
         if (file.size > 50 * 1024 * 1024) {
           throw new Error('حجم فایل نباید بیشتر از ۵۰ مگابایت باشد');
@@ -240,9 +261,11 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
                   <p className="text-[11px] text-slate-500">
                     {accept === 'video'
                       ? 'ویدیو تا ۵۰ مگابایت'
-                      : accept === 'all'
-                        ? 'تصویر یا ویدیو تا ۵۰ مگابایت'
-                        : 'تصویر تا ۵۰ مگابایت'}
+                      : accept === 'audio'
+                        ? 'فایل صوتی (MP3، WAV، M4A و…) تا ۵۰ مگابایت'
+                        : accept === 'all'
+                          ? 'تصویر، ویدیو یا صدا تا ۵۰ مگابایت'
+                          : 'تصویر تا ۵۰ مگابایت'}
                   </p>
                 </>
               )}
@@ -290,7 +313,9 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
                         <img src={item.url} alt={item.filename} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-1">
-                          <span className="material-symbols-outlined text-3xl">movie</span>
+                          <span className="material-symbols-outlined text-3xl">
+                            {item.kind === 'audio' ? 'audio_file' : 'movie'}
+                          </span>
                           <span className="text-[10px] font-bold px-2 truncate max-w-full">{item.filename}</span>
                         </div>
                       )}

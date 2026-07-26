@@ -11,6 +11,8 @@ import { SpacerBlockSettings } from './SpacerBlockSettings';
 import { SingleImageBlockSettings } from './SingleImageBlockSettings';
 import { ImageGalleryBlockSettings } from './ImageGalleryBlockSettings';
 import { VerticalImageGalleryBlockSettings } from './VerticalImageGalleryBlockSettings';
+import { BeforeAfterBlockSettings } from './BeforeAfterBlockSettings';
+import { AudioPlayerBlockSettings } from './AudioPlayerBlockSettings';
 import { RichTextEditor } from './RichTextEditor';
 import { ContainerBlockSettings } from './ContainerBlockSettings';
 import {
@@ -2784,6 +2786,12 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
 
     case 'verticalImageGallery':
       return <VerticalImageGalleryBlockSettings props={p} onChange={onChange} />;
+
+    case 'beforeAfter':
+      return <BeforeAfterBlockSettings props={p} onChange={onChange} />;
+
+    case 'audioPlayer':
+      return <AudioPlayerBlockSettings props={p} onChange={onChange} />;
 
     case 'googleMap':
       return (

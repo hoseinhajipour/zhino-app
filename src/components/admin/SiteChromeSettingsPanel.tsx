@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { SiteChromeSettings, SiteNavItem } from '../../types';
+import type { SiteChromeSettings, SiteContainerMode, SiteNavItem } from '../../types';
 import { MediaField } from '../media/MediaField';
 import {
   BUILTIN_NAV_TARGETS,
@@ -9,6 +9,13 @@ import {
 } from '../../lib/siteChromeDefaults';
 
 type ChromeTab = 'identity' | 'header' | 'menu' | 'footer';
+
+const CONTAINER_MODE_OPTIONS: { value: SiteContainerMode; label: string; hint: string }[] = [
+  { value: '1200', label: '1200', hint: '۱۲۰۰ پیکسل' },
+  { value: '1400', label: '1400', hint: '۱۴۰۰ پیکسل' },
+  { value: 'full', label: 'تمام عرض', hint: 'بدون محدودیت عرض' },
+  { value: 'custom', label: 'اختصاصی', hint: 'عرض دلخواه' },
+];
 
 interface SiteChromeSettingsPanelProps {
   value: SiteChromeSettings;
@@ -271,6 +278,7 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
   const header = value.header;
   const menu = value.menu;
   const footer = value.footer;
+  const layout = value.layout;
 
   const tabs: { id: ChromeTab; label: string; icon: string }[] = [
     { id: 'identity', label: 'هویت و رنگ‌ها', icon: 'palette' },
@@ -289,7 +297,7 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
           <div>
             <h2 className="font-extrabold text-base md:text-lg text-on-surface">ظاهر سایت</h2>
             <p className="text-[11px] md:text-xs text-on-surface-variant mt-0.5">
-              برند، رنگ‌ها، منوی ناوبری و محتوای فوتر
+              برند، رنگ‌ها، عرض کانتینر، منوی ناوبری و محتوای فوتر
             </p>
           </div>
         </div>
@@ -363,6 +371,71 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
                   helperText="تب مرورگر"
                 />
               </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-black text-on-surface mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-primary">width</span>
+                اندازه پیش‌فرض کانتینر سایت
+              </p>
+              <p className="text-[10px] text-on-surface-variant mb-3 leading-relaxed">
+                روی هدر، فوتر و صفحات سایت در فرانت اعمال می‌شود. صفحات صفحه‌ساز با حالت «تمام عرض»
+                همچنان تمام‌عرض می‌مانند.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {CONTAINER_MODE_OPTIONS.map((opt) => {
+                  const selected = (layout?.containerMode || '1200') === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...value,
+                          layout: {
+                            ...layout,
+                            containerMode: opt.value,
+                            customMaxWidth: layout?.customMaxWidth || 1600,
+                          },
+                        })
+                      }
+                      className={`text-center rounded-xl border px-2 py-3 transition-all ${
+                        selected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-outline-variant/40 bg-surface-container-lowest hover:border-primary/40'
+                      }`}
+                    >
+                      <span className="block text-[12px] font-black text-on-surface">{opt.label}</span>
+                      <span className="block text-[10px] text-on-surface-variant mt-0.5">{opt.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {layout?.containerMode === 'custom' && (
+                <label className="mt-3 block space-y-1 max-w-xs">
+                  <span className="text-[11px] font-bold text-on-surface-variant">عرض اختصاصی (پیکسل)</span>
+                  <input
+                    type="number"
+                    min={320}
+                    max={3840}
+                    step={10}
+                    dir="ltr"
+                    value={layout.customMaxWidth || 1600}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      onChange({
+                        ...value,
+                        layout: {
+                          ...layout,
+                          containerMode: 'custom',
+                          customMaxWidth: Number.isFinite(n) ? n : 1600,
+                        },
+                      });
+                    }}
+                    className={fieldClass}
+                  />
+                </label>
+              )}
             </div>
 
             <div>
