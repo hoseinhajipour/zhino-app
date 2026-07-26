@@ -397,7 +397,7 @@ export async function upsertEntity(table: EntityTable, id: string, data: object)
     const category = String((merged as { category?: string }).category || '');
     await getPool().query<ResultSetHeader>(
       `INSERT INTO \`articles\` (id, payload, category)
-       VALUES (:id, CAST(:payload AS JSON), :category)
+       VALUES (:id, :payload, :category)
        ON DUPLICATE KEY UPDATE payload = VALUES(payload), category = VALUES(category)`,
       { id, payload, category }
     );
@@ -411,7 +411,7 @@ export async function upsertEntity(table: EntityTable, id: string, data: object)
     const role = String(row.role || 'patient');
     await getPool().query<ResultSetHeader>(
       `INSERT INTO \`users\` (id, payload, mobile, username, role)
-       VALUES (:id, CAST(:payload AS JSON), :mobile, :username, :role)
+       VALUES (:id, :payload, :mobile, :username, :role)
        ON DUPLICATE KEY UPDATE
          payload = VALUES(payload),
          mobile = VALUES(mobile),
@@ -424,7 +424,7 @@ export async function upsertEntity(table: EntityTable, id: string, data: object)
 
   await getPool().query<ResultSetHeader>(
     `INSERT INTO \`${table}\` (id, payload)
-     VALUES (:id, CAST(:payload AS JSON))
+     VALUES (:id, :payload)
      ON DUPLICATE KEY UPDATE payload = VALUES(payload)`,
     { id, payload }
   );
