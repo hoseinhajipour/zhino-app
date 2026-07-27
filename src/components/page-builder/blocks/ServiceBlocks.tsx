@@ -4454,41 +4454,225 @@ export const ServicesGridBlock: React.FC<{ props: Record<string, unknown>; ctx: 
   );
 };
 
-export const ContactCardsBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => (
-  <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div className="bg-white dark:bg-surface-dim p-7 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3">
-      <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
-        <span className="material-symbols-outlined text-3xl">location_on</span>
-      </div>
-      <h3 className="text-xl font-bold text-on-surface">آدرس حضوری</h3>
-      <p className="text-xs text-on-surface-variant leading-relaxed">{str(props.address)}</p>
-      {str(props.addressNote) && (
-        <div className="text-xs text-primary font-bold pt-2">{str(props.addressNote)}</div>
+type ContactCardItem = {
+  icon?: string;
+  title?: string;
+  body?: string;
+  note?: string;
+  link?: string;
+  linkLabel?: string;
+  accent?: string;
+  dir?: string;
+};
+
+const CONTACT_CARD_ACCENT: Record<string, { soft: string; text: string; ring: string; hover: string }> = {
+  primary: {
+    soft: 'bg-primary/10 text-primary',
+    text: 'text-primary',
+    ring: 'group-hover:border-primary/40 group-hover:shadow-primary/10',
+    hover: 'group-hover:bg-primary group-hover:text-white',
+  },
+  secondary: {
+    soft: 'bg-secondary/10 text-secondary',
+    text: 'text-secondary',
+    ring: 'group-hover:border-secondary/40 group-hover:shadow-secondary/10',
+    hover: 'group-hover:bg-secondary group-hover:text-white',
+  },
+  tertiary: {
+    soft: 'bg-tertiary/10 text-tertiary',
+    text: 'text-tertiary',
+    ring: 'group-hover:border-tertiary/40 group-hover:shadow-tertiary/10',
+    hover: 'group-hover:bg-tertiary group-hover:text-white',
+  },
+  emerald: {
+    soft: 'bg-emerald-500/10 text-emerald-700',
+    text: 'text-emerald-700',
+    ring: 'group-hover:border-emerald-500/40 group-hover:shadow-emerald-500/10',
+    hover: 'group-hover:bg-emerald-600 group-hover:text-white',
+  },
+  rose: {
+    soft: 'bg-rose-500/10 text-rose-600',
+    text: 'text-rose-600',
+    ring: 'group-hover:border-rose-500/40 group-hover:shadow-rose-500/10',
+    hover: 'group-hover:bg-rose-600 group-hover:text-white',
+  },
+  amber: {
+    soft: 'bg-amber-500/10 text-amber-700',
+    text: 'text-amber-700',
+    ring: 'group-hover:border-amber-500/40 group-hover:shadow-amber-500/10',
+    hover: 'group-hover:bg-amber-600 group-hover:text-white',
+  },
+};
+
+const CONTACT_CARD_ACCENT_CYCLE = ['primary', 'secondary', 'tertiary', 'emerald', 'rose', 'amber'] as const;
+
+function legacyContactCardItems(props: Record<string, unknown>): ContactCardItem[] {
+  const phoneLines = [str(props.phone1), str(props.phone2)].filter(Boolean).join('\n');
+  return [
+    {
+      icon: 'location_on',
+      title: 'آدرس حضوری',
+      body: str(props.address),
+      note: str(props.addressNote),
+      accent: 'primary',
+      dir: 'rtl',
+    },
+    {
+      icon: 'call',
+      title: 'شماره‌های تلفن',
+      body: phoneLines,
+      note: str(props.hours),
+      accent: 'secondary',
+      dir: 'ltr',
+    },
+    {
+      icon: 'mail',
+      title: 'ایمیل',
+      body: str(props.email, 'info@zhinoclinic.ir'),
+      note: 'پاسخ‌گویی در ساعات اداری',
+      accent: 'tertiary',
+      dir: 'ltr',
+    },
+  ];
+}
+
+function resolveContactCardItems(props: Record<string, unknown>): ContactCardItem[] {
+  const raw = arr<ContactCardItem>(props.items);
+  if (raw.length > 0) return raw;
+  if (props.address || props.phone1 || props.email) return legacyContactCardItems(props);
+  return [];
+}
+
+export const ContactCardsBlock: React.FC<{ props: Record<string, unknown> }> = ({ props }) => {
+  const items = resolveContactCardItems(props);
+  const filled = props.iconFilled !== false;
+
+  if (!items.length) {
+    return (
+      <section className="rounded-3xl border border-dashed border-outline-variant/40 p-8 text-center text-sm text-on-surface-variant">
+        هنوز کارتی اضافه نشده است.
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-6 w-full min-w-0">
+      {(str(props.title) || str(props.subtitle)) && (
+        <div className="space-y-2 text-right">
+          {str(props.title) && (
+            <h2 className="text-2xl md:text-3xl font-black text-on-surface">{str(props.title)}</h2>
+          )}
+          {str(props.subtitle) && (
+            <p className="text-sm text-on-surface-variant max-w-2xl leading-relaxed">
+              {str(props.subtitle)}
+            </p>
+          )}
+        </div>
       )}
-    </div>
-    <div className="bg-white dark:bg-surface-dim p-7 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3">
-      <div className="w-12 h-12 bg-secondary/10 text-secondary rounded-2xl flex items-center justify-center">
-        <span className="material-symbols-outlined text-3xl">call</span>
-      </div>
-      <h3 className="text-xl font-bold text-on-surface">شماره‌های تلفن</h3>
-      <div className="text-sm font-bold text-on-surface space-y-1" dir="ltr">
-        <p>{str(props.phone1)}</p>
-        {str(props.phone2) && <p>{str(props.phone2)}</p>}
-      </div>
-      {str(props.hours) && <p className="text-xs text-on-surface-variant pt-1">{str(props.hours)}</p>}
-    </div>
-    <div className="bg-white dark:bg-surface-dim p-7 rounded-3xl border border-outline-variant/30 shadow-soft space-y-3">
-      <div className="w-12 h-12 bg-tertiary/10 text-tertiary rounded-2xl flex items-center justify-center">
-        <span className="material-symbols-outlined text-3xl">mail</span>
-      </div>
-      <h3 className="text-xl font-bold text-on-surface">ایمیل</h3>
-      <p className="text-sm font-bold text-on-surface" dir="ltr">
-        {str(props.email, 'info@zhinoclinic.ir')}
-      </p>
-      <p className="text-xs text-on-surface-variant">پاسخ‌گویی در ساعات اداری</p>
-    </div>
-  </section>
-);
+
+      <ResponsiveGrid
+        columnsMobile={props.columnsMobile}
+        columnsTablet={props.columnsTablet}
+        columnsDesktop={props.columnsDesktop}
+        fallbacks={{ mobile: 1, tablet: 2, desktop: 3 }}
+        className="gap-4 sm:gap-6"
+      >
+        {items.map((item, idx) => {
+          const accentKey =
+            str(item.accent) || CONTACT_CARD_ACCENT_CYCLE[idx % CONTACT_CARD_ACCENT_CYCLE.length];
+          const accent = CONTACT_CARD_ACCENT[accentKey] || CONTACT_CARD_ACCENT.primary;
+          const icon = str(item.icon, 'contact_mail');
+          const title = str(item.title, 'کارت تماس');
+          const body = str(item.body);
+          const note = str(item.note);
+          const link = str(item.link);
+          const linkLabel = str(item.linkLabel, 'مشاهده');
+          const dir = str(item.dir, 'auto') as 'rtl' | 'ltr' | 'auto';
+          const lines = body
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+          const isExternal = /^https?:\/\//i.test(link);
+
+          const cardInner = (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-300 ${accent.soft} ${accent.hover}`}
+                >
+                  <span
+                    className="material-symbols-outlined text-[26px] leading-none"
+                    style={{
+                      fontVariationSettings: filled
+                        ? "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 40"
+                        : undefined,
+                    }}
+                  >
+                    {icon}
+                  </span>
+                </div>
+                {link && (
+                  <span
+                    className={`w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${accent.soft}`}
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_outward</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2.5 flex-1">
+                <h3 className="text-lg font-black text-on-surface leading-snug">{title}</h3>
+                {lines.length > 0 && (
+                  <div
+                    className="space-y-1 text-sm font-bold text-on-surface leading-relaxed"
+                    dir={dir === 'auto' ? undefined : dir}
+                  >
+                    {lines.map((line, lineIdx) => (
+                      <p key={lineIdx} className="break-words">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {note && (
+                  <p className={`text-xs font-extrabold pt-1 ${accent.text}`}>{note}</p>
+                )}
+              </div>
+
+              {link && (
+                <span className={`inline-flex items-center gap-1 text-xs font-extrabold mt-auto ${accent.text}`}>
+                  {linkLabel}
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </span>
+              )}
+            </>
+          );
+
+          const cardClass = `group relative flex flex-col gap-4 bg-white dark:bg-surface-dim p-6 sm:p-7 rounded-[28px] border border-outline-variant/30 shadow-soft min-w-0 h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${accent.ring}`;
+
+          if (link) {
+            return (
+              <a
+                key={idx}
+                href={link}
+                {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className={`${cardClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+              >
+                {cardInner}
+              </a>
+            );
+          }
+
+          return (
+            <div key={idx} className={cardClass}>
+              {cardInner}
+            </div>
+          );
+        })}
+      </ResponsiveGrid>
+    </section>
+  );
+};
 
 export const ContactInfoBlock: React.FC<{
   props: Record<string, unknown>;

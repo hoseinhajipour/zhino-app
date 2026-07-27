@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiProviderId, AiSettings } from '../../types';
 import {
   AI_PROVIDER_PRESETS,
@@ -28,20 +28,24 @@ export const AiSettingsPanel: React.FC<AiSettingsPanelProps> = ({
   const [draft, setDraft] = useState<AiSettings>(() => mergeAiSettings(value || DEFAULT_AI_SETTINGS));
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    if (dirtyRef.current) return;
     setDraft(mergeAiSettings(value || DEFAULT_AI_SETTINGS));
   }, [value]);
 
   const preset = AI_PROVIDER_PRESETS[draft.provider];
 
   const patch = (partial: Partial<AiSettings>) => {
+    dirtyRef.current = true;
     const next = mergeAiSettings({ ...draft, ...partial });
     setDraft(next);
     onChange(next);
   };
 
   const selectProvider = (provider: AiProviderId) => {
+    dirtyRef.current = true;
     const next = applyAiProviderPreset(draft, provider);
     setDraft(next);
     onChange(next);

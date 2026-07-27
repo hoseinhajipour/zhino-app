@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ClinicContactInfo, ConsultFabSettings } from '../../types';
 import {
   DEFAULT_CONTACT_INFO,
@@ -31,14 +31,17 @@ export const ContactInfoSettingsPanel: React.FC<ContactInfoSettingsPanelProps> =
   const [draft, setDraft] = useState<ClinicContactInfo>(() =>
     mergeContactInfo(value || DEFAULT_CONTACT_INFO)
   );
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    if (dirtyRef.current) return;
     setDraft(mergeContactInfo(value || DEFAULT_CONTACT_INFO));
   }, [value]);
 
   const fab = mergeFabSettings(draft.fab);
 
   const patch = (partial: Partial<ClinicContactInfo>) => {
+    dirtyRef.current = true;
     const next = { ...draft, ...partial };
     setDraft(next);
     onChange(next);

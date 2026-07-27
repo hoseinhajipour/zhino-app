@@ -176,6 +176,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   );
   const siteChromeDraftRevisionRef = useRef(0);
   const siteChromeSyncBlockedRef = useRef(false);
+  /** After first settings hydrate, polls must not rewrite editable drafts (was wiping unsaved edits every ~6s). */
+  const settingsDraftsHydratedRef = useRef(false);
   const [contactDraft, setContactDraft] = useState<ClinicContactInfo>(() =>
     mergeContactInfo(DEFAULT_CLINIC_SETTINGS.contact)
   );
@@ -262,35 +264,37 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [kvReminderPattern, setKvReminderPattern] = useState('');
   const [kvCancelPattern, setKvCancelPattern] = useState('');
 
-  // Subscribe to settings from API
+  // Subscribe to settings from API — keep live `settings`, but hydrate form drafts only once
+  // so background polls don't wipe unsaved edits / steal input focus.
   useEffect(() => {
     const unsub = subscribeClinicSettings((st) => {
-      if (st) {
-        setSettings(st);
-        if (!siteChromeSyncBlockedRef.current) {
-          setSiteChromeDraft(mergeSiteChrome(st.site));
-        }
-        setContactDraft(mergeContactInfo(st.contact, st.site?.identity));
-        setModulesDraft(mergeSiteModules(st.modules));
-        setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
-        setAiDraft(mergeAiSettings(st.ai));
-        setMaintenanceMode(!!st.maintenanceMode);
-        setMaintenanceMessage(st.maintenanceMessage || '');
-        setDevelopmentMode(!!st.developmentMode);
-        setResBookingEnabled(st.bookingEnabled ?? true);
-        setZpEnabled(st.zarinpal.enabled);
-        setZpIsSandbox(st.zarinpal.isSandbox);
-        setZpMerchantId(st.zarinpal.merchantId);
-        setZpDefaultFee(st.zarinpal.defaultFee);
-        setZpCallbackUrl(st.zarinpal.callbackUrl);
-
-        setKvEnabled(st.kavenegar.enabled);
-        setKvApiKey(st.kavenegar.apiKey);
-        setKvSenderNumber(st.kavenegar.senderNumber);
-        setKvBookingPattern(st.kavenegar.bookingPattern);
-        setKvReminderPattern(st.kavenegar.reminderPattern);
-        setKvCancelPattern(st.kavenegar.cancelPattern);
+      if (!st) return;
+      setSettings(st);
+      if (settingsDraftsHydratedRef.current) return;
+      settingsDraftsHydratedRef.current = true;
+      if (!siteChromeSyncBlockedRef.current) {
+        setSiteChromeDraft(mergeSiteChrome(st.site));
       }
+      setContactDraft(mergeContactInfo(st.contact, st.site?.identity));
+      setModulesDraft(mergeSiteModules(st.modules));
+      setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
+      setAiDraft(mergeAiSettings(st.ai));
+      setMaintenanceMode(!!st.maintenanceMode);
+      setMaintenanceMessage(st.maintenanceMessage || '');
+      setDevelopmentMode(!!st.developmentMode);
+      setResBookingEnabled(st.bookingEnabled ?? true);
+      setZpEnabled(st.zarinpal.enabled);
+      setZpIsSandbox(st.zarinpal.isSandbox);
+      setZpMerchantId(st.zarinpal.merchantId);
+      setZpDefaultFee(st.zarinpal.defaultFee);
+      setZpCallbackUrl(st.zarinpal.callbackUrl);
+
+      setKvEnabled(st.kavenegar.enabled);
+      setKvApiKey(st.kavenegar.apiKey);
+      setKvSenderNumber(st.kavenegar.senderNumber);
+      setKvBookingPattern(st.kavenegar.bookingPattern);
+      setKvReminderPattern(st.kavenegar.reminderPattern);
+      setKvCancelPattern(st.kavenegar.cancelPattern);
     });
     return () => unsub();
   }, []);

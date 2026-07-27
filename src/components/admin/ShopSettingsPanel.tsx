@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ClinicSettings, MellatSettings, ShopSettings } from '../../types';
 import {
   DEFAULT_CLINIC_SETTINGS,
@@ -50,21 +50,28 @@ export const ShopSettingsPanel: React.FC = () => {
   );
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const draftsHydratedRef = useRef(false);
+  const draftsDirtyRef = useRef(false);
 
   useEffect(() => {
     return subscribeClinicSettings((data) => {
       const normalized = normalizeClinicSettings(data);
       setClinic(normalized);
+      // Don't rewrite shop/mellat drafts from background polls after hydrate or while editing.
+      if (draftsHydratedRef.current || draftsDirtyRef.current) return;
+      draftsHydratedRef.current = true;
       setDraft(mergeShopSettings(normalized.shop));
       setMellatDraft(mergeMellatSettings(normalized.mellat));
     });
   }, []);
 
   const patch = (partial: Partial<ShopSettings>) => {
+    draftsDirtyRef.current = true;
     setDraft((prev) => mergeShopSettings({ ...prev, ...partial }));
   };
 
   const patchMellat = (partial: Partial<MellatSettings>) => {
+    draftsDirtyRef.current = true;
     setMellatDraft((prev) => mergeMellatSettings({ ...prev, ...partial }));
   };
 
@@ -81,6 +88,7 @@ export const ShopSettingsPanel: React.FC = () => {
       setClinic(next);
       setDraft(mergeShopSettings(next.shop));
       setMellatDraft(mergeMellatSettings(next.mellat));
+      draftsDirtyRef.current = false;
       setMsg({ type: 'success', text: 'تنظیمات فروشگاه ذخیره شد' });
     } catch {
       setMsg({ type: 'error', text: 'ذخیره تنظیمات ناموفق بود' });

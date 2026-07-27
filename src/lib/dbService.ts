@@ -113,28 +113,76 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * One shared poller per resource so App + Admin + panels don't each spin
+ * their own setInterval (which made refreshes feel like every 2–3s).
+ */
+function createSharedPoller<T>(loadFn: () => Promise<T>, label: string) {
+  const listeners = new Set<(data: T) => void>();
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let latest: T | undefined;
+  let inFlight = false;
+
+  const emit = (data: T) => {
+    latest = data;
+    for (const cb of listeners) {
+      try {
+        cb(data);
+      } catch (err) {
+        console.error(`${label} listener error:`, err);
+      }
+    }
+  };
+
+  const load = async () => {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      const data = await loadFn();
+      emit(data);
+    } catch (err) {
+      console.error(`${label} fetch error:`, err);
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  return {
+    subscribe(callback: (data: T) => void): () => void {
+      listeners.add(callback);
+      if (latest !== undefined) {
+        callback(latest);
+      }
+      if (listeners.size === 1) {
+        void load();
+        timer = setInterval(() => {
+          void load();
+        }, POLL_MS);
+      }
+      return () => {
+        listeners.delete(callback);
+        if (listeners.size === 0 && timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      };
+    },
+  };
+}
+
+const listPollers = new Map<string, ReturnType<typeof createSharedPoller<unknown[]>>>();
+
 function subscribeList<T>(
   path: string,
   callback: (data: T[]) => void,
   label: string
 ): () => void {
-  let cancelled = false;
-
-  const load = async () => {
-    try {
-      const data = await api<T[]>(path);
-      if (!cancelled) callback(data);
-    } catch (err) {
-      console.error(`${label} fetch error:`, err);
-    }
-  };
-
-  void load();
-  const timer = setInterval(load, POLL_MS);
-  return () => {
-    cancelled = true;
-    clearInterval(timer);
-  };
+  let poller = listPollers.get(path) as ReturnType<typeof createSharedPoller<T[]>> | undefined;
+  if (!poller) {
+    poller = createSharedPoller<T[]>(() => api<T[]>(path), label);
+    listPollers.set(path, poller as ReturnType<typeof createSharedPoller<unknown[]>>);
+  }
+  return poller.subscribe(callback);
 }
 
 export async function uploadFile(file: File): Promise<string> {
@@ -338,25 +386,13 @@ export async function deleteArticle(id: string) {
 // ---------------------------------------------------------------------
 // CLINIC SETTINGS
 // ---------------------------------------------------------------------
+const settingsPoller = createSharedPoller<ClinicSettings>(async () => {
+  const data = await api<ClinicSettings>('/api/settings');
+  return normalizeClinicSettings(data);
+}, 'Settings');
+
 export function subscribeClinicSettings(callback: (settings: ClinicSettings) => void) {
-  let cancelled = false;
-
-  const load = async () => {
-    try {
-      const data = await api<ClinicSettings>('/api/settings');
-      if (!cancelled) callback(normalizeClinicSettings(data));
-    } catch (err) {
-      console.error('Settings fetch error:', err);
-      if (!cancelled) callback(DEFAULT_CLINIC_SETTINGS);
-    }
-  };
-
-  void load();
-  const timer = setInterval(load, POLL_MS);
-  return () => {
-    cancelled = true;
-    clearInterval(timer);
-  };
+  return settingsPoller.subscribe(callback);
 }
 
 export async function saveClinicSettings(settings: ClinicSettings) {

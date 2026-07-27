@@ -2684,21 +2684,235 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
         </div>
       );
 
-    case 'contactCards':
+    case 'contactCards': {
+      const items = (Array.isArray(p.items) ? p.items : []) as Array<{
+        icon?: string;
+        title?: string;
+        body?: string;
+        note?: string;
+        link?: string;
+        linkLabel?: string;
+        accent?: string;
+        dir?: string;
+      }>;
+      const hasLegacy =
+        items.length === 0 && Boolean(p.address || p.phone1 || p.phone2 || p.email || p.hours);
+      const accentCycle = ['primary', 'secondary', 'tertiary', 'emerald', 'rose', 'amber'] as const;
+
       return (
         <div className="space-y-3">
-          <TextInput label="آدرس" value={String(p.address || '')} onChange={(v) => set('address', v)} multiline />
+          <TextInput label="عنوان بخش (اختیاری)" value={String(p.title || '')} onChange={(v) => set('title', v)} />
           <TextInput
-            label="یادداشت آدرس"
-            value={String(p.addressNote || '')}
-            onChange={(v) => set('addressNote', v)}
+            label="زیرعنوان (اختیاری)"
+            value={String(p.subtitle || '')}
+            onChange={(v) => set('subtitle', v)}
+            multiline
           />
-          <TextInput label="تلفن ۱" value={String(p.phone1 || '')} onChange={(v) => set('phone1', v)} />
-          <TextInput label="تلفن ۲" value={String(p.phone2 || '')} onChange={(v) => set('phone2', v)} />
-          <TextInput label="ساعات کاری" value={String(p.hours || '')} onChange={(v) => set('hours', v)} />
-          <TextInput label="ایمیل" value={String(p.email || '')} onChange={(v) => set('email', v)} />
+          <ResponsiveColumnsFields
+            props={p}
+            onChange={onChange}
+            defaults={{ mobile: 1, tablet: 2, desktop: 3 }}
+          />
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.iconFilled !== false}
+              onChange={(e) => set('iconFilled', e.target.checked)}
+            />
+            آیکون توپُر (Filled)
+          </label>
+
+          {hasLegacy && (
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                این بلوک هنوز با فیلدهای قدیمی ذخیره شده. برای ویرایش حرفه‌ای هر کارت (آیکون، رنگ، لینک) روی دکمه
+                زیر بزنید.
+              </p>
+              <button
+                type="button"
+                className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
+                onClick={() => {
+                  const phoneBody = [String(p.phone1 || ''), String(p.phone2 || '')]
+                    .filter(Boolean)
+                    .join('\n');
+                  set('items', [
+                    {
+                      icon: 'location_on',
+                      title: 'آدرس حضوری',
+                      body: String(p.address || ''),
+                      note: String(p.addressNote || ''),
+                      accent: 'primary',
+                      dir: 'rtl',
+                      link: '',
+                      linkLabel: '',
+                    },
+                    {
+                      icon: 'call',
+                      title: 'شماره‌های تلفن',
+                      body: phoneBody,
+                      note: String(p.hours || ''),
+                      accent: 'secondary',
+                      dir: 'ltr',
+                      link: '',
+                      linkLabel: 'تماس بگیرید',
+                    },
+                    {
+                      icon: 'mail',
+                      title: 'ایمیل',
+                      body: String(p.email || 'info@zhinoclinic.ir'),
+                      note: 'پاسخ‌گویی در ساعات اداری',
+                      accent: 'tertiary',
+                      dir: 'ltr',
+                      link: '',
+                      linkLabel: 'ارسال ایمیل',
+                    },
+                  ]);
+                }}
+              >
+                تبدیل به کارت‌های قابل ویرایش
+              </button>
+            </div>
+          )}
+
+          {items.map((item, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-xl border border-outline-variant/20 space-y-2 bg-surface-container-low/50"
+            >
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold">کارت {idx + 1}</span>
+                <button
+                  type="button"
+                  className="text-rose-500 text-[10px] font-bold"
+                  onClick={() => set('items', items.filter((_, i) => i !== idx))}
+                >
+                  حذف
+                </button>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-on-surface-variant">آیکون</span>
+                <ItemIconPicker
+                  value={String(item.icon || 'contact_mail')}
+                  onChange={(icon) => set('items', updateItemArray(items, idx, { icon }))}
+                />
+              </div>
+              <TextInput
+                label="عنوان"
+                value={String(item.title || '')}
+                onChange={(v) => set('items', updateItemArray(items, idx, { title: v }))}
+              />
+              <TextInput
+                label="متن اصلی (هر خط جدا)"
+                value={String(item.body || '')}
+                onChange={(v) => set('items', updateItemArray(items, idx, { body: v }))}
+                multiline
+              />
+              <TextInput
+                label="یادداشت (اختیاری)"
+                value={String(item.note || '')}
+                onChange={(v) => set('items', updateItemArray(items, idx, { note: v }))}
+              />
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">رنگ آیکون</span>
+                <select
+                  value={String(item.accent || accentCycle[idx % accentCycle.length])}
+                  onChange={(e) => set('items', updateItemArray(items, idx, { accent: e.target.value }))}
+                  className={fieldClass}
+                >
+                  <option value="primary">اصلی</option>
+                  <option value="secondary">ثانویه</option>
+                  <option value="tertiary">ثالثه</option>
+                  <option value="emerald">سبز</option>
+                  <option value="rose">صورتی</option>
+                  <option value="amber">کهربایی</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-on-surface-variant">جهت متن</span>
+                <select
+                  value={String(item.dir || 'auto')}
+                  onChange={(e) => set('items', updateItemArray(items, idx, { dir: e.target.value }))}
+                  className={fieldClass}
+                >
+                  <option value="auto">خودکار</option>
+                  <option value="rtl">راست به چپ</option>
+                  <option value="ltr">چپ به راست (شماره / ایمیل)</option>
+                </select>
+              </label>
+              <TextInput
+                label="لینک کارت (اختیاری — مثل tel: یا mailto: یا URL)"
+                value={String(item.link || '')}
+                onChange={(v) => set('items', updateItemArray(items, idx, { link: v }))}
+              />
+              <TextInput
+                label="متن لینک"
+                value={String(item.linkLabel || '')}
+                onChange={(v) => set('items', updateItemArray(items, idx, { linkLabel: v }))}
+              />
+            </div>
+          ))}
+
+          <button
+            type="button"
+            className="w-full py-2 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-bold hover:bg-primary/5"
+            onClick={() => {
+              const phoneBody = [String(p.phone1 || ''), String(p.phone2 || '')]
+                .filter(Boolean)
+                .join('\n');
+              const seeded = hasLegacy
+                ? [
+                    {
+                      icon: 'location_on',
+                      title: 'آدرس حضوری',
+                      body: String(p.address || ''),
+                      note: String(p.addressNote || ''),
+                      accent: 'primary',
+                      dir: 'rtl',
+                      link: '',
+                      linkLabel: '',
+                    },
+                    {
+                      icon: 'call',
+                      title: 'شماره‌های تلفن',
+                      body: phoneBody,
+                      note: String(p.hours || ''),
+                      accent: 'secondary',
+                      dir: 'ltr',
+                      link: '',
+                      linkLabel: 'تماس بگیرید',
+                    },
+                    {
+                      icon: 'mail',
+                      title: 'ایمیل',
+                      body: String(p.email || 'info@zhinoclinic.ir'),
+                      note: 'پاسخ‌گویی در ساعات اداری',
+                      accent: 'tertiary',
+                      dir: 'ltr',
+                      link: '',
+                      linkLabel: 'ارسال ایمیل',
+                    },
+                  ]
+                : items;
+              set('items', [
+                ...seeded,
+                {
+                  icon: 'contact_mail',
+                  title: 'کارت جدید',
+                  body: 'متن کارت',
+                  note: '',
+                  accent: accentCycle[seeded.length % accentCycle.length],
+                  dir: 'auto',
+                  link: '',
+                  linkLabel: '',
+                },
+              ]);
+            }}
+          >
+            + افزودن کارت
+          </button>
         </div>
       );
+    }
 
     case 'contactForm':
       return (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type {
   AutoTranslateModuleSettings,
   FeatureModuleSettings,
@@ -34,8 +34,10 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   const [draft, setDraft] = useState<SiteModulesSettings>(() =>
     mergeSiteModules(value || DEFAULT_SITE_MODULES)
   );
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    if (dirtyRef.current) return;
     setDraft(mergeSiteModules(value || DEFAULT_SITE_MODULES));
   }, [value]);
 
@@ -46,6 +48,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   const fileManager = mergeFeatureModule(draft.fileManager, DEFAULT_FILE_MANAGER_MODULE);
 
   const patchAuto = (partial: Partial<AutoTranslateModuleSettings>) => {
+    dirtyRef.current = true;
     const next = mergeSiteModules({
       ...draft,
       autoTranslate: { ...auto, ...partial },
@@ -55,6 +58,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   };
 
   const patchAppointments = (partial: Partial<FeatureModuleSettings>) => {
+    dirtyRef.current = true;
     const next = mergeSiteModules({
       ...draft,
       appointments: { ...appointments, ...partial },
@@ -64,6 +68,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   };
 
   const patchSeoOptimizer = (partial: Partial<FeatureModuleSettings>) => {
+    dirtyRef.current = true;
     const next = mergeSiteModules({
       ...draft,
       seoOptimizer: { ...seoOptimizer, ...partial },
@@ -73,6 +78,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   };
 
   const patchShop = (partial: Partial<FeatureModuleSettings>) => {
+    dirtyRef.current = true;
     const next = mergeSiteModules({
       ...draft,
       shop: { ...shop, ...partial },
@@ -82,6 +88,7 @@ export const ModulesSettingsPanel: React.FC<ModulesSettingsPanelProps> = ({
   };
 
   const patchFileManager = (partial: Partial<FeatureModuleSettings>) => {
+    dirtyRef.current = true;
     const next = mergeSiteModules({
       ...draft,
       fileManager: { ...fileManager, ...partial },

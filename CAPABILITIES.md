@@ -207,7 +207,7 @@ Props کلیدی:
 | `faqs` | FAQ دستی آکاردئون | `title`, `subtitle`, `items[{question,answer}]` |
 | `latestFaqs` | FAQ زنده از DB | `badge`, `title`, `subtitle`, `maxCount`, `categoryFilter`, `showCategory`/`showLikes`/`showViewAll`, `viewAllLabel`, `accentStyle`, `openFirst` |
 | `contactInfo` | تماس از تنظیمات کلینیک | `badge`, `title`, `subtitle`, `layout`, `showPhones`/`showSocials`/`showAddresses`/`showMap` |
-| `contactCards` | کارت‌های ثابت تماس | `address`, `addressNote`, `phone1`/`phone2`, `hours`, `email` |
+| `contactCards` | کارت‌های قابل ویرایش تماس | `title?`, `subtitle?`, `iconFilled`, ستون‌ها، `items[{icon,title,body,note,accent,dir,link,linkLabel}]` |
 | `contactForm` | فرم (انتخاب تعریف مرکزی) | `formId`, `title?`, `subtitle?` |
 
 ---

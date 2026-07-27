@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FreeGuideField, FreeGuideMatchRule, FreeGuideSettings } from '../../types';
 import {
   DEFAULT_FREE_GUIDE,
@@ -33,12 +33,15 @@ export const FreeGuideSettingsPanel: React.FC<FreeGuideSettingsPanelProps> = ({
     mergeFreeGuide(value || DEFAULT_FREE_GUIDE)
   );
   const [tab, setTab] = useState<PanelTab>('texts');
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    if (dirtyRef.current) return;
     setDraft(mergeFreeGuide(value || DEFAULT_FREE_GUIDE));
   }, [value]);
 
   const patch = (partial: Partial<FreeGuideSettings>) => {
+    dirtyRef.current = true;
     const next = mergeFreeGuide({ ...draft, ...partial });
     setDraft(next);
     onChange(next);
