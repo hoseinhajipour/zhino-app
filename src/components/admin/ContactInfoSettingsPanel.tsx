@@ -162,7 +162,7 @@ export const ContactInfoSettingsPanel: React.FC<ContactInfoSettingsPanelProps> =
         <div>
           <h3 className="font-black text-base text-slate-900 dark:text-white">پیام‌رسان‌ها و ایمیل</h3>
           <p className="text-xs text-slate-500 mt-1">
-            شماره واتساپ با کد کشور؛ برای اینستاگرام/تلگرام/بله/ایتا/روبیکا آیدی یا لینک کامل
+            شماره واتساپ با کد کشور؛ برای شبکه‌های اجتماعی آیدی یا لینک کامل
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -175,6 +175,9 @@ export const ContactInfoSettingsPanel: React.FC<ContactInfoSettingsPanelProps> =
               ['bale', 'بله', '@username یا https://ble.ir/...'],
               ['eitaa', 'ایتا', '@username یا https://eitaa.com/...'],
               ['rubika', 'روبیکا', '@username یا https://rubika.ir/...'],
+              ['youtube', 'یوتیوب', '@channel یا https://youtube.com/@...'],
+              ['linkedin', 'لینکدین', 'username یا https://linkedin.com/in/...'],
+              ['x', 'شبکه ایکس', '@username یا https://x.com/...'],
             ] as const
           ).map(([key, label, placeholder]) => (
             <div key={key}>

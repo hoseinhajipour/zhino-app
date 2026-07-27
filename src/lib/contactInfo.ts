@@ -85,6 +85,9 @@ export const DEFAULT_CONTACT_INFO: ClinicContactInfo = {
   bale: '',
   eitaa: '',
   rubika: '',
+  youtube: '',
+  linkedin: '',
+  x: '',
   addresses: [
     {
       id: 'addr-1',
@@ -129,6 +132,9 @@ export function contactFromIdentity(identity?: Partial<SiteIdentitySettings> | n
     bale: '',
     eitaa: '',
     rubika: '',
+    youtube: '',
+    linkedin: '',
+    x: '',
     addresses: addresses.length ? addresses : DEFAULT_CONTACT_INFO.addresses,
     fab: DEFAULT_FAB_SETTINGS,
   };
@@ -149,6 +155,9 @@ export function mergeContactInfo(
     bale: partial.bale != null ? String(partial.bale) : base.bale,
     eitaa: partial.eitaa != null ? String(partial.eitaa) : base.eitaa,
     rubika: partial.rubika != null ? String(partial.rubika) : base.rubika,
+    youtube: partial.youtube != null ? String(partial.youtube) : base.youtube,
+    linkedin: partial.linkedin != null ? String(partial.linkedin) : base.linkedin,
+    x: partial.x != null ? String(partial.x) : base.x,
     addresses:
       Array.isArray(partial.addresses) && partial.addresses.length
         ? partial.addresses
@@ -191,6 +200,9 @@ export type ContactChannelId =
   | 'bale'
   | 'eitaa'
   | 'rubika'
+  | 'youtube'
+  | 'linkedin'
+  | 'x'
   | 'map';
 
 export type ContactChannel = {
@@ -275,6 +287,15 @@ export function listContactChannels(contact: ClinicContactInfo): ContactChannel[
 
   const rubika = asHandleOrUrl(contact.rubika, 'https://rubika.ir/');
   if (rubika) channels.push({ id: 'rubika', label: 'روبیکا', href: rubika, external: true });
+
+  const youtube = asHandleOrUrl(contact.youtube, 'https://www.youtube.com/@');
+  if (youtube) channels.push({ id: 'youtube', label: 'یوتیوب', href: youtube, external: true });
+
+  const linkedin = asHandleOrUrl(contact.linkedin, 'https://www.linkedin.com/in/');
+  if (linkedin) channels.push({ id: 'linkedin', label: 'لینکدین', href: linkedin, external: true });
+
+  const x = asHandleOrUrl(contact.x, 'https://x.com/');
+  if (x) channels.push({ id: 'x', label: 'شبکه ایکس', href: x, external: true });
 
   return channels;
 }

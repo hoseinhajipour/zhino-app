@@ -748,6 +748,10 @@ export interface ClinicContactInfo {
   bale: string;
   eitaa: string;
   rubika: string;
+  youtube: string;
+  linkedin: string;
+  /** X (formerly Twitter) */
+  x: string;
   addresses: ContactAddressItem[];
   fab?: ConsultFabSettings;
 }
