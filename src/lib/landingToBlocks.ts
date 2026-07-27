@@ -83,29 +83,17 @@ export const BLOCK_ICONS: Record<string, string> = {
   audioPlayer: 'headphones',
 };
 
-/** Widgets safe to nest inside container columns */
-export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = [
-  'richText',
-  'htmlCode',
-  'imageCarousel',
-  'videoPlayer',
-  'features',
-  'highlights',
-  'cta',
-  'contactCards',
-  'icon',
-  'iconList',
-  'button',
-  'googleMap',
-  'contactInfo',
-  'divider',
-  'spacer',
-  'singleImage',
-  'imageGallery',
-  'verticalImageGallery',
-  'beforeAfter',
-  'audioPlayer',
-];
+/** Widget types that must NOT be nested inside container columns */
+const NON_NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = ['container'];
+
+/**
+ * Widgets safe to nest inside container columns.
+ * Derived automatically from every widget registered in BLOCK_LABELS,
+ * so newly added widgets show up here without manual updates.
+ */
+export const NESTABLE_WIDGET_TYPES: ServiceBlock['type'][] = (
+  Object.keys(BLOCK_LABELS) as ServiceBlock['type'][]
+).filter((t) => !NON_NESTABLE_WIDGET_TYPES.includes(t));
 
 export const WIDGET_GROUPS: Array<{
   id: string;

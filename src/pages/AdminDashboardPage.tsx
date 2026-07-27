@@ -52,14 +52,16 @@ import { ShopSettingsPanel } from '../components/admin/ShopSettingsPanel';
 import { SystemStatusPanel } from '../components/admin/SystemStatusPanel';
 import { UsersManagementPanel } from '../components/admin/UsersManagementPanel';
 import { ImportExportPanel } from '../components/admin/ImportExportPanel';
+import { FileManagerPanel } from '../components/admin/FileManagerPanel';
 import { McpConnectionPanel } from '../components/admin/McpConnectionPanel';
 import { AiSettingsPanel } from '../components/admin/AiSettingsPanel';
+import { AdminOverviewPanel } from '../components/admin/AdminOverviewPanel';
 import { mergeSiteChrome } from '../lib/siteChromeDefaults';
 import {
   identityPatchFromContact,
   mergeContactInfo,
 } from '../lib/contactInfo';
-import { isAppointmentsModuleEnabled, isSeoOptimizerModuleEnabled, isShopModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import { isAppointmentsModuleEnabled, isFileManagerModuleEnabled, isSeoOptimizerModuleEnabled, isShopModuleEnabled, mergeSiteModules } from '../lib/siteModules';
 import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
 import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
@@ -190,6 +192,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const navOptions = {
     appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
     shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+    fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
   };
   const seoOptimizerEnabled = isSeoOptimizerModuleEnabled(modulesDraft);
   const allowedNav = getAllowedNav(currentUser?.role, navOptions);
@@ -199,6 +202,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const allowed = getAllowedTabs(currentUser?.role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
       shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+      fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     if (!allowed.includes(activeTab)) {
       setActiveTab(allowed[0] || 'overview');
@@ -545,23 +549,81 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [faqStatusFilter, setFaqStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [faqCatFilter, setFaqCatFilter] = useState<string>('all');
   const [editingFaq, setEditingFaq] = useState<FAQItem | null>(null);
+  const [isCreatingFaq, setIsCreatingFaq] = useState(false);
+  const [faqQuestionText, setFaqQuestionText] = useState('');
   const [faqAnswerText, setFaqAnswerText] = useState('');
   const [faqResponder, setFaqResponder] = useState(currentUser?.name || 'دکتر مرجانه دیهیمی');
+  const [faqFormCategory, setFaqFormCategory] = useState('general');
 
   const pendingFaqsCount = faqs.filter((f) => f.status === 'pending').length;
+  const faqCategoryOptions = FAQ_CATEGORIES.filter((c) => c.id !== 'all');
+
+  const resetFaqForm = () => {
+    setEditingFaq(null);
+    setIsCreatingFaq(false);
+    setFaqQuestionText('');
+    setFaqAnswerText('');
+    setFaqResponder(currentUser?.name || 'دکتر مرجانه دیهیمی');
+    setFaqFormCategory('general');
+  };
 
   const handleOpenFaqAnswer = (item: FAQItem) => {
+    setIsCreatingFaq(false);
     setEditingFaq(item);
+    setFaqQuestionText(item.question || '');
     setFaqAnswerText(item.answer || '');
     setFaqResponder(item.responderName || currentUser?.name || 'دکتر مرجانه دیهیمی');
+    setFaqFormCategory(item.category || 'general');
+  };
+
+  const handleStartCreateFaq = () => {
+    setEditingFaq(null);
+    setIsCreatingFaq(true);
+    setFaqQuestionText('');
+    setFaqAnswerText('');
+    setFaqResponder(currentUser?.name || 'دکتر مرجانه دیهیمی');
+    setFaqFormCategory('general');
   };
 
   const handleSaveFaqAnswer = async (statusOverride?: FaqStatus) => {
+    const question = faqQuestionText.trim();
+    if (!question) {
+      window.alert('متن سوال را وارد کنید.');
+      return;
+    }
+
+    const catMeta = faqCategoryOptions.find((c) => c.id === faqFormCategory);
+    const serviceTitle = catMeta?.serviceTitle || catMeta?.title || 'خدمات عمومی';
+    const defaultStatus: FaqStatus = canApproveFaqs(currentUser?.role) ? 'approved' : 'pending';
+
+    if (isCreatingFaq) {
+      const newFaq: FAQItem = {
+        id: `faq-${Date.now()}`,
+        question,
+        answer: faqAnswerText.trim() || undefined,
+        category: faqFormCategory,
+        serviceTitle,
+        askedBy: currentUser?.name || 'ادمین',
+        date: new Date().toLocaleDateString('fa-IR'),
+        status: statusOverride || defaultStatus,
+        responderName: faqResponder.trim() || currentUser?.name || 'دکتر مرجانه دیهیمی',
+        likesCount: 0,
+      };
+      const newFaqs = [newFaq, ...faqs];
+      if (onUpdateFaqs) onUpdateFaqs(newFaqs);
+      await saveFaq(newFaq);
+      resetFaqForm();
+      return;
+    }
+
     if (!editingFaq) return;
-    const newStatus = statusOverride || editingFaq.status;
+    const newStatus = statusOverride || editingFaq.status || defaultStatus;
     const updatedObj: FAQItem = {
       ...editingFaq,
+      question,
       answer: faqAnswerText,
+      category: faqFormCategory,
+      serviceTitle,
       responderName: faqResponder,
       status: newStatus,
     };
@@ -569,7 +631,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const newFaqs = faqs.map((f) => (f.id === editingFaq.id ? updatedObj : f));
     if (onUpdateFaqs) onUpdateFaqs(newFaqs);
     await saveFaq(updatedObj);
-    setEditingFaq(null);
+    resetFaqForm();
   };
 
   const handleDeleteFaqItem = async (id: string) => {
@@ -577,7 +639,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       const newFaqs = faqs.filter((f) => f.id !== id);
       if (onUpdateFaqs) onUpdateFaqs(newFaqs);
       await deleteFaq(id);
-      if (editingFaq?.id === id) setEditingFaq(null);
+      if (editingFaq?.id === id) resetFaqForm();
     }
   };
 
@@ -588,7 +650,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const matchesSearch =
       !searchLower ||
       f.question.toLowerCase().includes(searchLower) ||
-      f.askedBy.toLowerCase().includes(searchLower) ||
+      (f.askedBy || '').toLowerCase().includes(searchLower) ||
       (f.answer && f.answer.toLowerCase().includes(searchLower));
     return matchesStatus && matchesCat && matchesSearch;
   });
@@ -1352,6 +1414,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const allowedTabIds = getAllowedTabs(role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
       shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+      fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     const goTab = (tab: AdminTab) => {
       if (allowedTabIds.includes(tab)) setActiveTab(tab);
@@ -1437,17 +1500,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     return matchesStatus && matchesSearch;
   });
 
-  // Calculate Metrics
+  // Calculate Metrics (shared with appointments filters)
   const pendingCount = scopedAppointments.filter((a) => a.status === 'pending').length;
   const confirmedCount = scopedAppointments.filter((a) => a.status === 'confirmed').length;
-  const completedCount = scopedAppointments.filter((a) => a.status === 'completed').length;
-  const activeDoctorsCount = doctors.filter((d) => d.active).length;
-  const publishedArticlesCount = scopedArticles.filter((a) => a.status === 'published').length;
 
   const tabTitles: Record<AdminTab, { title: string; subtitle: string }> = {
     overview: {
       title: 'نمای کلی داشبورد',
-      subtitle: `خوش آمدید ${currentUser?.name || ''} — ${getRoleLabel(currentUser?.role || 'admin')}`,
+      subtitle: `خلاصه وضعیت عملیات — ${getRoleLabel(currentUser?.role || 'admin')}`,
     },
     appointments: {
       title:
@@ -1493,6 +1553,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title: 'تنظیمات فروشگاه',
       subtitle: 'نام فروشگاه، پرداخت، ارسال و پیام‌های خرید',
     },
+    files: {
+      title: 'مدیریت فایل‌ها',
+      subtitle: 'مشاهده، آپلود، ذخیره و حذف فایل‌های سرور',
+    },
     contact: {
       title: 'اطلاعات تماس',
       subtitle: 'تلفن‌ها، پیام‌رسان‌ها، ایمیل و آدرس‌های کلینیک',
@@ -1537,69 +1601,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     >
       <div className="space-y-6 pb-16">
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-slate-500">نوبت‌های قابل مشاهده</p>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{scopedAppointments.length}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-slate-500">در انتظار تأیید</p>
-              <p className="text-2xl font-black text-amber-600 mt-1">{pendingCount}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-slate-500">تأیید شده</p>
-              <p className="text-2xl font-black text-teal-600 mt-1">{confirmedCount}</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-slate-500">
-                {canManageArticles(currentUser?.role) ? 'مقالات منتشرشده' : 'درمانگران فعال'}
-              </p>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                {canManageArticles(currentUser?.role) ? publishedArticlesCount : activeDoctorsCount}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-              <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">دسترسی‌های نقش شما</h3>
-              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                {allowedTabs.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-teal-600 text-base">{item.icon}</span>
-                    <span className="font-bold">{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-gradient-to-br from-slate-900 to-teal-900 text-white rounded-2xl p-5">
-              <h3 className="text-sm font-black mb-2">اقدام سریع</h3>
-              <p className="text-xs text-white/70 mb-4 leading-relaxed">
-                از منوی کناری بخش موردنظر را انتخاب کنید. آمار بالا بر اساس نقش شما فیلتر شده است.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('appointments')}
-                  className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold"
-                >
-                  مشاهده نوبت‌ها ({pendingCount} در انتظار)
-                </button>
-                {canManageSettings(currentUser?.role) && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('settings')}
-                    className="px-3 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-xs font-bold"
-                  >
-                    تنظیمات کلینیک
-                  </button>
-                )}
-              </div>
-              <p className="text-[11px] text-white/50 mt-4">نوبت‌های تکمیل‌شده: {completedCount}</p>
-            </div>
-          </div>
-        </div>
+        <AdminOverviewPanel
+          currentUser={currentUser}
+          appointments={scopedAppointments}
+          doctors={doctors}
+          services={services}
+          articles={scopedArticles}
+          faqs={faqs}
+          sitePages={sitePages}
+          allowedTabs={allowedTabs}
+          shopModuleEnabled={navOptions.shopModuleEnabled}
+          appointmentsModuleEnabled={navOptions.appointmentsModuleEnabled}
+          bookingEnabled={resBookingEnabled}
+          maintenanceMode={maintenanceMode}
+          developmentMode={developmentMode}
+          onNavigate={setActiveTab}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -3144,11 +3161,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 <span>مدیریت سوالات متداول و پرسش‌وپاسخ مراجعین</span>
               </h2>
               <p className="text-xs text-on-surface-variant mt-1">
-                پاسخ‌دهی، ویرایش، تایید و انتشار سوالات مطرح‌شده توسط مراجعین کلینیک
+                افزودن، ویرایش سوال و پاسخ، تایید و انتشار سوالات متداول
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={handleStartCreateFaq}
+                className="px-4 py-2 bg-primary text-white font-bold rounded-xl shadow-xs hover:bg-primary-container transition-all flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">add</span>
+                <span>افزودن سوال جدید</span>
+              </button>
               <span className="bg-amber-500/10 text-amber-800 font-bold px-3 py-1.5 rounded-full">
                 {pendingFaqsCount} سوال در انتظار پاسخ
               </span>
@@ -3218,7 +3243,88 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
           {/* List of FAQs */}
           <div className="space-y-4">
-            {filteredFaqs.length === 0 ? (
+            {isCreatingFaq && (
+              <div className="bg-white dark:bg-surface-dim p-5 md:p-6 rounded-3xl border border-primary/30 shadow-xs space-y-4 text-xs">
+                <div className="font-bold text-primary text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base">add_circle</span>
+                  <span>افزودن سوال و پاسخ جدید</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-on-surface">متن سوال:</label>
+                  <textarea
+                    rows={3}
+                    value={faqQuestionText}
+                    onChange={(e) => setFaqQuestionText(e.target.value)}
+                    placeholder="سوال را وارد کنید..."
+                    className="w-full p-3 bg-surface-container-low border border-outline-variant/40 rounded-xl text-sm font-bold leading-relaxed focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-on-surface">دسته خدمت:</label>
+                    <select
+                      value={faqFormCategory}
+                      onChange={(e) => setFaqFormCategory(e.target.value)}
+                      className="w-full p-2 bg-surface-container-low border border-outline-variant/40 rounded-xl font-bold focus:outline-none focus:border-primary"
+                    >
+                      {faqCategoryOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-on-surface">نام پاسخ‌دهنده (پزشک/مشاور):</label>
+                    <input
+                      type="text"
+                      value={faqResponder}
+                      onChange={(e) => setFaqResponder(e.target.value)}
+                      className="w-full p-2 bg-surface-container-low border border-outline-variant/40 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-on-surface">متن پاسخ:</label>
+                  <textarea
+                    rows={4}
+                    value={faqAnswerText}
+                    onChange={(e) => setFaqAnswerText(e.target.value)}
+                    placeholder="پاسخ کامل را وارد کنید..."
+                    className="w-full p-3 bg-surface-container-low border border-outline-variant/40 rounded-xl leading-relaxed focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetFaqForm}
+                    className="px-4 py-2 bg-surface-container text-on-surface font-bold rounded-xl"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleSaveFaqAnswer(canApproveFaqs(currentUser?.role) ? 'approved' : 'pending')
+                    }
+                    className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow hover:bg-emerald-700 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">check</span>
+                    <span>
+                      {canApproveFaqs(currentUser?.role)
+                        ? 'ثبت و انتشار در سایت'
+                        : 'ثبت سوال (نیاز به تأیید اپراتور/مدیر)'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {filteredFaqs.length === 0 && !isCreatingFaq ? (
               <div className="p-10 text-center bg-white dark:bg-surface-dim rounded-3xl border border-outline-variant/30 text-xs text-on-surface-variant">
                 هیچ سوالی با فیلترهای انتخابی یافت نشد.
               </div>
@@ -3264,9 +3370,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   </div>
 
                   {/* Question Text */}
-                  <div className="p-4 rounded-2xl bg-surface-container-low font-bold text-on-surface leading-relaxed text-sm">
-                    {item.question}
-                  </div>
+                  {editingFaq?.id !== item.id && (
+                    <div className="p-4 rounded-2xl bg-surface-container-low font-bold text-on-surface leading-relaxed text-sm">
+                      {item.question}
+                    </div>
+                  )}
 
                   {/* Answer Section */}
                   {item.answer && editingFaq?.id !== item.id && (
@@ -3284,17 +3392,44 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   {editingFaq?.id === item.id ? (
                     <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
                       <div className="font-bold text-amber-900 dark:text-amber-200">
-                        پاسخ‌دهی و ویرایش پاسخ پزشک:
+                        ویرایش سوال و پاسخ:
                       </div>
 
                       <div className="space-y-1">
-                        <label className="font-bold text-on-surface">نام پاسخ‌دهنده (پزشک/مشاور):</label>
-                        <input
-                          type="text"
-                          value={faqResponder}
-                          onChange={(e) => setFaqResponder(e.target.value)}
-                          className="w-full p-2 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl text-xs"
+                        <label className="font-bold text-on-surface">متن سوال:</label>
+                        <textarea
+                          rows={3}
+                          value={faqQuestionText}
+                          onChange={(e) => setFaqQuestionText(e.target.value)}
+                          placeholder="متن سوال را ویرایش کنید..."
+                          className="w-full p-3 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl text-sm font-bold leading-relaxed"
                         />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-bold text-on-surface">دسته خدمت:</label>
+                          <select
+                            value={faqFormCategory}
+                            onChange={(e) => setFaqFormCategory(e.target.value)}
+                            className="w-full p-2 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl font-bold"
+                          >
+                            {faqCategoryOptions.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold text-on-surface">نام پاسخ‌دهنده (پزشک/مشاور):</label>
+                          <input
+                            type="text"
+                            value={faqResponder}
+                            onChange={(e) => setFaqResponder(e.target.value)}
+                            className="w-full p-2 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl"
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-1">
@@ -3304,19 +3439,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                           value={faqAnswerText}
                           onChange={(e) => setFaqAnswerText(e.target.value)}
                           placeholder="پاسخ کامل و راهنمایی پزشکی مراجع را وارد کنید..."
-                          className="w-full p-3 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl text-xs leading-relaxed"
+                          className="w-full p-3 bg-white dark:bg-surface border border-outline-variant/40 rounded-xl leading-relaxed"
                         />
                       </div>
 
                       <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                         <button
-                          onClick={() => setEditingFaq(null)}
+                          type="button"
+                          onClick={resetFaqForm}
                           className="px-4 py-2 bg-surface-container text-on-surface font-bold rounded-xl"
                         >
                           انصراف
                         </button>
                         <button
-                          onClick={() => handleSaveFaqAnswer(canApproveFaqs(currentUser?.role) ? 'approved' : 'pending')}
+                          type="button"
+                          onClick={() =>
+                            handleSaveFaqAnswer(canApproveFaqs(currentUser?.role) ? 'approved' : 'pending')
+                          }
                           className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow hover:bg-emerald-700 flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-sm">check</span>
@@ -3332,16 +3471,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleOpenFaqAnswer(item)}
                           className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary-container transition-all flex items-center gap-1.5"
                         >
                           <span className="material-symbols-outlined text-sm">edit</span>
-                          <span>{item.answer ? 'ویرایش پاسخ' : 'پاسخ‌دهی و انتشار'}</span>
+                          <span>{item.answer ? 'ویرایش سوال و پاسخ' : 'پاسخ‌دهی و انتشار'}</span>
                         </button>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleDeleteFaqItem(item.id)}
                           className="px-3 py-2 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-600 hover:text-white transition-colors"
                         >
@@ -3406,6 +3547,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
       {activeTab === 'shop-settings' && isShopModuleEnabled(modulesDraft) && (
         <ShopSettingsPanel />
+      )}
+
+      {activeTab === 'files' && isFileManagerModuleEnabled(modulesDraft) && (
+        <FileManagerPanel />
       )}
 
       {/* ========================================================================= */}

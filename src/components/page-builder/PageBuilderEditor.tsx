@@ -631,6 +631,10 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   };
 
   const allowedSet = useMemo(() => new Set(widgetTypes), [widgetTypes]);
+  const nestableForPage = useMemo(
+    () => NESTABLE_WIDGET_TYPES.filter((t) => allowedSet.has(t)),
+    [allowedSet]
+  );
   const groupedWidgets = useMemo(() => {
     const q = widgetQuery.trim().toLowerCase();
     return WIDGET_GROUPS.map((g) => ({
@@ -1220,6 +1224,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
                         : undefined
                     }
                     onSelectNestedBlock={selectBlock}
+                    widgetTypes={widgetTypes}
                   />
                 )}
                 {selectedColumnId && selected?.type === 'container' && (
@@ -1259,7 +1264,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
 
             {(!metaPanel || rightTab === 'block') && selected?.type === 'container' && (
               <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-[10px] text-slate-500 leading-relaxed">
-                ویجت‌های قابل درج در ستون: {NESTABLE_WIDGET_TYPES.map((t) => BLOCK_LABELS[t]).join('، ')}
+                ویجت‌های قابل درج در ستون: {nestableForPage.map((t) => BLOCK_LABELS[t] || t).join('، ')}
               </div>
             )}
           </div>

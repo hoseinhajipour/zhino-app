@@ -53,6 +53,7 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
     showPhone: true,
     showAuthButton: true,
     showThemeToggle: true,
+    showSearchIcon: false,
     showBookingButton: true,
     bookingButtonLabel: 'رزرو نوبت',
     sticky: true,

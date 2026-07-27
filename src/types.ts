@@ -375,6 +375,7 @@ export interface SiteHeaderSettings {
   showPhone: boolean;
   showAuthButton: boolean;
   showThemeToggle: boolean;
+  showSearchIcon: boolean;
   showBookingButton: boolean;
   bookingButtonLabel: string;
   sticky: boolean;
@@ -545,6 +546,8 @@ export interface SiteModulesSettings {
   seoOptimizer: FeatureModuleSettings;
   /** Product catalog, cart, checkout, and admin shop tabs */
   shop: FeatureModuleSettings;
+  /** Admin file manager — list / upload / download / delete server files */
+  fileManager: FeatureModuleSettings;
 }
 
 /** Shop product kind */

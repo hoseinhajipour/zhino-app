@@ -31,6 +31,8 @@ interface BlockSettingsProps {
   onChange: (props: Record<string, unknown>) => void;
   /** Add a nestable widget into a container column */
   onAddNestedBlock?: (columnIndex: number, type: ServiceBlockType) => void;
+  /** Widget types allowed on the current page (narrows container column widget list) */
+  widgetTypes?: ServiceBlockType[];
   onRemoveNestedBlock?: (columnIndex: number, blockId: string) => void;
   onMoveNestedBlock?: (
     fromCol: number,
@@ -1829,6 +1831,7 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
   selectedColumnId,
   onSelectColumn,
   onUpdateColumn,
+  widgetTypes,
 }) => {
   const p = block.props;
   const set = (key: string, value: unknown) => onChange({ ...p, [key]: value });
@@ -2956,15 +2959,16 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               onChange={(v) => set('videoUrl', v)}
             />
           )}
-          {isUpload && (
-            <MediaField
-              label="کاور (Poster)"
-              value={String(p.posterImage || '')}
-              onChange={(v) => set('posterImage', v)}
-              accept="image"
-              aspect="video"
-            />
-          )}
+          <MediaField
+            label="کاور (Poster)"
+            value={String(p.posterImage || '')}
+            onChange={(v) => set('posterImage', v)}
+            accept="image"
+            aspect="video"
+          />
+          <p className="text-[10px] text-on-surface-variant leading-relaxed -mt-1">
+            با انتخاب کاور، ابتدا پوستر با دکمه پخش نمایش داده می‌شود و پلیر تا کلیک کاربر مخفی می‌ماند.
+          </p>
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-on-surface-variant">نسبت تصویر</span>
             <select
@@ -2977,25 +2981,23 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
               <option value="square">۱:۱</option>
             </select>
           </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <input
+              type="checkbox"
+              checked={p.controls !== false}
+              onChange={(e) => set('controls', e.target.checked)}
+            />
+            نمایش کنترلر ویدیو
+          </label>
           {isUpload && (
-            <>
-              <label className="flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={p.controls !== false}
-                  onChange={(e) => set('controls', e.target.checked)}
-                />
-                نمایش کنترل‌ها
-              </label>
-              <label className="flex items-center gap-2 text-xs font-bold">
-                <input
-                  type="checkbox"
-                  checked={p.muted !== false}
-                  onChange={(e) => set('muted', e.target.checked)}
-                />
-                بی‌صدا
-              </label>
-            </>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                checked={p.muted !== false}
+                onChange={(e) => set('muted', e.target.checked)}
+              />
+              بی‌صدا
+            </label>
           )}
           <label className="flex items-center gap-2 text-xs font-bold">
             <input
@@ -3227,6 +3229,7 @@ export const BlockSettings: React.FC<BlockSettingsProps> = ({
           selectedColumnId={selectedColumnId}
           onSelectColumn={onSelectColumn}
           onUpdateColumn={onUpdateColumn}
+          allowedTypes={widgetTypes}
         />
       );
     }

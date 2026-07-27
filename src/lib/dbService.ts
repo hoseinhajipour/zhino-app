@@ -172,7 +172,7 @@ export interface MediaLibraryItem {
 }
 
 export async function fetchMediaLibrary(
-  kind: 'all' | 'image' | 'video' | 'audio' = 'all'
+  kind: 'all' | 'image' | 'video' | 'audio' | 'document' | 'all-files' = 'all'
 ): Promise<MediaLibraryItem[]> {
   const qs = kind === 'all' ? '' : `?kind=${kind}`;
   return api<MediaLibraryItem[]>(`/api/uploads${qs}`);
@@ -180,6 +180,29 @@ export async function fetchMediaLibrary(
 
 export async function deleteMediaFile(filename: string): Promise<void> {
   await api(`/api/uploads/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+}
+
+/** Upload any allowed media/document (images, video, audio, PDF, zip, …). */
+export async function uploadManagedFile(file: File): Promise<MediaLibraryItem> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/uploads?purpose=document', {
+    method: 'POST',
+    headers: writeAuthHeaders(),
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = text || 'Upload failed';
+    try {
+      const parsed = JSON.parse(text) as { error?: string; message?: string };
+      if (parsed?.message || parsed?.error) message = parsed.message || parsed.error || message;
+    } catch {
+      // keep raw text
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<MediaLibraryItem>;
 }
 
 // ---------------------------------------------------------------------

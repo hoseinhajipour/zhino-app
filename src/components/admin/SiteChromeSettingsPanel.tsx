@@ -586,6 +586,7 @@ export const SiteChromeSettingsPanel: React.FC<SiteChromeSettingsPanelProps> = (
                   { key: 'showPhone' as const, label: 'نمایش شماره تلفن در هدر', icon: 'call' },
                   { key: 'showAuthButton' as const, label: 'نمایش دکمه ورود / عضویت', icon: 'login' },
                   { key: 'showThemeToggle' as const, label: 'نمایش تغییر تم روشن/تیره', icon: 'contrast' },
+                  { key: 'showSearchIcon' as const, label: 'نمایش آیکون جستجو', icon: 'search' },
                   { key: 'showBookingButton' as const, label: 'نمایش دکمه رزرو نوبت', icon: 'event' },
                   { key: 'sticky' as const, label: 'هدر چسبان (Sticky)', icon: 'vertical_align_top' },
                 ]

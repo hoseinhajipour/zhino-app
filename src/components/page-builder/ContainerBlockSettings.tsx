@@ -98,6 +98,7 @@ export function ContainerBlockSettings({
   selectedColumnId,
   onSelectColumn,
   onUpdateColumn,
+  allowedTypes,
 }: {
   props: Record<string, unknown>;
   onChange: (props: Record<string, unknown>) => void;
@@ -113,6 +114,8 @@ export function ContainerBlockSettings({
   selectedColumnId?: string | null;
   onSelectColumn?: (columnId: string) => void;
   onUpdateColumn?: (patch: Partial<ContainerColumn>) => void;
+  /** Widget types allowed on the current page; used to narrow the nestable list */
+  allowedTypes?: ServiceBlockType[];
 }) {
   const set = (key: string, value: unknown) => onChange({ ...p, [key]: value });
   const columnCount = Math.min(4, Math.max(1, Number(p.columnsDesktop ?? p.columnCount) || 2));
@@ -120,7 +123,9 @@ export function ContainerBlockSettings({
   const columns: ContainerColumn[] = Array.from({ length: columnCount }, (_, i) =>
     normalizeContainerColumn(rawColumns[i], i)
   );
-  const nestTypes: ServiceBlockType[] = [...NESTABLE_WIDGET_TYPES];
+  const nestTypes: ServiceBlockType[] = allowedTypes?.length
+    ? NESTABLE_WIDGET_TYPES.filter((t) => allowedTypes.includes(t))
+    : [...NESTABLE_WIDGET_TYPES];
   const selectedColIdx = selectedColumnId
     ? columns.findIndex((c) => c.id === selectedColumnId)
     : -1;

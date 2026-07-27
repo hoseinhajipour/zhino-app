@@ -2222,12 +2222,37 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
   const controls = props.controls !== false;
   const autoplay = props.autoplay === true;
   const muted = props.muted !== false;
+  const hasPoster = Boolean(poster);
+  const [started, setStarted] = useState(() => autoplay || !hasPoster);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const emptyHint =
     sourceType === 'aparatEmbed'
       ? 'کد امبد آپارات را در تنظیمات بچسبانید'
       : sourceType === 'embed'
         ? 'لینک یوتیوب یا آپارات را وارد کنید'
         : 'آدرس ویدئو را در تنظیمات وارد کنید';
+
+  useEffect(() => {
+    setStarted(autoplay || !hasPoster);
+  }, [autoplay, hasPoster, videoUrl, poster]);
+
+  useEffect(() => {
+    if (!started || embed?.kind !== 'file') return;
+    const el = videoRef.current;
+    if (!el) return;
+    void el.play().catch(() => undefined);
+  }, [started, embed?.kind, embed?.src]);
+
+  const iframeSrc = (() => {
+    if (!embed || embed.kind !== 'iframe') return '';
+    const base = embed.src;
+    const wantsAutoplay = autoplay || (hasPoster && started);
+    if (!wantsAutoplay) return base;
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}autoplay=1&mute=1`;
+  })();
+
+  const showPosterOverlay = Boolean(embed && hasPoster && !started);
 
   return (
     <section className="space-y-3">
@@ -2238,24 +2263,62 @@ export const VideoPlayerBlock: React.FC<{ props: Record<string, unknown> }> = ({
             <span className="material-symbols-outlined text-4xl">smart_display</span>
             <span>{emptyHint}</span>
           </div>
-        ) : embed.kind === 'iframe' ? (
-          <iframe
-            src={`${embed.src}${autoplay ? (embed.src.includes('?') ? '&' : '?') + 'autoplay=1&mute=1' : ''}`}
-            title={title || 'ویدئو'}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
         ) : (
-          <video
-            className="absolute inset-0 w-full h-full object-cover"
-            src={embed.src}
-            poster={poster || undefined}
-            controls={controls}
-            autoPlay={autoplay}
-            muted={muted || autoplay}
-            playsInline
-          />
+          <>
+            {started &&
+              (embed.kind === 'iframe' ? (
+                <iframe
+                  src={iframeSrc}
+                  title={title || 'ویدئو'}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  src={embed.src}
+                  controls={controls}
+                  autoPlay
+                  muted={muted || autoplay}
+                  playsInline
+                />
+              ))}
+
+            {showPosterOverlay && (
+              <button
+                type="button"
+                aria-label="پخش ویدئو"
+                onClick={() => setStarted(true)}
+                className="absolute inset-0 group cursor-pointer border-0 p-0 text-start"
+              >
+                <img
+                  src={poster}
+                  alt={title || 'کاور ویدئو'}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/10" />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24">
+                    <span
+                      aria-hidden
+                      className="video-play-shockwave absolute inset-0 rounded-full border-2 border-white/50"
+                    />
+                    <span
+                      aria-hidden
+                      className="video-play-shockwave video-play-shockwave-delay absolute inset-0 rounded-full border-2 border-white/35"
+                    />
+                    <span className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-white/95 text-primary shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110 sm:h-20 sm:w-20">
+                      <span className="material-symbols-outlined text-[40px] sm:text-[48px] ms-0.5">
+                        play_arrow
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
+            )}
+          </>
         )}
       </div>
     </section>

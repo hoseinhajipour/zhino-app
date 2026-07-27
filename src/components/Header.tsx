@@ -5,6 +5,7 @@ import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 import { DEFAULT_CONTACT_INFO, getTelHref, mergeContactInfo } from '../lib/contactInfo';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { getShopCartCount, subscribeShopCart } from '../lib/shopCart';
+import { SiteSearchModal } from './SiteSearchModal';
 
 interface HeaderProps {
   currentScreen: PageScreen;
@@ -53,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
@@ -236,6 +238,18 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             <LanguageSwitcher variant="header" />
+
+            {header.showSearchIcon && (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="p-2.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant/30 transition-all active:scale-95"
+                title="جستجو در سایت"
+                aria-label="جستجو در سایت"
+              >
+                <span className="material-symbols-outlined text-xl">search</span>
+              </button>
+            )}
 
             {header.showThemeToggle && onToggleTheme && (
               <button
@@ -440,6 +454,8 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      <SiteSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={go} />
     </>
   );
 };
