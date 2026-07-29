@@ -36,7 +36,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     isSandbox: true,
     merchantId: '46083627-5610-42cc-a5dc-730303030303',
     defaultFee: '۸۵۰,۰۰۰',
-    callbackUrl: 'https://zhinoclinic.ir/verify-payment',
+    callbackUrl: 'https://zhinopsy.com/verify-payment',
   },
   mellat: DEFAULT_MELLAT_SETTINGS,
   kavenegar: {

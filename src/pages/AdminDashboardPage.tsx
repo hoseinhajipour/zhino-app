@@ -58,6 +58,7 @@ import { ImportExportPanel } from '../components/admin/ImportExportPanel';
 import { FileManagerPanel } from '../components/admin/FileManagerPanel';
 import { McpConnectionPanel } from '../components/admin/McpConnectionPanel';
 import { AiSettingsPanel } from '../components/admin/AiSettingsPanel';
+import { SeoSettingsPanel } from '../components/admin/SeoSettingsPanel';
 import { AdminOverviewPanel } from '../components/admin/AdminOverviewPanel';
 import { mergeSiteChrome } from '../lib/siteChromeDefaults';
 import {
@@ -69,12 +70,14 @@ import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
 import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
 import { DEFAULT_AI_SETTINGS, mergeAiSettings } from '../lib/aiSettingsDefaults';
+import { DEFAULT_SITE_SEO, mergeSiteSeo } from '../lib/seoSettingsDefaults';
 import type {
   AiSettings,
   ClinicContactInfo,
   FreeGuideSettings,
   SiteChromeSettings,
   SiteModulesSettings,
+  SiteSeoSettings,
 } from '../types';
 import { createBlankArticle } from '../lib/articleDefaults';
 import {
@@ -163,7 +166,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   // --- APPOINTMENT FILTERS & ACTIONS ---
   const [appSearch, setAppSearch] = useState('');
   const [appointmentsSubTab, setAppointmentsSubTab] = useState<'list' | 'settings' | 'guide'>('list');
-  const [settingsSubTab, setSettingsSubTab] = useState<'appearance' | 'modes' | 'ai'>('appearance');
+  const [settingsSubTab, setSettingsSubTab] = useState<'appearance' | 'modes' | 'seo' | 'ai'>('appearance');
   const [appStatusFilter, setAppStatusFilter] = useState<string>('all');
   const [showAddAppModal, setShowAddAppModal] = useState(false);
   const [editingApp, setEditingApp] = useState<Appointment | null>(null);
@@ -192,6 +195,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   );
   const [aiDraft, setAiDraft] = useState<AiSettings>(() =>
     mergeAiSettings(DEFAULT_CLINIC_SETTINGS.ai || DEFAULT_AI_SETTINGS)
+  );
+  const [seoDraft, setSeoDraft] = useState<SiteSeoSettings>(() =>
+    mergeSiteSeo(DEFAULT_CLINIC_SETTINGS.seo || DEFAULT_SITE_SEO)
   );
 
   const navOptions = {
@@ -224,6 +230,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [savingModules, setSavingModules] = useState(false);
   const [savingFreeGuide, setSavingFreeGuide] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
+  const [savingSeo, setSavingSeo] = useState(false);
   const [settingsSaveMsg, setSettingsSaveMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
@@ -284,6 +291,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setModulesDraft(mergeSiteModules(st.modules));
       setFreeGuideDraft(mergeFreeGuide(st.freeGuide));
       setAiDraft(mergeAiSettings(st.ai));
+      setSeoDraft(mergeSiteSeo(st.seo));
       setMaintenanceMode(!!st.maintenanceMode);
       setMaintenanceMessage(st.maintenanceMessage || '');
       setDevelopmentMode(!!st.developmentMode);
@@ -853,6 +861,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره تنظیمات هوش مصنوعی' });
     } finally {
       setSavingAi(false);
+    }
+  };
+
+  const handleSaveSeo = async () => {
+    setSavingSeo(true);
+    setSettingsSaveMsg(null);
+    const seo = mergeSiteSeo(seoDraft);
+    const updated: ClinicSettings = {
+      ...settings,
+      seo,
+    };
+    try {
+      await saveClinicSettings(updated);
+      setSettings(updated);
+      setSeoDraft(seo);
+      setSettingsSaveMsg({
+        type: 'success',
+        msg: 'تنظیمات سئو ذخیره شد.',
+      });
+      setTimeout(() => setSettingsSaveMsg(null), 4000);
+    } catch {
+      setSettingsSaveMsg({ type: 'error', msg: 'خطا در ذخیره تنظیمات سئو' });
+    } finally {
+      setSavingSeo(false);
     }
   };
 
@@ -1612,15 +1644,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title:
         settingsSubTab === 'modes'
           ? 'وضعیت سایت'
-          : settingsSubTab === 'ai'
-            ? 'هوش مصنوعی'
-            : 'ظاهر سایت',
+          : settingsSubTab === 'seo'
+            ? 'تنظیمات سئو'
+            : settingsSubTab === 'ai'
+              ? 'هوش مصنوعی'
+              : 'ظاهر سایت',
       subtitle:
         settingsSubTab === 'modes'
           ? 'حالت تعمیر و حالت توسعه'
-          : settingsSubTab === 'ai'
-            ? 'اتصال GapGPT / OpenAI و MCP برای Cursor'
-            : 'هویت برند، عرض کانتینر، هدر، منو و فوتر سایت',
+          : settingsSubTab === 'seo'
+            ? 'تأیید گوگل، متا، آنالیتیکس، robots و sitemap'
+            : settingsSubTab === 'ai'
+              ? 'اتصال GapGPT / OpenAI و MCP برای Cursor'
+              : 'هویت برند، عرض کانتینر، هدر، منو و فوتر سایت',
     },
   };
 
@@ -1893,7 +1929,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     type="url"
                     value={zpCallbackUrl}
                     onChange={(e) => setZpCallbackUrl(e.target.value)}
-                    placeholder="https://zhinoclinic.ir/verify-payment"
+                    placeholder="https://zhinopsy.com/verify-payment"
                     dir="ltr"
                     className="w-full p-3 rounded-2xl border border-outline-variant/40 bg-surface-container-low font-mono text-xs"
                   />
@@ -3650,6 +3686,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               {(
                 [
                   { id: 'appearance' as const, label: 'ظاهر سایت', icon: 'brush' },
+                  { id: 'seo' as const, label: 'سئو', icon: 'travel_explore' },
                   { id: 'modes' as const, label: 'وضعیت سایت', icon: 'toggle_on' },
                   { id: 'ai' as const, label: 'هوش مصنوعی', icon: 'smart_toy' },
                 ] as const
@@ -3721,6 +3758,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               }}
               onSave={handleSaveSiteChrome}
               saving={savingSiteChrome}
+            />
+          )}
+
+          {settingsSubTab === 'seo' && (
+            <SeoSettingsPanel
+              value={seoDraft}
+              onChange={setSeoDraft}
+              onSave={handleSaveSeo}
+              saving={savingSeo}
+              saveMsg={settingsSaveMsg}
             />
           )}
 

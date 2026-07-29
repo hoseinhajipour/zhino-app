@@ -5,6 +5,7 @@ import { DEFAULT_SITE_MODULES, mergeSiteModules } from './siteModules';
 import { DEFAULT_AI_SETTINGS, mergeAiSettings } from './aiSettingsDefaults';
 import { DEFAULT_SHOP_SETTINGS, mergeShopSettings } from './shopSettingsDefaults';
 import { DEFAULT_MELLAT_SETTINGS, mergeMellatSettings } from './mellatSettingsDefaults';
+import { DEFAULT_SITE_SEO, mergeSiteSeo } from './seoSettingsDefaults';
 import type {
   Appointment,
   Doctor,
@@ -35,7 +36,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     isSandbox: true,
     merchantId: '46083627-5610-42cc-a5dc-730303030303',
     defaultFee: '۸۵۰,۰۰۰',
-    callbackUrl: 'https://zhinoclinic.ir/verify-payment',
+    callbackUrl: 'https://zhinopsy.com/verify-payment',
   },
   mellat: DEFAULT_MELLAT_SETTINGS,
   kavenegar: {
@@ -54,6 +55,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   freeGuide: DEFAULT_FREE_GUIDE,
   ai: DEFAULT_AI_SETTINGS,
   shop: DEFAULT_SHOP_SETTINGS,
+  seo: DEFAULT_SITE_SEO,
 };
 
 export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): ClinicSettings {
@@ -73,6 +75,7 @@ export function normalizeClinicSettings(raw?: Partial<ClinicSettings> | null): C
     freeGuide: mergeFreeGuide(raw?.freeGuide || base.freeGuide),
     ai: mergeAiSettings(raw?.ai || base.ai),
     shop: mergeShopSettings(raw?.shop || base.shop),
+    seo: mergeSiteSeo(raw?.seo || base.seo),
   };
 }
 
@@ -252,6 +255,49 @@ export async function uploadManagedFile(file: File): Promise<MediaLibraryItem> {
     throw new Error(message);
   }
   return res.json() as Promise<MediaLibraryItem>;
+}
+
+export interface SeoVerificationFileInfo {
+  filename: string;
+  url: string;
+  size: number;
+  uploadedAt: string;
+}
+
+/** Upload Google Search Console HTML verification file to site root. */
+export async function uploadGoogleVerificationFile(file: File): Promise<SeoVerificationFileInfo> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/seo/google-verification', {
+    method: 'POST',
+    headers: writeAuthHeaders(),
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = text || 'Upload failed';
+    try {
+      const parsed = JSON.parse(text) as { error?: string; message?: string };
+      if (parsed?.message || parsed?.error) message = parsed.message || parsed.error || message;
+    } catch {
+      // keep raw text
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<SeoVerificationFileInfo>;
+}
+
+export async function deleteGoogleVerificationFile(filename?: string): Promise<void> {
+  const qs = filename ? `?filename=${encodeURIComponent(filename)}` : '';
+  await api(`/api/seo/google-verification${qs}`, { method: 'DELETE' });
+}
+
+export async function fetchGoogleVerificationFile(): Promise<SeoVerificationFileInfo | null> {
+  try {
+    return await api<SeoVerificationFileInfo | null>('/api/seo/google-verification');
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------

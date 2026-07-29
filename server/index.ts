@@ -20,6 +20,7 @@ import {
 } from './routes/entities';
 import { formsRouter } from './routes/forms';
 import { uploadsRouter, uploadsDir } from './routes/uploads';
+import { seoRouter, trySendGoogleVerification } from './routes/seo';
 import { usersRouter } from './routes/users';
 import { installRouter } from './routes/install';
 import { systemRouter } from './routes/system';
@@ -28,6 +29,7 @@ import { shopPaymentRouter } from './routes/shopPayment';
 import { isInstallInProgress, isInstallLocked } from './lib/installLock';
 import { isMaintenanceModeCached } from './lib/maintenanceCache';
 import { logApiTokenStatus, requireApiTokenForWrites } from './middleware/apiToken';
+import { getEntity } from './db';
 import {
   seedIfEmpty,
   ensureServicePageBuilders,
@@ -73,6 +75,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/pages', pagesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/seo', seoRouter);
 app.use('/api/system', systemRouter);
 app.use('/api/backup', backupRouter);
 
@@ -96,6 +99,76 @@ app.use(async (req, res, next) => {
 });
 
 const distDir = path.resolve(__dirname, '../dist');
+const publicDir = path.resolve(__dirname, '../public');
+
+type SeoPayload = { robotsTxt?: string; sitemapXml?: string };
+
+async function getSeoPayload(): Promise<SeoPayload> {
+  try {
+    const settings = (await getEntity('settings', 'clinic_settings')) as
+      | { seo?: SeoPayload }
+      | null;
+    return settings?.seo || {};
+  } catch {
+    return {};
+  }
+}
+
+/** Always serve crawlable SEO files as plain text/XML — never SPA HTML fallback. */
+function sendSeoFile(
+  res: express.Response,
+  next: express.NextFunction,
+  filename: string,
+  contentType: string
+) {
+  const fromDist = path.join(distDir, filename);
+  const fromPublic = path.join(publicDir, filename);
+  res.type(contentType);
+  res.sendFile(fromDist, (err) => {
+    if (!err) return;
+    res.sendFile(fromPublic, (err2) => {
+      if (err2) next();
+    });
+  });
+}
+
+app.get('/robots.txt', async (_req, res, next) => {
+  try {
+    const seo = await getSeoPayload();
+    const custom = (seo.robotsTxt || '').trim();
+    if (custom) {
+      res.type('text/plain; charset=utf-8');
+      res.send(custom);
+      return;
+    }
+  } catch {
+    /* fall through to static */
+  }
+  sendSeoFile(res, next, 'robots.txt', 'text/plain; charset=utf-8');
+});
+app.get('/sitemap.xml', async (_req, res, next) => {
+  try {
+    const seo = await getSeoPayload();
+    const custom = (seo.sitemapXml || '').trim();
+    if (custom) {
+      res.type('application/xml; charset=utf-8');
+      res.send(custom);
+      return;
+    }
+  } catch {
+    /* fall through to static */
+  }
+  sendSeoFile(res, next, 'sitemap.xml', 'application/xml; charset=utf-8');
+});
+app.get('/llms.txt', (_req, res, next) => {
+  sendSeoFile(res, next, 'llms.txt', 'text/plain; charset=utf-8');
+});
+
+/** Google Search Console HTML file verification at site root */
+app.get(/^\/google[a-z0-9]+\.html$/i, (req, res, next) => {
+  trySendGoogleVerification(req.path.slice(1), res, next);
+});
+
 app.use(express.static(distDir));
 app.use((req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {

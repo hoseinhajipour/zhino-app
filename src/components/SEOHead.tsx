@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { PageScreen } from '../types';
+import { PageScreen, SiteSeoSettings } from '../types';
+import { mergeSiteSeo } from '../lib/seoSettingsDefaults';
 
 interface SEOHeadProps {
   currentScreen: PageScreen;
@@ -9,6 +10,8 @@ interface SEOHeadProps {
   keywords?: string;
   /** Force noindex (maintenance mode) */
   maintenance?: boolean;
+  /** Site-wide SEO settings from clinic_settings */
+  siteSeo?: SiteSeoSettings | null;
 }
 
 const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
@@ -106,23 +109,129 @@ const SCREEN_SEO: Record<PageScreen, { title: string; description: string }> = {
   },
 };
 
+function upsertMetaByName(name: string, content: string) {
+  let el = document.querySelector(`meta[name="${name}"]`);
+  if (!content.trim()) {
+    el?.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute('name', name);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content.trim());
+}
+
+function upsertMetaByProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`);
+  if (!content.trim()) return;
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute('property', property);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content.trim());
+}
+
+function absoluteUrl(siteUrl: string, maybeRelative: string): string {
+  const value = maybeRelative.trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  const base = siteUrl.replace(/\/+$/, '');
+  return `${base}${value.startsWith('/') ? value : `/${value}`}`;
+}
+
+function ensureGoogleAnalytics(measurementId: string) {
+  const id = measurementId.trim();
+  const marker = 'data-zhino-ga';
+  const existing = document.querySelector(`script[${marker}]`);
+  if (!id || !/^G-[A-Z0-9]+$/i.test(id)) {
+    document.querySelectorAll(`script[${marker}]`).forEach((n) => n.remove());
+    return;
+  }
+  if (existing?.getAttribute(marker) === id) return;
+
+  document.querySelectorAll(`script[${marker}]`).forEach((n) => n.remove());
+
+  const src = document.createElement('script');
+  src.async = true;
+  src.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`;
+  src.setAttribute(marker, id);
+  document.head.appendChild(src);
+
+  const inline = document.createElement('script');
+  inline.setAttribute(marker, id);
+  inline.text = `
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', ${JSON.stringify(id)});
+  `;
+  document.head.appendChild(inline);
+}
+
+function ensureGoogleTagManager(containerId: string) {
+  const id = containerId.trim();
+  const marker = 'data-zhino-gtm';
+  const existing = document.querySelector(`script[${marker}]`);
+  if (!id || !/^GTM-[A-Z0-9]+$/i.test(id)) {
+    document.querySelectorAll(`script[${marker}]`).forEach((n) => n.remove());
+    document.querySelectorAll(`noscript[${marker}]`).forEach((n) => n.remove());
+    return;
+  }
+  if (existing?.getAttribute(marker) === id) return;
+
+  document.querySelectorAll(`script[${marker}]`).forEach((n) => n.remove());
+  document.querySelectorAll(`noscript[${marker}]`).forEach((n) => n.remove());
+
+  const script = document.createElement('script');
+  script.setAttribute(marker, id);
+  script.text = `
+    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer',${JSON.stringify(id)});
+  `;
+  document.head.appendChild(script);
+
+  const noscript = document.createElement('noscript');
+  noscript.setAttribute(marker, id);
+  noscript.innerHTML = `<iframe src="https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(id)}" height="0" width="0" style="display:none;visibility:hidden"></iframe>`;
+  document.body.prepend(noscript);
+}
+
 export const SEOHead: React.FC<SEOHeadProps> = ({
   currentScreen,
   extraTitle,
   description,
   keywords,
   maintenance = false,
+  siteSeo,
 }) => {
   useEffect(() => {
+    const seo = mergeSiteSeo(siteSeo);
     const config = SCREEN_SEO[currentScreen] || SCREEN_SEO.home;
+    const homeTitle = seo.defaultTitle || config.title;
+    const homeDescription = seo.defaultDescription || config.description;
+
     const finalTitle = maintenance
       ? `${extraTitle || 'در دست تعمیر'} | کلینیک ژینو`
       : extraTitle
         ? (extraTitle.includes('ژینو') ? extraTitle : `${extraTitle} | کلینیک ژینو`)
-        : config.title;
+        : currentScreen === 'home'
+          ? homeTitle
+          : config.title;
     const finalDescription = maintenance
       ? 'سایت موقتاً در دست تعمیر و به‌روزرسانی است.'
-      : description || config.description;
+      : description ||
+        (currentScreen === 'home' ? homeDescription : config.description);
+
+    const finalKeywords =
+      keywords?.trim() ||
+      (currentScreen === 'home' ? seo.defaultKeywords : '') ||
+      '';
 
     document.title = finalTitle;
 
@@ -134,14 +243,8 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     }
     metaDesc.setAttribute('content', finalDescription);
 
-    if (keywords?.trim()) {
-      let metaKw = document.querySelector('meta[name="keywords"]');
-      if (!metaKw) {
-        metaKw = document.createElement('meta');
-        metaKw.setAttribute('name', 'keywords');
-        document.head.appendChild(metaKw);
-      }
-      metaKw.setAttribute('content', keywords.trim());
+    if (finalKeywords) {
+      upsertMetaByName('keywords', finalKeywords);
     }
 
     let robots = document.querySelector('meta[name="robots"]');
@@ -169,6 +272,9 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       shouldNoIndex ? 'noindex, nofollow, noarchive, nosnippet' : 'index, follow'
     );
 
+    upsertMetaByName('google-site-verification', seo.googleSiteVerification);
+    upsertMetaByName('msvalidate.01', seo.bingSiteVerification);
+
     let ogTitle = document.querySelector('meta[property="og:title"]');
     if (ogTitle) ogTitle.setAttribute('content', finalTitle);
 
@@ -178,6 +284,12 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     let ogUrl = document.querySelector('meta[property="og:url"]');
     if (ogUrl) ogUrl.setAttribute('content', window.location.href);
 
+    const ogImage = absoluteUrl(seo.siteUrl, seo.ogImage);
+    if (ogImage) {
+      upsertMetaByProperty('og:image', ogImage);
+      upsertMetaByName('twitter:image', ogImage);
+    }
+
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonical) {
       canonical = document.createElement('link');
@@ -185,7 +297,10 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       document.head.appendChild(canonical);
     }
     canonical.href = window.location.href;
-  }, [currentScreen, extraTitle, description, keywords, maintenance]);
+
+    ensureGoogleAnalytics(seo.googleAnalyticsId);
+    ensureGoogleTagManager(seo.googleTagManagerId);
+  }, [currentScreen, extraTitle, description, keywords, maintenance, siteSeo]);
 
   return null;
 };

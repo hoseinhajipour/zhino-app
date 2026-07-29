@@ -770,7 +770,7 @@ export function App() {
   if (showMaintenance) {
     return (
       <>
-        <SEOHead currentScreen="home" maintenance />
+        <SEOHead currentScreen="home" maintenance siteSeo={settings.seo} />
         <MaintenancePage
           identity={siteChrome.identity}
           message={settings.maintenanceMessage}
@@ -875,6 +875,7 @@ export function App() {
                     : undefined;
           return systemSeoPage?.seo?.focusKeyword || undefined;
         })()}
+        siteSeo={settings.seo}
       />
 
       {/* Admin quick-access bar — visible on the public site for admins only */}

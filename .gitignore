@@ -10,3 +10,5 @@ coverage/
 .installing
 uploads/
 !uploads/.gitkeep
+!uploads/seo-root/
+!uploads/seo-root/.gitkeep

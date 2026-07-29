@@ -495,6 +495,32 @@ export interface AiSettings {
   defaultModel: string;
 }
 
+/** Site-wide SEO / Search Console / analytics (admin «تنظیمات سئو») */
+export interface SiteSeoSettings {
+  /** Canonical origin without trailing slash, e.g. https://zhinopsy.com */
+  siteUrl: string;
+  /** Default home title override (optional) */
+  defaultTitle: string;
+  defaultDescription: string;
+  defaultKeywords: string;
+  /** Default Open Graph / social share image URL */
+  ogImage: string;
+  /** Google Search Console HTML-tag verification content */
+  googleSiteVerification: string;
+  /** Bing Webmaster Tools meta content */
+  bingSiteVerification: string;
+  /** Uploaded Google HTML verification filename (e.g. google93f7….html) */
+  googleHtmlVerificationFilename: string;
+  /** Google Analytics 4 Measurement ID (G-XXXX) */
+  googleAnalyticsId: string;
+  /** Google Tag Manager container ID (GTM-XXXX) */
+  googleTagManagerId: string;
+  /** Custom robots.txt body; empty = serve static public/robots.txt */
+  robotsTxt: string;
+  /** Custom sitemap.xml body; empty = serve static public/sitemap.xml */
+  sitemapXml: string;
+}
+
 export interface ClinicSettings {
   bookingEnabled?: boolean;
   /** When true, public visitors see maintenance page; logged-in users bypass */
@@ -519,6 +545,8 @@ export interface ClinicSettings {
   freeGuide?: FreeGuideSettings;
   /** AI provider connection (GapGPT / OpenAI-compatible) */
   ai?: AiSettings;
+  /** Site-wide SEO, Search Console verification, analytics */
+  seo?: SiteSeoSettings;
 }
 
 /** Catalog entry for site language switcher */
