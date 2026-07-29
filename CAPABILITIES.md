@@ -22,6 +22,7 @@
 | هدر/فوتر/منو | `SiteChromeSettings` در تنظیمات کلینیک |
 | پرسنل | دکتر/درمانگر → ویجت‌های `doctors` و `staffCarousel` |
 | نوبت‌دهی | ماژول `appointments` (پیش‌فرض روشن) |
+| کارگاه‌ها | ماژول `workshops` (پیش‌فرض روشن) — ادمین: تب کارگاه‌ها + صفحه `/workshops` |
 | رسانه | کتابخانه آپلود تصویر/ویدئو (`MediaPicker`) |
 | SEO | ماژول `seoOptimizer` (پیش‌فرض خاموش) + `SEOHead` |
 | ترجمه | ماژول `autoTranslate` (Google Website Translator) |

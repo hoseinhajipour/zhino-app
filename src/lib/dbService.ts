@@ -22,6 +22,7 @@ import type {
   ShopProduct,
   ShopProductCategory,
   ShopOrder,
+  Workshop,
 } from '../types';
 
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
@@ -566,6 +567,24 @@ export async function saveProductCategory(category: ShopProductCategory) {
 
 export async function deleteProductCategory(id: string) {
   await api(`/api/product-categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------
+// WORKSHOPS
+// ---------------------------------------------------------------------
+export function subscribeWorkshops(callback: (data: Workshop[]) => void) {
+  return subscribeList<Workshop>('/api/workshops', callback, 'Workshops');
+}
+
+export async function saveWorkshop(workshop: Workshop) {
+  await api(`/api/workshops/${encodeURIComponent(workshop.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(workshop),
+  });
+}
+
+export async function deleteWorkshop(id: string) {
+  await api(`/api/workshops/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ---------------------------------------------------------------------

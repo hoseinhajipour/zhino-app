@@ -12,6 +12,7 @@ export type AdminTabId =
   | 'products'
   | 'orders'
   | 'shop-settings'
+  | 'workshops'
   | 'files'
   | 'contact'
   | 'modules'
@@ -50,6 +51,7 @@ const ALL_NAV: AdminNavEntry[] = [
   { id: 'products', label: 'محصولات', icon: 'inventory_2' },
   { id: 'orders', label: 'سفارش‌ها', icon: 'receipt_long' },
   { id: 'shop-settings', label: 'تنظیمات فروشگاه', icon: 'storefront' },
+  { id: 'workshops', label: 'کارگاه‌ها', icon: 'event' },
   { id: 'files', label: 'مدیریت فایل‌ها', icon: 'folder_open' },
   { id: 'contact', label: 'اطلاعات تماس', icon: 'contact_phone' },
   { id: 'modules', label: 'ماژول‌ها', icon: 'extension' },
@@ -76,6 +78,7 @@ const TABS_BY_ROLE: Record<'admin' | 'doctor' | 'operator', AdminTabId[]> = {
     'products',
     'orders',
     'shop-settings',
+    'workshops',
     'files',
     'contact',
     'modules',
@@ -105,6 +108,7 @@ export function getAllowedTabs(
   options?: {
     appointmentsModuleEnabled?: boolean;
     shopModuleEnabled?: boolean;
+    workshopsModuleEnabled?: boolean;
     fileManagerModuleEnabled?: boolean;
   }
 ): AdminNavItem[] {
@@ -117,6 +121,7 @@ export function getAllowedNav(
   options?: {
     appointmentsModuleEnabled?: boolean;
     shopModuleEnabled?: boolean;
+    workshopsModuleEnabled?: boolean;
     fileManagerModuleEnabled?: boolean;
   }
 ): AdminNavEntry[] {
@@ -124,6 +129,7 @@ export function getAllowedNav(
   const allowed = TABS_BY_ROLE[r];
   const appointmentsOn = options?.appointmentsModuleEnabled !== false;
   const shopOn = options?.shopModuleEnabled === true;
+  const workshopsOn = options?.workshopsModuleEnabled !== false;
   const filesOn = options?.fileManagerModuleEnabled === true;
 
   const out: AdminNavEntry[] = [];
@@ -134,6 +140,7 @@ export function getAllowedNav(
         if (c.id === 'appointments' && !appointmentsOn) return false;
         if ((c.id === 'products' || c.id === 'orders' || c.id === 'shop-settings') && !shopOn)
           return false;
+        if (c.id === 'workshops' && !workshopsOn) return false;
         if (c.id === 'files' && !filesOn) return false;
         return true;
       });
@@ -144,6 +151,7 @@ export function getAllowedNav(
     if (entry.id === 'appointments' && !appointmentsOn) continue;
     if ((entry.id === 'products' || entry.id === 'orders' || entry.id === 'shop-settings') && !shopOn)
       continue;
+    if (entry.id === 'workshops' && !workshopsOn) continue;
     if (entry.id === 'files' && !filesOn) continue;
     out.push(entry);
   }

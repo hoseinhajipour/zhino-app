@@ -122,7 +122,7 @@ export function validateBlocks(
 
 export function assertValidBlocks(blocks: ServiceBlock[], pageKind: PageKind): void {
   const result = validateBlocks(blocks, pageKind);
-  if (!result.ok) {
+  if (result.ok === false) {
     const detail = result.issues.map((i) => `${i.path}: ${i.message}`).join('; ');
     throw new Error(`Block validation failed: ${detail}`);
   }

@@ -555,6 +555,8 @@ export interface SiteModulesSettings {
   seoOptimizer: FeatureModuleSettings;
   /** Product catalog, cart, checkout, and admin shop tabs */
   shop: FeatureModuleSettings;
+  /** Workshops catalog + public /workshops page + admin tab */
+  workshops: FeatureModuleSettings;
   /** Admin file manager — list / upload / download / delete server files */
   fileManager: FeatureModuleSettings;
 }

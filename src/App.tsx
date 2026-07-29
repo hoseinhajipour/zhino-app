@@ -41,7 +41,7 @@ import { SiteTranslateProvider } from './components/SiteTranslateProvider';
 import { InstallerWizardPage } from './pages/InstallerWizardPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { mergeContactInfo } from './lib/contactInfo';
-import { isShopModuleEnabled, mergeSiteModules } from './lib/siteModules';
+import { isShopModuleEnabled, isWorkshopsModuleEnabled, mergeSiteModules } from './lib/siteModules';
 
 // Lazy-loaded page components for optimal code-splitting & performance
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -467,6 +467,30 @@ export function App() {
   const contactInfo = mergeContactInfo(settings.contact, siteChrome.identity);
   const siteModules = mergeSiteModules(settings.modules);
   const shopEnabled = isShopModuleEnabled(siteModules);
+  const workshopsEnabled = isWorkshopsModuleEnabled(siteModules);
+
+  const publicChrome = useMemo(() => {
+    if (workshopsEnabled) return siteChrome;
+    const filterItems = <T extends { target?: string; children?: T[] }>(items: T[]): T[] =>
+      items
+        .filter((item) => item.target !== 'workshops')
+        .map((item) =>
+          item.children?.length
+            ? { ...item, children: filterItems(item.children) }
+            : item
+        );
+    return {
+      ...siteChrome,
+      menu: {
+        ...siteChrome.menu,
+        mainItems: filterItems(siteChrome.menu.mainItems || []),
+      },
+      footer: {
+        ...siteChrome.footer,
+        quickLinks: filterItems(siteChrome.footer.quickLinks || []),
+      },
+    };
+  }, [siteChrome, workshopsEnabled]);
 
   useEffect(() => {
     applySiteTheme(siteChrome.identity);
@@ -834,7 +858,7 @@ export function App() {
           bookingEnabled={settings.bookingEnabled}
           darkMode={darkMode}
           onToggleTheme={handleToggleTheme}
-          siteChrome={siteChrome}
+          siteChrome={publicChrome}
           contact={contactInfo}
           shopEnabled={shopEnabled}
         />
@@ -938,7 +962,12 @@ export function App() {
             />
           )}
 
-          {currentScreen === 'workshops' && <WorkshopsPage onNavigate={handleNavigate} />}
+          {currentScreen === 'workshops' &&
+            (workshopsEnabled ? (
+              <WorkshopsPage onNavigate={handleNavigate} />
+            ) : (
+              <NotFoundPage onNavigate={handleNavigate} />
+            ))}
 
           {currentScreen === 'contact' && (
             <ContactPage
@@ -1177,7 +1206,7 @@ export function App() {
           onNavigateTarget={handleNavigateTarget}
           onOpenBooking={() => handleOpenBooking()}
           bookingEnabled={settings.bookingEnabled}
-          siteChrome={siteChrome}
+          siteChrome={publicChrome}
           contact={contactInfo}
         />
       )}

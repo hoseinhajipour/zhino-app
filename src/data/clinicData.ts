@@ -612,7 +612,7 @@ export const DEFAULT_WORKSHOPS = [
     id: 'workshop-sample',
     title: 'کارگاه‌های آموزشی کلینیک ژینو',
     description:
-      'برای مشاهده پوستر کارگاه‌های پیش‌رو و ثبت‌نام، با پشتیبانی کلینیک تماس بگیرید. پوسترها از طریق پنل مدیریت یا MCP قابل آپلود هستند.',
+      'برای مشاهده پوستر کارگاه‌های پیش‌رو و ثبت‌نام، با پشتیبانی کلینیک تماس بگیرید.',
     posterUrl: '',
     registrationPhone: CLINIC_INFO.phone1,
     registrationPhoneClean: CLINIC_INFO.phoneClean,

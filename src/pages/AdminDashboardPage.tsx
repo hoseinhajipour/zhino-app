@@ -46,6 +46,7 @@ import { ModulesSettingsPanel } from '../components/admin/ModulesSettingsPanel';
 import { FreeGuideSettingsPanel } from '../components/admin/FreeGuideSettingsPanel';
 import { FormsAdminPanel } from '../components/admin/FormsAdminPanel';
 import { ShopProductsPanel } from '../components/admin/ShopProductsPanel';
+import { WorkshopsAdminPanel } from '../components/admin/WorkshopsAdminPanel';
 import { ShopOrdersPanel } from '../components/admin/ShopOrdersPanel';
 import { ShopProductCategoriesPanel } from '../components/admin/ShopProductCategoriesPanel';
 import { ShopSettingsPanel } from '../components/admin/ShopSettingsPanel';
@@ -61,7 +62,7 @@ import {
   identityPatchFromContact,
   mergeContactInfo,
 } from '../lib/contactInfo';
-import { isAppointmentsModuleEnabled, isFileManagerModuleEnabled, isSeoOptimizerModuleEnabled, isShopModuleEnabled, mergeSiteModules } from '../lib/siteModules';
+import { isAppointmentsModuleEnabled, isFileManagerModuleEnabled, isSeoOptimizerModuleEnabled, isShopModuleEnabled, isWorkshopsModuleEnabled, mergeSiteModules } from '../lib/siteModules';
 import { analyzeArticleSeo, analyzePageSeo } from '../lib/seoAnalyzer';
 import { SeoScoreBadge } from '../components/admin/SeoScoreBadge';
 import { mergeFreeGuide } from '../lib/freeGuideDefaults';
@@ -194,6 +195,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const navOptions = {
     appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
     shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+    workshopsModuleEnabled: isWorkshopsModuleEnabled(modulesDraft),
     fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
   };
   const seoOptimizerEnabled = isSeoOptimizerModuleEnabled(modulesDraft);
@@ -204,6 +206,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const allowed = getAllowedTabs(currentUser?.role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
       shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+      workshopsModuleEnabled: isWorkshopsModuleEnabled(modulesDraft),
       fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     if (!allowed.includes(activeTab)) {
@@ -1438,6 +1441,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const allowedTabIds = getAllowedTabs(role, {
       appointmentsModuleEnabled: isAppointmentsModuleEnabled(modulesDraft),
       shopModuleEnabled: isShopModuleEnabled(modulesDraft),
+      workshopsModuleEnabled: isWorkshopsModuleEnabled(modulesDraft),
       fileManagerModuleEnabled: isFileManagerModuleEnabled(modulesDraft),
     }).map((t) => t.id);
     const goTab = (tab: AdminTab) => {
@@ -1577,6 +1581,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       title: 'تنظیمات فروشگاه',
       subtitle: 'نام فروشگاه، پرداخت، ارسال و پیام‌های خرید',
     },
+    workshops: {
+      title: 'کارگاه‌های آموزشی',
+      subtitle: 'پوستر کارگاه‌ها، توضیح و شماره تماس ثبت‌نام',
+    },
     files: {
       title: 'مدیریت فایل‌ها',
       subtitle: 'مشاهده، آپلود، ذخیره و حذف فایل‌های سرور',
@@ -1587,7 +1595,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     },
     modules: {
       title: 'ماژول‌ها',
-      subtitle: 'قابلیت‌های اختیاری سایت — ترجمه خودکار، فروشگاه و ماژول‌های بعدی',
+      subtitle: 'قابلیت‌های اختیاری سایت — ترجمه، فروشگاه، کارگاه‌ها و سایر ماژول‌ها',
     },
     system: {
       title: 'وضعیت سیستم',
@@ -3564,6 +3572,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           {productsSubTab === 'list' ? <ShopProductsPanel /> : <ShopProductCategoriesPanel />}
         </div>
       )}
+
+      {activeTab === 'workshops' && isWorkshopsModuleEnabled(modulesDraft) && <WorkshopsAdminPanel />}
 
       {activeTab === 'orders' && isShopModuleEnabled(modulesDraft) && (
         <ShopOrdersPanel />

@@ -43,6 +43,11 @@ export const DEFAULT_SHOP_MODULE: FeatureModuleSettings = {
   enabled: false,
 };
 
+/** On by default — clinic workshops / registration posters */
+export const DEFAULT_WORKSHOPS_MODULE: FeatureModuleSettings = {
+  enabled: true,
+};
+
 /** Off by default — admin opts in from Modules tab */
 export const DEFAULT_FILE_MANAGER_MODULE: FeatureModuleSettings = {
   enabled: false,
@@ -53,6 +58,7 @@ export const DEFAULT_SITE_MODULES: SiteModulesSettings = {
   appointments: DEFAULT_APPOINTMENTS_MODULE,
   seoOptimizer: DEFAULT_SEO_OPTIMIZER_MODULE,
   shop: DEFAULT_SHOP_MODULE,
+  workshops: DEFAULT_WORKSHOPS_MODULE,
   fileManager: DEFAULT_FILE_MANAGER_MODULE,
 };
 
@@ -103,6 +109,7 @@ export function mergeSiteModules(partial?: Partial<SiteModulesSettings> | null):
     appointments: mergeFeatureModule(partial?.appointments, DEFAULT_APPOINTMENTS_MODULE),
     seoOptimizer: mergeFeatureModule(partial?.seoOptimizer, DEFAULT_SEO_OPTIMIZER_MODULE),
     shop: mergeFeatureModule(partial?.shop, DEFAULT_SHOP_MODULE),
+    workshops: mergeFeatureModule(partial?.workshops, DEFAULT_WORKSHOPS_MODULE),
     fileManager: mergeFeatureModule(partial?.fileManager, DEFAULT_FILE_MANAGER_MODULE),
   };
 }
@@ -123,6 +130,12 @@ export function isShopModuleEnabled(
   modules?: Partial<SiteModulesSettings> | null
 ): boolean {
   return mergeSiteModules(modules).shop.enabled;
+}
+
+export function isWorkshopsModuleEnabled(
+  modules?: Partial<SiteModulesSettings> | null
+): boolean {
+  return mergeSiteModules(modules).workshops.enabled;
 }
 
 export function isFileManagerModuleEnabled(
