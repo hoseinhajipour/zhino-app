@@ -2,26 +2,34 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Workshop } from '../../types';
 import { MediaField } from '../media/MediaField';
 import { deleteWorkshop, saveWorkshop, subscribeWorkshops } from '../../lib/dbService';
-import { CLINIC_INFO } from '../../data/clinicData';
-import { digitsOnly } from '../../lib/contactInfo';
+import {
+  createDefaultWorkshopBlocks,
+  getWorkshopPath,
+  slugifyWorkshopTitle,
+} from '../../lib/workshopDefaults';
 
 const fieldCls =
   'w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30';
 
-function blankWorkshop(): Workshop {
+function blankWorkshop(sortOrder: number): Workshop {
+  const id = `workshop-${Date.now().toString(36)}`;
   return {
-    id: `workshop-${Date.now().toString(36)}`,
+    id,
     title: '',
+    slug: '',
     description: '',
     posterUrl: '',
-    registrationPhone: CLINIC_INFO.phone1,
-    registrationPhoneClean: CLINIC_INFO.phoneClean,
     active: true,
-    sortOrder: 1,
+    sortOrder,
+    pageBuilder: { version: 1, blocks: [] },
   };
 }
 
-export const WorkshopsAdminPanel: React.FC = () => {
+interface WorkshopsAdminPanelProps {
+  onOpenPageBuilder: (workshop: Workshop) => void;
+}
+
+export const WorkshopsAdminPanel: React.FC<WorkshopsAdminPanelProps> = ({ onOpenPageBuilder }) => {
   const [items, setItems] = useState<Workshop[]>([]);
   const [editing, setEditing] = useState<Workshop | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,11 +49,11 @@ export const WorkshopsAdminPanel: React.FC = () => {
     const nextOrder = sorted.length
       ? Math.max(...sorted.map((w) => w.sortOrder ?? 0)) + 1
       : 1;
-    setEditing({ ...blankWorkshop(), sortOrder: nextOrder });
+    setEditing(blankWorkshop(nextOrder));
     setMsg(null);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveMeta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
     const title = editing.title.trim();
@@ -56,20 +64,40 @@ export const WorkshopsAdminPanel: React.FC = () => {
     setSaving(true);
     setMsg(null);
     try {
-      const phone = (editing.registrationPhone || '').trim();
+      const posterUrl = (editing.posterUrl || '').trim();
+      const slug =
+        (editing.slug || '').trim() || slugifyWorkshopTitle(title);
+      const existing = items.find((w) => w.id === editing.id);
+      const pageBuilder =
+        existing?.pageBuilder?.blocks?.length
+          ? existing.pageBuilder
+          : editing.pageBuilder?.blocks?.length
+            ? editing.pageBuilder
+            : {
+                version: 1 as const,
+                blocks: createDefaultWorkshopBlocks({
+                  title,
+                  description: editing.description,
+                  posterUrl,
+                }),
+              };
+
       const payload: Workshop = {
         ...editing,
         title,
+        slug,
         description: (editing.description || '').trim(),
-        posterUrl: (editing.posterUrl || '').trim(),
-        registrationPhone: phone,
-        registrationPhoneClean: digitsOnly(phone) || editing.registrationPhoneClean || '',
+        posterUrl,
         active: editing.active !== false,
         sortOrder: Number(editing.sortOrder) || 0,
+        pageBuilder,
       };
+      // Drop legacy per-workshop phone fields if present in older records
+      delete (payload as { registrationPhone?: string }).registrationPhone;
+      delete (payload as { registrationPhoneClean?: string }).registrationPhoneClean;
       await saveWorkshop(payload);
       setEditing(null);
-      setMsg({ type: 'success', text: 'کارگاه ذخیره شد.' });
+      setMsg({ type: 'success', text: 'اطلاعات کارگاه ذخیره شد.' });
     } catch (err) {
       setMsg({
         type: 'error',
@@ -96,7 +124,7 @@ export const WorkshopsAdminPanel: React.FC = () => {
 
   const toggleActive = async (w: Workshop) => {
     try {
-      await saveWorkshop({ ...w, active: w.active === false });
+      await saveWorkshop({ ...w, active: !(w.active !== false) });
     } catch (err) {
       setMsg({
         type: 'error',
@@ -123,7 +151,7 @@ export const WorkshopsAdminPanel: React.FC = () => {
         <div>
           <h2 className="text-base font-black text-on-surface">مدیریت کارگاه‌ها</h2>
           <p className="text-[11px] text-on-surface-variant mt-0.5">
-            پوستر، توضیح و شماره تماس ثبت‌نام — نمایش در صفحه عمومی `/workshops`
+            هر کارگاه صفحه اختصاصی با صفحه‌ساز دارد — پوستر، معرفی و جزئیات را جداگانه طراحی کنید
           </p>
         </div>
         <button
@@ -138,12 +166,12 @@ export const WorkshopsAdminPanel: React.FC = () => {
 
       {editing && (
         <form
-          onSubmit={handleSave}
+          onSubmit={handleSaveMeta}
           className="bg-white dark:bg-surface-dim rounded-3xl border border-outline-variant/30 shadow-soft p-5 space-y-4"
         >
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-black text-primary">
-              {items.some((w) => w.id === editing.id) ? 'ویرایش کارگاه' : 'کارگاه جدید'}
+              {items.some((w) => w.id === editing.id) ? 'ویرایش مشخصات' : 'کارگاه جدید'}
             </h3>
             <button
               type="button"
@@ -160,29 +188,47 @@ export const WorkshopsAdminPanel: React.FC = () => {
               <input
                 className={fieldCls}
                 value={editing.title}
-                onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setEditing((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          title,
+                          slug: prev.slug ? prev.slug : slugifyWorkshopTitle(title),
+                        }
+                      : prev
+                  );
+                }}
                 placeholder="مثلاً کارگاه والدگری در عصر دیجیتال"
                 required
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold mb-1">توضیحات</label>
-              <textarea
-                className={fieldCls}
-                rows={3}
-                value={editing.description || ''}
-                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                placeholder="متن کوتاه برای ثبت‌نام و معرفی کارگاه"
-              />
-            </div>
             <div>
-              <label className="block text-xs font-bold mb-1">شماره تماس ثبت‌نام</label>
+              <label className="block text-xs font-bold mb-1">نامک (slug)</label>
               <input
                 className={fieldCls}
                 dir="ltr"
-                value={editing.registrationPhone || ''}
-                onChange={(e) => setEditing({ ...editing, registrationPhone: e.target.value })}
-                placeholder={CLINIC_INFO.phone1}
+                value={editing.slug || ''}
+                onChange={(e) =>
+                  setEditing((prev) =>
+                    prev ? { ...prev, slug: e.target.value.trim().toLowerCase() } : prev
+                  )
+                }
+                placeholder="workshop-slug"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold mb-1">توضیح کوتاه (کارت فهرست)</label>
+              <textarea
+                className={fieldCls}
+                rows={2}
+                value={editing.description || ''}
+                onChange={(e) =>
+                  setEditing((prev) =>
+                    prev ? { ...prev, description: e.target.value } : prev
+                  )
+                }
               />
             </div>
             <div>
@@ -191,31 +237,39 @@ export const WorkshopsAdminPanel: React.FC = () => {
                 type="number"
                 className={fieldCls}
                 value={editing.sortOrder ?? 1}
-                onChange={(e) => setEditing({ ...editing, sortOrder: Number(e.target.value) || 0 })}
+                onChange={(e) =>
+                  setEditing((prev) =>
+                    prev ? { ...prev, sortOrder: Number(e.target.value) || 0 } : prev
+                  )
+                }
               />
             </div>
-            <div className="md:col-span-2">
-              <MediaField
-                label="پوستر کارگاه"
-                value={editing.posterUrl || ''}
-                onChange={(url) => setEditing({ ...editing, posterUrl: url })}
-                accept="image"
-                aspect="portrait"
-                helperText="تصویر پوستر از کتابخانه رسانه یا آپلود جدید"
-              />
-            </div>
-            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer pt-6">
               <input
                 type="checkbox"
                 checked={editing.active !== false}
-                onChange={(e) => setEditing({ ...editing, active: e.target.checked })}
+                onChange={(e) =>
+                  setEditing((prev) => (prev ? { ...prev, active: e.target.checked } : prev))
+                }
                 className="w-4 h-4 accent-primary rounded"
               />
-              نمایش در سایت (فعال)
+              فعال در سایت
             </label>
+            <div className="md:col-span-2">
+              <MediaField
+                label="تصویر شاخص / پوستر"
+                value={editing.posterUrl || ''}
+                onChange={(url) =>
+                  setEditing((prev) => (prev ? { ...prev, posterUrl: url } : prev))
+                }
+                accept="image"
+                aspect="portrait"
+                helperText="پس از انتخاب از کتابخانه، حتماً ذخیره کنید"
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={() => setEditing(null)}
@@ -228,7 +282,7 @@ export const WorkshopsAdminPanel: React.FC = () => {
               disabled={saving}
               className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold disabled:opacity-50"
             >
-              {saving ? 'در حال ذخیره…' : 'ذخیره کارگاه'}
+              {saving ? 'در حال ذخیره…' : 'ذخیره مشخصات'}
             </button>
           </div>
         </form>
@@ -239,7 +293,6 @@ export const WorkshopsAdminPanel: React.FC = () => {
           <div className="col-span-full text-center py-12 rounded-3xl border border-dashed border-outline-variant bg-surface-container-low">
             <span className="material-symbols-outlined text-4xl text-on-surface-variant">event</span>
             <p className="text-sm font-bold mt-2">هنوز کارگاهی ثبت نشده است</p>
-            <p className="text-xs text-on-surface-variant mt-1">با دکمه «کارگاه جدید» شروع کنید</p>
           </div>
         )}
         {sorted.map((w) => (
@@ -270,19 +323,26 @@ export const WorkshopsAdminPanel: React.FC = () => {
               {w.description && (
                 <p className="text-[11px] text-on-surface-variant line-clamp-2 flex-1">{w.description}</p>
               )}
-              <p className="text-[11px] font-bold text-secondary" dir="ltr">
-                {w.registrationPhone || '—'}
+              <p className="text-[10px] text-on-surface-variant font-mono" dir="ltr">
+                {getWorkshopPath(w)}
               </p>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <button
                   type="button"
+                  onClick={() => onOpenPageBuilder(w)}
+                  className="flex-1 py-2 rounded-xl bg-primary text-white text-[11px] font-bold"
+                >
+                  طراحی صفحه
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
-                    setEditing(w);
+                    setEditing({ ...w, posterUrl: w.posterUrl || '' });
                     setMsg(null);
                   }}
-                  className="flex-1 py-2 rounded-xl border border-primary text-primary text-[11px] font-bold"
+                  className="px-3 py-2 rounded-xl border border-primary text-primary text-[11px] font-bold"
                 >
-                  ویرایش
+                  مشخصات
                 </button>
                 <button
                   type="button"

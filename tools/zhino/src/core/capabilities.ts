@@ -329,7 +329,7 @@ export function createEmptyBlock(type: ServiceBlockType): ServiceBlock {
 }
 
 export function getCapabilities(pageKind?: PageKind) {
-  const kinds: PageKind[] = pageKind ? [pageKind] : ['site', 'service', 'article'];
+  const kinds: PageKind[] = pageKind ? [pageKind] : ['site', 'service', 'article', 'workshop'];
   const palettes: Record<string, Array<{ type: string; label: string }>> = {};
   for (const kind of kinds) {
     palettes[kind] = widgetTypesForKind(kind).map((type) => ({

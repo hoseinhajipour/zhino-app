@@ -38,6 +38,8 @@ import {
 } from '../lib/dbService';
 import { FAQ_CATEGORIES } from '../data/clinicData';
 import { ServicePageBuilder } from '../components/page-builder/ServicePageBuilder';
+import { WorkshopPageBuilder } from '../components/page-builder/WorkshopPageBuilder';
+import type { Workshop } from '../types';
 import { SitePageBuilder } from '../components/page-builder/SitePageBuilder';
 import { ArticleEditorPage } from '../components/page-builder/ArticleEditorPage';
 import { SiteChromeSettingsPanel } from '../components/admin/SiteChromeSettingsPanel';
@@ -527,6 +529,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [pageBuilderService, setPageBuilderService] = useState<ServiceItem | null>(null);
   const [pageBuilderSitePage, setPageBuilderSitePage] = useState<SitePage | null>(null);
+  const [pageBuilderWorkshop, setPageBuilderWorkshop] = useState<Workshop | null>(null);
   const [showCreatePageModal, setShowCreatePageModal] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
@@ -3573,8 +3576,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
       )}
 
-      {activeTab === 'workshops' && isWorkshopsModuleEnabled(modulesDraft) && <WorkshopsAdminPanel />}
-
+          {activeTab === 'workshops' && isWorkshopsModuleEnabled(modulesDraft) && (
+            <WorkshopsAdminPanel
+              onOpenPageBuilder={(w) => {
+                setPageBuilderWorkshop(w);
+              }}
+            />
+          )}
       {activeTab === 'orders' && isShopModuleEnabled(modulesDraft) && (
         <ShopOrdersPanel />
       )}
@@ -5145,6 +5153,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               : [...sitePages, updated];
             onUpdateSitePages?.(next);
             setPageBuilderSitePage(updated);
+          }}
+        />
+      )}
+      {pageBuilderWorkshop && canEditSitePages(currentUser?.role) && (
+        <WorkshopPageBuilder
+          workshop={pageBuilderWorkshop}
+          allServices={services}
+          doctors={doctors}
+          articles={articles}
+          faqs={faqs}
+          contact={settings.contact}
+          onClose={() => setPageBuilderWorkshop(null)}
+          onSaved={(updated) => {
+            setPageBuilderWorkshop(updated);
           }}
         />
       )}

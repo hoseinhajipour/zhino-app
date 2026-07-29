@@ -19,8 +19,8 @@ function errorResult(err: unknown) {
   };
 }
 
-const targetSchema = z.enum(['page', 'service', 'article']);
-const pageKindSchema = z.enum(['site', 'service', 'article']);
+const targetSchema = z.enum(['page', 'service', 'article', 'workshop']);
+const pageKindSchema = z.enum(['site', 'service', 'article', 'workshop']);
 
 const server = new McpServer({
   name: 'zhino',

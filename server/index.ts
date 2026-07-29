@@ -31,6 +31,7 @@ import { logApiTokenStatus, requireApiTokenForWrites } from './middleware/apiTok
 import {
   seedIfEmpty,
   ensureServicePageBuilders,
+  ensureWorkshopPageBuilders,
   ensureSitePages,
   ensureDefaultUsers,
   ensureArticleCategories,
@@ -150,6 +151,7 @@ async function bootstrapDatabase(): Promise<boolean> {
     await initDatabase();
     await seedIfEmpty();
     await ensureServicePageBuilders();
+    await ensureWorkshopPageBuilders();
     await ensureSitePages();
     await ensureDefaultUsers();
     await ensureArticleCategories();

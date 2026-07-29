@@ -1,5 +1,5 @@
-export type PageKind = 'site' | 'service' | 'article';
-export type TargetKind = 'page' | 'service' | 'article';
+export type PageKind = 'site' | 'service' | 'article' | 'workshop';
+export type TargetKind = 'page' | 'service' | 'article' | 'workshop';
 
 export type ServiceBlockType =
   | 'hero'
@@ -216,6 +216,7 @@ export function widgetTypesForKind(kind: PageKind): ServiceBlockType[] {
 export function pageKindFromTarget(target: TargetKind): PageKind {
   if (target === 'service') return 'service';
   if (target === 'article') return 'article';
+  if (target === 'workshop') return 'workshop';
   return 'site';
 }
 

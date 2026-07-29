@@ -1,11 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { PageScreen, Workshop } from '../types';
-import { CLINIC_INFO } from '../data/clinicData';
+import type {
+  Article,
+  ClinicContactInfo,
+  Doctor,
+  FAQItem,
+  PageScreen,
+  ServiceItem,
+  Workshop,
+} from '../types';
 import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
 import { useAppNavigation } from '../context/AppContext';
+import { getWorkshopPath } from '../lib/workshopDefaults';
+import { WorkshopDetailLoader } from './WorkshopDetailPage';
 
 interface WorkshopsPageProps {
   onNavigate?: (screen: PageScreen) => void;
+  selectedWorkshopSlug?: string | null;
+  onSelectWorkshop?: (workshop: Workshop) => void;
+  onBackToWorkshops?: () => void;
+  services?: ServiceItem[];
+  doctors?: Doctor[];
+  articles?: Article[];
+  faqs?: FAQItem[];
+  contact?: ClinicContactInfo | null;
+  bookingEnabled?: boolean;
+  onOpenBooking?: () => void;
+  onOpenDoctorModal?: (doctorId: string) => void;
 }
 
 async function fetchWorkshops(): Promise<Workshop[]> {
@@ -21,6 +41,19 @@ async function fetchWorkshops(): Promise<Workshop[]> {
 
 export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
   const { navigateTo } = useAppNavigation(props);
+  const {
+    selectedWorkshopSlug,
+    onSelectWorkshop,
+    onBackToWorkshops,
+    services,
+    doctors,
+    articles,
+    faqs,
+    contact,
+    bookingEnabled,
+    onOpenBooking,
+    onOpenDoctorModal,
+  } = props;
   const [items, setItems] = useState<Workshop[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,15 +79,33 @@ export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
     [items]
   );
 
+  if (selectedWorkshopSlug) {
+    return (
+      <WorkshopDetailLoader
+        workshopIdOrSlug={selectedWorkshopSlug}
+        services={services}
+        doctors={doctors}
+        articles={articles}
+        faqs={faqs}
+        contact={contact}
+        bookingEnabled={bookingEnabled}
+        onNavigate={props.onNavigate}
+        onOpenBooking={onOpenBooking}
+        onOpenDoctorModal={onOpenDoctorModal}
+        onBackToList={onBackToWorkshops}
+      />
+    );
+  }
+
   return (
     <div className={`space-y-12 pb-16 text-right ${SITE_CONTAINER_CLASS}`}>
       <section className="bg-surface-container-low p-8 md:p-12 rounded-[40px] border border-outline-variant/30 text-center space-y-4">
         <span className="bg-primary/10 text-primary text-xs font-bold px-4 py-1.5 rounded-full inline-block">
           کارگاه‌های آموزشی
         </span>
-        <h1 className="text-3xl md:text-4xl font-extrabold text-primary">ثبت‌نام کارگاه‌های کلینیک ژینو</h1>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-primary">کارگاه‌های کلینیک ژینو</h1>
         <p className="text-base text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-          پوستر کارگاه‌های پیش‌رو را ببینید و برای ثبت‌نام با شماره اعلام‌شده تماس بگیرید.
+          پوستر و جزئیات هر کارگاه را ببینید و صفحه اختصاصی آن را مطالعه کنید.
         </p>
         <button
           type="button"
@@ -72,49 +123,55 @@ export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
           <span className="material-symbols-outlined text-5xl text-on-surface-variant">event</span>
           <h2 className="text-lg font-bold text-on-surface">کارگاه فعالی برای نمایش وجود ندارد</h2>
           <p className="text-xs text-on-surface-variant">
-            به‌زودی پوستر کارگاه‌های جدید اینجا منتشر می‌شود. برای اطلاعات بیشتر با پشتیبانی تماس بگیرید.
+            به‌زودی کارگاه‌های جدید اینجا منتشر می‌شود.
           </p>
-          <a
-            href={`tel:${CLINIC_INFO.phoneClean}`}
+          <button
+            type="button"
+            onClick={() => navigateTo('contact')}
             className="inline-flex items-center gap-2 bg-primary text-white font-bold text-xs px-5 py-2.5 rounded-xl"
           >
-            <span className="material-symbols-outlined text-sm">call</span>
-            تماس برای ثبت‌نام ({CLINIC_INFO.phone1})
-          </a>
+            تماس با کلینیک
+          </button>
         </div>
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {active.map((w) => {
-            const phone = w.registrationPhoneClean || CLINIC_INFO.phoneClean;
-            const phoneLabel = w.registrationPhone || CLINIC_INFO.phone1;
-            return (
+          {active.map((w) => (
               <article
                 key={w.id}
                 className="bg-white dark:bg-surface-dim rounded-3xl overflow-hidden border border-outline-variant/30 shadow-soft flex flex-col"
               >
-                {w.posterUrl ? (
-                  <img src={w.posterUrl} alt={w.title} className="w-full aspect-[4/5] object-cover bg-surface-container" />
-                ) : (
-                  <div className="w-full aspect-[4/5] bg-surface-container-low flex items-center justify-center text-on-surface-variant">
-                    <span className="material-symbols-outlined text-6xl">image</span>
-                  </div>
-                )}
-                <div className="p-6 space-y-3 flex-1 flex flex-col">
-                  <h2 className="text-xl font-extrabold text-on-surface">{w.title}</h2>
-                  {w.description && (
-                    <p className="text-sm text-on-surface-variant leading-relaxed flex-1">{w.description}</p>
+                <button
+                  type="button"
+                  onClick={() => onSelectWorkshop?.(w)}
+                  className="text-right w-full group flex-1 flex flex-col"
+                >
+                  {w.posterUrl ? (
+                    <img
+                      src={w.posterUrl}
+                      alt={w.title}
+                      className="w-full aspect-[4/5] object-cover bg-surface-container group-hover:opacity-95 transition-opacity"
+                    />
+                  ) : (
+                    <div className="w-full aspect-[4/5] bg-surface-container-low flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-6xl">image</span>
+                    </div>
                   )}
-                  <a
-                    href={`tel:${phone}`}
-                    className="mt-2 inline-flex items-center justify-center gap-2 bg-primary text-white font-bold text-sm px-4 py-3 rounded-2xl hover:bg-primary-container transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">call</span>
-                    ثبت‌نام: {phoneLabel}
-                  </a>
-                </div>
+                  <div className="p-6 space-y-3 flex-1 flex flex-col">
+                    <h2 className="text-xl font-extrabold text-on-surface group-hover:text-primary transition-colors">
+                      {w.title}
+                    </h2>
+                    {w.description && (
+                      <p className="text-sm text-on-surface-variant leading-relaxed flex-1">{w.description}</p>
+                    )}
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">
+                      مشاهده جزئیات کارگاه
+                      <span className="material-symbols-outlined text-sm">arrow_back</span>
+                    </span>
+                    <span className="sr-only">{getWorkshopPath(w)}</span>
+                  </div>
+                </button>
               </article>
-            );
-          })}
+            ))}
         </section>
       )}
     </div>

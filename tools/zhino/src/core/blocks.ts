@@ -15,6 +15,7 @@ import { getEntity, upsertEntity, type EntityName } from './entities.js';
 function entityForTarget(target: TargetKind): EntityName {
   if (target === 'service') return 'services';
   if (target === 'article') return 'articles';
+  if (target === 'workshop') return 'workshops';
   return 'pages';
 }
 

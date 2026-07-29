@@ -113,7 +113,7 @@ export const MediaField: React.FC<MediaFieldProps> = ({
           <span className="text-[11px] font-bold text-on-surface-variant shrink-0">یا لینک مستقیم:</span>
         )}
         <input
-          type="url"
+          type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={compact ? 'لینک...' : 'https://... یا /uploads/...'}
@@ -125,7 +125,10 @@ export const MediaField: React.FC<MediaFieldProps> = ({
       <MediaPicker
         open={open}
         onClose={() => setOpen(false)}
-        onSelect={onChange}
+        onSelect={(url) => {
+          onChange(url);
+          setOpen(false);
+        }}
         accept={accept}
         title={label}
       />

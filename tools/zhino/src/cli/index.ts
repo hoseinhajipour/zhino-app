@@ -22,8 +22,10 @@ function readJsonFile<T = unknown>(filePath: string): T {
 }
 
 function parseTarget(value: string): TargetKind {
-  if (value === 'page' || value === 'service' || value === 'article') return value;
-  throw new Error(`Invalid target "${value}". Use page|service|article`);
+  if (value === 'page' || value === 'service' || value === 'article' || value === 'workshop') {
+    return value;
+  }
+  throw new Error(`Invalid target "${value}". Use page|service|article|workshop`);
 }
 
 async function main() {

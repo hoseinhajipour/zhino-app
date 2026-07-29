@@ -795,14 +795,16 @@ export interface Article {
 /** In-person / online training event promoted on the site */
 export interface Workshop {
   id: string;
+  /** URL slug for /workshops/:slug */
+  slug?: string;
   title: string;
   description?: string;
+  /** Featured / cover poster image */
   posterUrl: string;
-  registrationPhone?: string;
-  /** Digits only, for tel: link */
-  registrationPhoneClean?: string;
   active?: boolean;
   sortOrder?: number;
   startsAt?: string;
   endsAt?: string;
+  /** Dedicated page-builder document for workshop detail */
+  pageBuilder?: PageBuilderDoc;
 }

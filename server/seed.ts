@@ -15,8 +15,10 @@ import type {
   ShopProductCategory,
   SitePage,
   UserRecord,
+  Workshop,
 } from '../src/types';
 import { enrichServicesWithPageBuilder } from '../src/lib/landingToBlocks';
+import { ensureWorkshopDefaults } from '../src/lib/workshopDefaults';
 import { getAllDefaultSitePages } from '../src/lib/sitePageDefaults';
 import { DEFAULT_SITE_CHROME } from '../src/lib/siteChromeDefaults';
 import { DEFAULT_FREE_GUIDE } from '../src/lib/freeGuideDefaults';
@@ -179,6 +181,18 @@ export async function ensureServicePageBuilders(): Promise<void> {
       const [enriched] = enrichServicesWithPageBuilder([service]);
       await upsertEntity('services', enriched.id, enriched);
     }
+  }
+}
+
+/** Backfill slug + pageBuilder for workshops. */
+export async function ensureWorkshopPageBuilders(): Promise<void> {
+  const workshops = await listEntities<Workshop>('workshops');
+  for (const workshop of workshops) {
+    const needsSlug = !workshop.slug;
+    const needsBuilder = !workshop.pageBuilder?.blocks?.length;
+    if (!needsSlug && !needsBuilder) continue;
+    const enriched = ensureWorkshopDefaults(workshop);
+    await upsertEntity('workshops', enriched.id, enriched);
   }
 }
 

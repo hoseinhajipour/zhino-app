@@ -22,6 +22,7 @@ import {
   ensureArticleCategories,
   ensureDefaultUsers,
   ensureServicePageBuilders,
+  ensureWorkshopPageBuilders,
   ensureSitePages,
   seedIfEmpty,
 } from '../seed';
@@ -130,6 +131,7 @@ installRouter.post('/db', async (req, res) => {
 
     await seedIfEmpty();
     await ensureServicePageBuilders();
+    await ensureWorkshopPageBuilders();
     await ensureSitePages();
     await ensureArticleCategories();
     // Keep wizard open for site identity + admin steps

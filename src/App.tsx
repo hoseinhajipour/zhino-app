@@ -98,7 +98,7 @@ const getScreenFromPath = (pathname: string): PageScreen => {
   if (clean === 'marriage-therapy') return 'marriage-therapy';
   if (clean === 'about') return 'about';
   if (clean === 'team') return 'team';
-  if (clean === 'workshops') return 'workshops';
+  if (clean === 'workshops' || clean.startsWith('workshops/')) return 'workshops';
   if (clean === 'contact') return 'contact';
   if (clean === 'blog' || clean.startsWith('blog/')) return 'blog';
   if (clean === 'faq') return 'faq';
@@ -142,6 +142,18 @@ const getInitialServiceFromPath = (pathname: string): string => {
 const getArticleSlugFromPath = (pathname: string): string | null => {
   const clean = pathname.replace(/^\/+/, '');
   if (!clean.toLowerCase().startsWith('blog/')) return null;
+  const parts = clean.split('/').filter(Boolean);
+  if (parts.length < 2) return null;
+  try {
+    return decodeURIComponent(parts[1]);
+  } catch {
+    return parts[1];
+  }
+};
+
+const getWorkshopSlugFromPath = (pathname: string): string | null => {
+  const clean = pathname.replace(/^\/+/, '');
+  if (!clean.toLowerCase().startsWith('workshops/')) return null;
   const parts = clean.split('/').filter(Boolean);
   if (parts.length < 2) return null;
   try {
@@ -247,6 +259,9 @@ export function App() {
   const [selectedArticleSlug, setSelectedArticleSlug] = useState<string | null>(() =>
     getArticleSlugFromPath(window.location.pathname)
   );
+  const [selectedWorkshopSlug, setSelectedWorkshopSlug] = useState<string | null>(() =>
+    getWorkshopSlugFromPath(window.location.pathname)
+  );
   const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(() =>
     getProductSlugFromPath(window.location.pathname)
   );
@@ -271,6 +286,11 @@ export function App() {
         setSelectedArticleSlug(getArticleSlugFromPath(path));
       } else {
         setSelectedArticleSlug(null);
+      }
+      if (scr === 'workshops') {
+        setSelectedWorkshopSlug(getWorkshopSlugFromPath(path));
+      } else {
+        setSelectedWorkshopSlug(null);
       }
       if (scr === 'shop-product') {
         setSelectedProductSlug(getProductSlugFromPath(path));
@@ -387,6 +407,7 @@ export function App() {
     if (screen === 'custom-page' || screen === 'shop-product') return;
     setCurrentScreen(screen);
     setSelectedArticleSlug(null);
+    setSelectedWorkshopSlug(null);
     setSelectedCustomPageSlug(null);
     setSelectedProductSlug(null);
     if (screen === 'login') {
@@ -423,6 +444,7 @@ export function App() {
     setLoginMode(mode);
     setCurrentScreen('login');
     setSelectedArticleSlug(null);
+    setSelectedWorkshopSlug(null);
     setSelectedCustomPageSlug(null);
     const path = mode === 'register' ? '/register' : '/login';
     if (window.location.pathname !== path) {
@@ -456,6 +478,7 @@ export function App() {
     const scr = getScreenFromPath(path);
     setCurrentScreen(scr);
     setSelectedArticleSlug(scr === 'blog' ? getArticleSlugFromPath(path) : null);
+    setSelectedWorkshopSlug(scr === 'workshops' ? getWorkshopSlugFromPath(path) : null);
     setSelectedCustomPageSlug(scr === 'custom-page' ? getCustomPageSlugFromPath(path) : null);
     setSelectedProductSlug(scr === 'shop-product' ? getProductSlugFromPath(path) : null);
     if (scr === 'service-detail') setSelectedServiceId(getInitialServiceFromPath(path));
@@ -523,6 +546,26 @@ export function App() {
     setCurrentScreen('blog');
     if (window.location.pathname !== '/blog') {
       window.history.pushState({}, '', '/blog');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectWorkshop = (workshop: { id: string; slug?: string }) => {
+    const slug = workshop.slug || workshop.id;
+    setSelectedWorkshopSlug(slug);
+    setCurrentScreen('workshops');
+    const path = `/workshops/${encodeURIComponent(slug)}`;
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToWorkshops = () => {
+    setSelectedWorkshopSlug(null);
+    setCurrentScreen('workshops');
+    if (window.location.pathname !== '/workshops') {
+      window.history.pushState({}, '', '/workshops');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -964,7 +1007,20 @@ export function App() {
 
           {currentScreen === 'workshops' &&
             (workshopsEnabled ? (
-              <WorkshopsPage onNavigate={handleNavigate} />
+              <WorkshopsPage
+                onNavigate={handleNavigate}
+                selectedWorkshopSlug={selectedWorkshopSlug}
+                onSelectWorkshop={handleSelectWorkshop}
+                onBackToWorkshops={handleBackToWorkshops}
+                services={services}
+                doctors={doctors}
+                articles={articles}
+                faqs={faqs}
+                contact={contactInfo}
+                bookingEnabled={settings.bookingEnabled}
+                onOpenBooking={() => handleOpenBooking()}
+                onOpenDoctorModal={handleOpenDoctorProfile}
+              />
             ) : (
               <NotFoundPage onNavigate={handleNavigate} />
             ))}
