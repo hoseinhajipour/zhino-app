@@ -215,7 +215,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   <span>ساعات پاسخگویی پذیرش:</span>
                 </div>
                 <span className="font-semibold text-on-surface">
-                  شنبه تا چهارشنبه ۹ الی ۲۰ | پنجشنبه ۹ الی ۱۶
+                  شنبه تا چهارشنبه ۹ الی ۱۶ | حضوری و آنلاین
                 </span>
               </div>
             </div>

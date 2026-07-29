@@ -44,6 +44,10 @@ export async function listDoctors() {
   return listEntities('doctors');
 }
 
+export async function getDoctor(id: string) {
+  return getEntity('doctors', id);
+}
+
 export async function upsertDoctor(body: Record<string, unknown> & { id: string }) {
   return upsertEntity('doctors', body);
 }
@@ -70,4 +74,20 @@ export async function listForms() {
 
 export async function getForm(id: string) {
   return getEntity('forms', id);
+}
+
+export async function listWorkshops() {
+  return listEntities('workshops');
+}
+
+export async function getWorkshop(id: string) {
+  return getEntity('workshops', id);
+}
+
+export async function upsertWorkshop(body: Record<string, unknown> & { id: string }) {
+  return upsertEntity('workshops', body);
+}
+
+export async function deleteWorkshop(id: string) {
+  return deleteEntity('workshops', id);
 }

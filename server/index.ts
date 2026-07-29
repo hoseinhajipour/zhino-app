@@ -16,6 +16,7 @@ import {
   productsRouter,
   productCategoriesRouter,
   ordersRouter,
+  workshopsRouter,
 } from './routes/entities';
 import { formsRouter } from './routes/forms';
 import { uploadsRouter, uploadsDir } from './routes/uploads';
@@ -65,6 +66,7 @@ app.use('/api/form-submissions', formSubmissionsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/product-categories', productCategoriesRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/workshops', workshopsRouter);
 app.use('/api/shop/payment', shopPaymentRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/pages', pagesRouter);

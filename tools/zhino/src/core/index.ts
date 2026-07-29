@@ -6,3 +6,4 @@ export * from './entities.js';
 export * from './resources.js';
 export * from './blocks.js';
 export * from './settings.js';
+export * from './media.js';

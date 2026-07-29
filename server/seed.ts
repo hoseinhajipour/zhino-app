@@ -3,6 +3,7 @@ import {
   MAIN_SERVICES as DEFAULT_SERVICES,
   INITIAL_ARTICLES,
   DEFAULT_FAQS,
+  DEFAULT_WORKSHOPS,
 } from '../src/data/clinicData';
 import type {
   Article,
@@ -75,6 +76,12 @@ export async function seedIfEmpty(): Promise<void> {
   if ((await countEntities('faqs')) === 0) {
     for (const item of DEFAULT_FAQS) {
       await upsertEntity('faqs', item.id, item);
+    }
+  }
+
+  if ((await countEntities('workshops')) === 0) {
+    for (const item of DEFAULT_WORKSHOPS) {
+      await upsertEntity('workshops', item.id, item);
     }
   }
 

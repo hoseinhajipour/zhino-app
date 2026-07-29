@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DOCTORS, FAQS_CHILD, PLAY_THERAPY_GALLERY } from '../data/clinicData';
+import { DOCTORS, FAQS_CHILD } from '../data/clinicData';
 import { PageScreen } from '../types';
 import { useAppNavigation } from '../context/AppContext';
 import { SITE_CONTAINER_CLASS } from '../lib/contentWidth';
@@ -18,7 +18,6 @@ export const ChildTherapyPage: React.FC<ChildTherapyPageProps> = (props) => {
     openDoctorProfile: onOpenDoctorModal,
     bookingEnabled,
   } = useAppNavigation(props);
-  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [openFaqId, setOpenFaqId] = useState<string | null>(FAQS_CHILD[0].id);
 
   const childDoctors = DOCTORS.filter((d) => d.specialties.includes('child'));
@@ -44,15 +43,6 @@ export const ChildTherapyPage: React.FC<ChildTherapyPageProps> = (props) => {
             >
               <span>{bookingEnabled ? 'رزرو نوبت بازی‌درمانی' : 'رزرو بازی‌درمانی (تلفنی/حضوری)'}</span>
               <span className="material-symbols-outlined text-sm">child_care</span>
-            </button>
-            <button
-              onClick={() => {
-                const galleryEl = document.getElementById('playroom-gallery');
-                galleryEl?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="border border-primary text-primary font-bold px-6 py-3.5 rounded-2xl hover:bg-primary/5 transition-all text-sm"
-            >
-              مشاهده فضای اتاق بازی
             </button>
           </div>
         </div>
@@ -112,59 +102,6 @@ export const ChildTherapyPage: React.FC<ChildTherapyPageProps> = (props) => {
             <p className="text-xs text-on-surface-variant leading-relaxed">
               سنجش هوش (وکسلر)، تشخیص ADHD، عدم تمرکز و بررسی اختلالات یادگیری.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Play Therapy Room Gallery */}
-      <section id="playroom-gallery" className="bg-surface-container-low p-8 md:p-12 rounded-[40px] border border-outline-variant/30 space-y-8">
-        <div className="text-center space-y-2">
-          <span className="bg-secondary-container text-on-secondary-container text-xs font-bold px-3 py-1 rounded-full">
-            تجهیزات استاندارد جهانی
-          </span>
-          <h2 className="text-3xl font-extrabold text-secondary">اتاق بازی ما؛ جایی برای تولد دوباره</h2>
-          <p className="text-sm text-on-surface-variant max-w-xl mx-auto">
-            امکانات و فضاهای استاندارد طراحی‌شده طبق پروتکل‌های بین‌المللی روانشناسی کودک
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-          <div className="lg:col-span-2 rounded-3xl overflow-hidden shadow-xl aspect-video relative bg-white">
-            <img
-              src={PLAY_THERAPY_GALLERY[activeGalleryIndex].url}
-              alt={PLAY_THERAPY_GALLERY[activeGalleryIndex].title}
-              className="w-full h-full object-cover transition-all duration-500"
-            />
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 text-white">
-              <h4 className="text-xl font-bold">{PLAY_THERAPY_GALLERY[activeGalleryIndex].title}</h4>
-              <p className="text-xs opacity-90 mt-1">{PLAY_THERAPY_GALLERY[activeGalleryIndex].desc}</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {PLAY_THERAPY_GALLERY.map((item, idx) => (
-              <button
-                key={item.title}
-                onClick={() => setActiveGalleryIndex(idx)}
-                className={`w-full text-right p-4 rounded-2xl border transition-all flex items-center gap-4 ${
-                  activeGalleryIndex === idx
-                    ? 'bg-secondary text-white border-secondary font-bold shadow-md'
-                    : 'bg-white text-on-surface border-outline-variant/30 hover:border-secondary/50'
-                }`}
-              >
-                <img
-                  src={item.url}
-                  alt={item.title}
-                  className="w-12 h-12 rounded-xl object-cover shrink-0 border"
-                />
-                <div className="truncate">
-                  <div className="text-sm font-bold truncate">{item.title}</div>
-                  <div className={`text-xs truncate ${activeGalleryIndex === idx ? 'opacity-80' : 'text-on-surface-variant'}`}>
-                    کلیک برای نمایش
-                  </div>
-                </div>
-              </button>
-            ))}
           </div>
         </div>
       </section>

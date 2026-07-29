@@ -7,6 +7,7 @@ export type PageScreen =
   | 'marriage-therapy'
   | 'about'
   | 'team'
+  | 'workshops'
   | 'contact'
   | 'blog'
   | 'faq'
@@ -69,6 +70,14 @@ export interface Doctor {
   gender: 'female' | 'male';
   active: boolean;
   sessionTypes: ('online' | 'in-person')[];
+  /** management = معرفی بدون رزرو؛ specialist = درمانگر */
+  role?: 'management' | 'specialist';
+  /** اگر false باشد دکمه رزرو نوبت نمایش داده نمی‌شود */
+  bookable?: boolean;
+  /** ترتیب نمایش در تیم همکاران */
+  sortOrder?: number;
+  /** پشتیبان جلسات آنلاین */
+  onlineSupport?: boolean;
   experienceYears?: number;
   tags: string[];
   licenseNumber?: string;
@@ -779,4 +788,19 @@ export interface Article {
   pageBuilder?: PageBuilderDoc;
   /** SEO optimizer fields (when seoOptimizer module is on) */
   seo?: ContentSeoSettings;
+}
+
+/** In-person / online training event promoted on the site */
+export interface Workshop {
+  id: string;
+  title: string;
+  description?: string;
+  posterUrl: string;
+  registrationPhone?: string;
+  /** Digits only, for tel: link */
+  registrationPhoneClean?: string;
+  active?: boolean;
+  sortOrder?: number;
+  startsAt?: string;
+  endsAt?: string;
 }

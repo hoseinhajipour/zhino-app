@@ -7,6 +7,7 @@ export type EntityMap = {
   doctors: '/api/doctors';
   faqs: '/api/faqs';
   forms: '/api/forms';
+  workshops: '/api/workshops';
 };
 
 const PATHS: EntityMap = {
@@ -16,6 +17,7 @@ const PATHS: EntityMap = {
   doctors: '/api/doctors',
   faqs: '/api/faqs',
   forms: '/api/forms',
+  workshops: '/api/workshops',
 };
 
 export type EntityName = keyof EntityMap;

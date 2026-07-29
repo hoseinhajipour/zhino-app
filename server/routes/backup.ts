@@ -44,6 +44,7 @@ backupRouter.get('/entities', (_req, res) => {
             products: 'محصولات فروشگاه',
             product_categories: 'دسته‌بندی محصولات',
             orders: 'سفارش‌های فروشگاه',
+            workshops: 'کارگاه‌ها و رویدادها',
           } as Record<BackupEntityKey, string>
         )[key],
     })),

@@ -510,6 +510,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [docTags, setDocTags] = useState('');
   const [docSpecialties, setDocSpecialties] = useState<string[]>(['individual', 'cbt']);
   const [docSessionTypes, setDocSessionTypes] = useState<('online' | 'in-person')[]>(['in-person', 'online']);
+  const [docRole, setDocRole] = useState<'management' | 'specialist'>('specialist');
+  const [docBookable, setDocBookable] = useState(true);
+  const [docOnlineSupport, setDocOnlineSupport] = useState(false);
+  const [docSortOrder, setDocSortOrder] = useState(100);
 
   // Service Search & Delete Modal
   const [servSearch, setServSearch] = useState('');
@@ -1044,6 +1048,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setDocTags(docItem.tags ? docItem.tags.join(', ') : '');
       setDocSpecialties(docItem.specialties || ['individual']);
       setDocSessionTypes(docItem.sessionTypes || ['in-person', 'online']);
+      setDocRole(docItem.role === 'management' ? 'management' : 'specialist');
+      setDocBookable(docItem.bookable !== false && docItem.role !== 'management');
+      setDocOnlineSupport(Boolean(docItem.onlineSupport));
+      setDocSortOrder(docItem.sortOrder ?? 100);
     } else {
       setEditingDoctor(null);
       setDocName('');
@@ -1051,7 +1059,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setDocDegree('کارشناسی ارشد روانشناسی بالینی');
       setDocLicenseNumber('۲۴۵' + Math.floor(100 + Math.random() * 900) + '-ن');
       setDocConsultationFee('۸۵۰,۰۰۰ تومان');
-      setDocWorkingHours('روزهای زوج (۱۶ تا ۲۰)');
+      setDocWorkingHours('شنبه تا چهارشنبه (۹ تا ۱۶)');
       setDocPhone('09120000000');
       setDocEmail('');
       setDocAvatar('https://lh3.googleusercontent.com/aida-public/AB6AXuAbmnpUV7pewskFBXgvo4uhvgtCLMA5T74nCGo_UAEo4zdv1HyXH81HTCWaJpl9nyH0FKpk7A4nrYXAtvHAXsKPqbqJk19PhX199mCp_yKNEBxbxSy_LtlVgUBsS5DoRtoFOJmLQaxaT_A-gZxPJhU4hSvMP2URUtByBT0rWyKMDPilhTN-s0WeypgoysKjA5kaHLI8AfdMZkAkRxrH9q-Mppw6KBMBbn-0BLijol0AMSlgzEyNm-F2xNrpUWqoa-pY8GB9u-KOG3k');
@@ -1062,6 +1070,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setDocTags('مشاوره فردی, CBT, اضطراب');
       setDocSpecialties(['individual', 'cbt']);
       setDocSessionTypes(['in-person', 'online']);
+      setDocRole('specialist');
+      setDocBookable(true);
+      setDocOnlineSupport(false);
+      setDocSortOrder(100);
     }
     setShowDoctorModal(true);
   };
@@ -1089,6 +1101,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         tags: tagArray,
         specialties: docSpecialties,
         sessionTypes: docSessionTypes,
+        role: docRole,
+        bookable: docRole === 'management' ? false : docBookable,
+        onlineSupport: docOnlineSupport,
+        sortOrder: docSortOrder,
       };
       const updated = doctors.map((d) => (d.id === editingDoctor.id ? docObj : d));
       onUpdateDoctors(updated);
@@ -1112,6 +1128,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         sessionTypes: docSessionTypes.length ? docSessionTypes : ['in-person', 'online'],
         experienceYears: docExperience,
         tags: tagArray.length ? tagArray : ['مشاوره فردی'],
+        role: docRole,
+        bookable: docRole === 'management' ? false : docBookable,
+        onlineSupport: docOnlineSupport,
+        sortOrder: docSortOrder,
       };
       onUpdateDoctors([newDoc, ...doctors]);
       await saveDoctor(newDoc);
@@ -4379,6 +4399,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     { id: 'child', label: 'کودک و نوجوان' },
                     { id: 'assessment', label: 'ارزیابی و سنجش' },
                     { id: 'cbt', label: 'درمان شناختی-رفتاری (CBT)' },
+                    { id: 'career', label: 'تحصیلی و شغلی' },
+                    { id: 'digital', label: 'مشاوره فناورانه' },
                   ].map((sp) => (
                     <label key={sp.id} className="flex items-center gap-1.5 cursor-pointer font-medium text-xs">
                       <input
@@ -4422,6 +4444,52 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   placeholder="توضیحات و سوابق علمی، دانشگاهی و سابقه درمانگری..."
                   className="w-full p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-xs outline-none"
                 ></textarea>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-surface-container-low p-3 rounded-2xl border border-outline-variant/20">
+                <label className="flex flex-col gap-1 text-xs font-bold">
+                  نقش پرسنل
+                  <select
+                    value={docRole}
+                    onChange={(e) => {
+                      const role = e.target.value as 'management' | 'specialist';
+                      setDocRole(role);
+                      if (role === 'management') setDocBookable(false);
+                    }}
+                    className="p-2.5 rounded-xl border border-outline-variant/40 bg-white text-xs outline-none"
+                  >
+                    <option value="specialist">متخصص / درمانگر</option>
+                    <option value="management">تیم مدیریتی (بدون رزرو)</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-bold">
+                  ترتیب نمایش
+                  <input
+                    type="number"
+                    value={docSortOrder}
+                    onChange={(e) => setDocSortOrder(Number(e.target.value) || 0)}
+                    className="p-2.5 rounded-xl border border-outline-variant/40 bg-white text-xs outline-none"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={docBookable && docRole !== 'management'}
+                    disabled={docRole === 'management'}
+                    onChange={(e) => setDocBookable(e.target.checked)}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  قابل رزرو نوبت
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={docOnlineSupport}
+                    onChange={(e) => setDocOnlineSupport(e.target.checked)}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  پشتیبان جلسات آنلاین
+                </label>
               </div>
 
               {/* Active Toggle */}

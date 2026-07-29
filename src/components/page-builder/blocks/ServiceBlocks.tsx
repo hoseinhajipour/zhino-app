@@ -428,7 +428,7 @@ export const DoctorsBlock: React.FC<{ props: Record<string, unknown>; ctx: Block
                   مشاهده رزومه
                 </button>
               )}
-              {ctx.bookingEnabled && (
+              {ctx.bookingEnabled && doc.bookable !== false && doc.role !== 'management' && (
                 <button
                   type="button"
                   onClick={() => ctx.onOpenBooking?.(doc.id, ctx.serviceId)}

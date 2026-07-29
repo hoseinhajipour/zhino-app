@@ -289,4 +289,18 @@ Props کلیدی:
 
 ---
 
+## ۹. ابزارهای MCP برای مدیریت محتوا (رسانه / کارگاه‌ها / تماس)
+
+سرور MCP در `tools/zhino/src/mcp/index.ts` این ابزارها را هم دارد (علاوه بر CRUD صفحات/خدمات/مقالات/پزشکان/FAQ/فرم):
+
+| ابزار | کاربرد |
+|------|--------|
+| `upload_media` | آپلود فایل لوکال (`filePath`, `purpose?`: `shop`/`document`) در کتابخانه رسانه؛ خروجی شامل `url` |
+| `delete_media` | حذف فایل آپلودشده با `filename` |
+| `list_media` / `get_doctor` | لیست رسانه‌ها / گرفتن یک پزشک با id |
+| `update_contact` | ادغام جزئی اطلاعات تماس (تلفن‌ها، ایمیل، تلگرام، اینستاگرام، یوتیوب، آدرس‌ها با lat/lng) در `clinic_settings.contact` + همگام‌سازی خودکار `site.identity` |
+| `list_workshops` / `get_workshop` / `upsert_workshop` / `delete_workshop` | CRUD کارگاه‌ها/رویدادهای آموزشی (`Workshop` در `src/types.ts`، جدول `workshops`، مسیر `/api/workshops`) |
+
+---
+
 *آخرین به‌روزرسانی بر اساس کد فعلی پروژه. اگر ویجتی به `ServiceBlockType` یا پالت‌ها اضافه شد، این فایل را هم به‌روز کنید.*

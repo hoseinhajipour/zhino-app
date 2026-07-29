@@ -123,6 +123,7 @@ export const formsCrudRouter = createCrudRouter('forms');
 export const formSubmissionsRouter = createCrudRouter('form_submissions');
 export const productsRouter = createCrudRouter('products');
 export const productCategoriesRouter = createCrudRouter('product_categories');
+export const workshopsRouter = createCrudRouter('workshops');
 
 /** Orders CRUD — blocks writes when shop module is disabled */
 export const ordersRouter = Router();

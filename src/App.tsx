@@ -51,6 +51,7 @@ const AdultTherapyPage = lazy(() => import('./pages/AdultTherapyPage').then((m) 
 const MarriageTherapyPage = lazy(() => import('./pages/MarriageTherapyPage').then((m) => ({ default: m.MarriageTherapyPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
 const TeamPage = lazy(() => import('./pages/TeamPage').then((m) => ({ default: m.TeamPage })));
+const WorkshopsPage = lazy(() => import('./pages/WorkshopsPage').then((m) => ({ default: m.WorkshopsPage })));
 const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
 const BlogPage = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
 const FaqPage = lazy(() => import('./pages/FaqPage').then((m) => ({ default: m.FaqPage })));
@@ -97,6 +98,7 @@ const getScreenFromPath = (pathname: string): PageScreen => {
   if (clean === 'marriage-therapy') return 'marriage-therapy';
   if (clean === 'about') return 'about';
   if (clean === 'team') return 'team';
+  if (clean === 'workshops') return 'workshops';
   if (clean === 'contact') return 'contact';
   if (clean === 'blog' || clean.startsWith('blog/')) return 'blog';
   if (clean === 'faq') return 'faq';
@@ -935,6 +937,8 @@ export function App() {
               bookingEnabled={settings.bookingEnabled}
             />
           )}
+
+          {currentScreen === 'workshops' && <WorkshopsPage onNavigate={handleNavigate} />}
 
           {currentScreen === 'contact' && (
             <ContactPage

@@ -20,7 +20,8 @@ export type EntityTable =
   | 'form_submissions'
   | 'products'
   | 'product_categories'
-  | 'orders';
+  | 'orders'
+  | 'workshops';
 
 const TABLES: EntityTable[] = [
   'appointments',
@@ -37,6 +38,7 @@ const TABLES: EntityTable[] = [
   'products',
   'product_categories',
   'orders',
+  'workshops',
 ];
 
 let pool: Pool | null = null;

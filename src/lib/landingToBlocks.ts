@@ -218,27 +218,31 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
       type: 'doctors',
       props: {
         title: 'روانشناسان و درمانگران این خدمت',
-        subtitle: 'متخصصین دارای پروانه نظام روانشناسی و حداقل ۸ سال سابقه تخصصی',
+        subtitle: 'متخصصین دارای پروانه نظام روانشناسی',
         specialtiesFilter: landing.specialtiesFilter,
-        maxCount: 3,
+        maxCount: 6,
       },
     },
-    {
-      id: uid('testimonials'),
-      type: 'testimonials',
-      props: {
-        title: 'نظرات و تجربیات مراجعین این خدمت',
-        subtitle: 'بازخورد واقعی مراجعین کلینیک روانشناسی ژینو',
-        items: landing.testimonials,
-        columnsMobile: 1,
-        columnsTablet: 2,
-        columnsDesktop: 2,
-        titleSize: 'lg',
-        titleFontFamily: 'inherit',
-        itemTitleSize: 'sm',
-        itemTitleFontFamily: 'inherit',
-      },
-    },
+    ...(false && landing.testimonials?.length
+      ? [
+          {
+            id: uid('testimonials'),
+            type: 'testimonials' as const,
+            props: {
+              title: 'نظرات و تجربیات مراجعین این خدمت',
+              subtitle: 'بازخورد واقعی مراجعین کلینیک روانشناسی ژینو',
+              items: landing.testimonials,
+              columnsMobile: 1,
+              columnsTablet: 2,
+              columnsDesktop: 2,
+              titleSize: 'lg',
+              titleFontFamily: 'inherit',
+              itemTitleSize: 'sm',
+              itemTitleFontFamily: 'inherit',
+            },
+          },
+        ]
+      : []),
     {
       id: uid('faqs'),
       type: 'faqs',
@@ -263,8 +267,8 @@ export function landingToBlocks(landing: ServiceLandingDetail): ServicePageBuild
         title: 'همین امروز نوبت مشاوره خود را رزرو کنید',
         subtitle:
           'فرآیند رزرو نوبت کمتر از ۲ دقیقه زمان می‌برد. امکان دریافت نوبت‌های حضوری در مطب یا مشاوره ویدیویی آنلاین موجود است.',
-        phoneLabel: 'تماس با پذیرش (۰۲۱-۸۸۷۷۶۶۵۵)',
-        phoneHref: 'tel:02188776655',
+        phoneLabel: '',
+        phoneHref: '',
       },
     },
   ];
@@ -301,8 +305,8 @@ export function createDefaultPageBuilder(service: Pick<ServiceItem, 'id' | 'titl
           badge: 'گام اول به سوی سلامت و آرامش روانی',
           title: 'همین امروز نوبت مشاوره خود را رزرو کنید',
           subtitle: 'فرآیند رزرو نوبت کمتر از ۲ دقیقه زمان می‌برد.',
-          phoneLabel: 'تماس با پذیرش (۰۲۱-۸۸۷۷۶۶۵۵)',
-          phoneHref: 'tel:02188776655',
+          phoneLabel: '',
+          phoneHref: '',
         },
       },
     ],
@@ -356,7 +360,7 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       title: 'پناهگاهی برای یافتن آرامش و تعادل روان',
       titleHighlight: 'آرامش و تعادل روان',
       subtitle:
-        'با بهره‌گیری از متدهای علمی روز دنیا شامل CBT، طرحواره درمانی و نوروفیدبک لورتا، مسیر درمان اختصاصی شما را طراحی می‌کنیم.',
+        'با بهره‌گیری از متدها و پژوهش‌های علمی و رویکردهای روز دنیا مسیر درمان اختصاصی شما را طراحی می‌کنیم.',
       contentAlign: 'start',
       mediaSide: 'end',
       titleSize: 'lg',
@@ -554,8 +558,8 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       badge: 'اقدام کنید',
       title: 'رزرو نوبت',
       subtitle: 'کمتر از ۲ دقیقه',
-      phoneLabel: 'تماس با پذیرش',
-      phoneHref: 'tel:02188776655',
+      phoneLabel: '',
+      phoneHref: '',
     },
     richText: {
       html: '<p>متن دلخواه خود را اینجا بنویسید.</p>',

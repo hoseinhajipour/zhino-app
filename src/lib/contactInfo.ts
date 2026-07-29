@@ -93,8 +93,8 @@ export const DEFAULT_CONTACT_INFO: ClinicContactInfo = {
       id: 'addr-1',
       title: 'دفتر مرکزی',
       text: CLINIC_INFO.address,
-      lat: 35.7575,
-      lng: 51.41,
+      lat: CLINIC_INFO.mapLat,
+      lng: CLINIC_INFO.mapLng,
     },
   ],
   fab: DEFAULT_FAB_SETTINGS,
@@ -120,7 +120,15 @@ export function contactFromIdentity(identity?: Partial<SiteIdentitySettings> | n
     });
   }
   const addresses: ContactAddressItem[] = id.address
-    ? [{ id: 'addr-1', title: 'آدرس', text: id.address, lat: 35.7575, lng: 51.41 }]
+    ? [
+        {
+          id: 'addr-1',
+          title: 'آدرس',
+          text: id.address,
+          lat: CLINIC_INFO.mapLat,
+          lng: CLINIC_INFO.mapLng,
+        },
+      ]
     : [];
 
   return {

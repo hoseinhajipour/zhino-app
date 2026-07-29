@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "tools/zhino/src/**/*.ts",
+    "server/**/*.ts"
+  ]
+}

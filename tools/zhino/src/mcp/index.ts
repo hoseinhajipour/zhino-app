@@ -301,6 +301,19 @@ server.tool(
   }
 );
 
+server.tool(
+  'update_contact',
+  'Merge partial contact info (phones, email, telegram, instagram, youtube, addresses with lat/lng, etc.) into clinic_settings.contact and sync legacy site.identity fields',
+  { contact: z.record(z.string(), z.unknown()) },
+  async ({ contact }) => {
+    try {
+      return textResult(await core.updateContact(contact));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
 server.tool('list_doctors', 'List doctors / staff', {}, async () => {
   try {
     return textResult(await core.listDoctors());
@@ -308,6 +321,19 @@ server.tool('list_doctors', 'List doctors / staff', {}, async () => {
     return errorResult(err);
   }
 });
+
+server.tool(
+  'get_doctor',
+  'Get a doctor by id',
+  { id: z.string() },
+  async ({ id }) => {
+    try {
+      return textResult(await core.getDoctor(id));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
 
 server.tool(
   'upsert_doctor',
@@ -403,6 +429,88 @@ server.tool(
   async ({ kind }) => {
     try {
       return textResult(await core.listMedia(kind || 'all'));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
+server.tool(
+  'upload_media',
+  'Upload a local file (by path) to the media library (POST /api/uploads)',
+  {
+    filePath: z.string().describe('Absolute path, or relative to the MCP server cwd'),
+    purpose: z.enum(['shop', 'document', '']).optional().describe('Allows document/audio uploads when set'),
+  },
+  async ({ filePath, purpose }) => {
+    try {
+      return textResult(await core.uploadMedia(filePath, purpose));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
+server.tool(
+  'delete_media',
+  'Delete an uploaded media file by filename (DELETE /api/uploads/:filename)',
+  { filename: z.string() },
+  async ({ filename }) => {
+    try {
+      return textResult(await core.deleteMedia(filename));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
+server.tool('list_workshops', 'List workshops / training events', {}, async () => {
+  try {
+    return textResult(await core.listWorkshops());
+  } catch (err) {
+    return errorResult(err);
+  }
+});
+
+server.tool(
+  'get_workshop',
+  'Get a workshop by id',
+  { id: z.string() },
+  async ({ id }) => {
+    try {
+      return textResult(await core.getWorkshop(id));
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
+server.tool(
+  'upsert_workshop',
+  'Create or update a workshop',
+  { workshop: z.record(z.string(), z.unknown()) },
+  async ({ workshop }) => {
+    try {
+      if (!workshop.id || typeof workshop.id !== 'string') {
+        throw new Error('workshop.id is required');
+      }
+      return textResult(
+        await core.upsertWorkshop(workshop as Record<string, unknown> & { id: string })
+      );
+    } catch (err) {
+      return errorResult(err);
+    }
+  }
+);
+
+server.tool(
+  'delete_workshop',
+  'Delete a workshop by id',
+  { id: z.string() },
+  async ({ id }) => {
+    try {
+      await core.deleteWorkshop(id);
+      return textResult({ deleted: id });
     } catch (err) {
       return errorResult(err);
     }

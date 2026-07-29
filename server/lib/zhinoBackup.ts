@@ -15,6 +15,7 @@ export const BACKUP_ENTITY_KEYS = [
   'products',
   'product_categories',
   'orders',
+  'workshops',
 ] as const;
 
 export type BackupEntityKey = (typeof BACKUP_ENTITY_KEYS)[number];
@@ -34,6 +35,7 @@ const TABLE_BY_KEY: Record<BackupEntityKey, EntityTable> = {
   products: 'products',
   product_categories: 'product_categories',
   orders: 'orders',
+  workshops: 'workshops',
 };
 
 export type ZhinoBackupDocument = {

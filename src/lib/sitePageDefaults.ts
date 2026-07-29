@@ -142,7 +142,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             badge: 'مرکز تخصصی روان‌درمانی، مشاوره و نوروفیدبک ژینو',
             title: 'مسیر تخصصی شما به سوی آرامش و تعادل روانی',
             subtitle:
-              'در کلینیک ژینو، با همراهی برترین اساتید روانشناسی و پروتکل‌های علمی مدرن (CBT، طرحواره درمانی و نوروفیدبک لورتا)، امن‌ترین محیط را برای رشد و بهبود شما فراهم آورده‌ایم.',
+              'با بهره‌گیری از متدها و پژوهش‌های علمی و رویکردهای روز دنیا مسیر درمان اختصاصی شما را طراحی می‌کنیم.',
             primaryCtaLabel: 'رزرو آنلاین نوبت مشاوره',
             secondaryCtaLabel: 'مشاهده خدمات',
             secondaryCtaScreen: 'services',
@@ -156,7 +156,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             items: [
               { icon: 'verified', label: 'پرونده درمانی', value: '+۱۲,۰۰۰' },
               { icon: 'groups', label: 'درمانگر ارشد', value: '+۱۵' },
-              { icon: 'workspace_premium', label: 'سال فعالیت', value: '+۱۰' },
+              { icon: 'workspace_premium', label: 'سال فعالیت', value: 'از ۱۴۰۳' },
               { icon: 'thumb_up', label: 'رضایت مراجعین', value: '۹۸٪' },
             ],
           },
@@ -186,8 +186,8 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             badge: 'گام اول به سوی سلامت روان',
             title: 'همین امروز نوبت مشاوره خود را رزرو کنید',
             subtitle: 'فرآیند رزرو نوبت کمتر از ۲ دقیقه زمان می‌برد.',
-            phoneLabel: `تماس با پذیرش (${CLINIC_INFO.phone1})`,
-            phoneHref: `tel:${CLINIC_INFO.phoneClean}`,
+            phoneLabel: '',
+            phoneHref: '',
           },
         },
       ]);
@@ -201,7 +201,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             badge: 'درباره کلینیک روانشناسی ژینو',
             title: 'پناهگاهی امن برای آرامش و تعادل روان شما',
             subtitle:
-              'کلینیک ژینو با داشتن مجوز رسمی از سازمان نظام روانشناسی و مشاوره جمهوری اسلامی ایران و بهره‌گیری از کادری علمی و دلسوز، همراه همیشگی شماست.',
+              'مجوزهای ما از سه نهاد وزارت ورزش و جوانان، سازمان نظام روانشناسی و سازمان بهزیستی صادر شده است. کلینیک ژینو با کادری علمی و دلسوز، همراه همیشگی شماست.',
             showBooking: true,
             primaryCtaLabel: 'رزرو نوبت',
           },
@@ -210,8 +210,11 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
           id: uid('richText'),
           type: 'richText',
           props: {
-            html: `<h2>داستان شکل‌گیری ژینو</h2>
-<p>نام «ژینو» در لغت به معنای «تولد دوباره و حیات‌بخش» است. مجموعه ژینو فعالیت خود را در سال ۱۳۹۲ با هدف ایجاد تحولی بنیادین در نحوه ارائه خدمات روانشناسی شروع کرد. ما باور داریم روان‌درمانی یک درمان کلیشه‌ای نیست، بلکه فرآیندی کاملاً انسانی و مبتنی بر همدلی آگاهانه است.</p>
+            html: `<h2>مجوزها و اعتبار حرفه‌ای</h2>
+<p>کلینیک روانشناسی ژینو با مجوزهای رسمی از <strong>وزارت ورزش و جوانان</strong>، <strong>سازمان نظام روانشناسی و مشاوره</strong> و <strong>سازمان بهزیستی</strong> فعالیت می‌کند.</p>
+<h2>داستان شکل‌گیری ژینو</h2>
+<p>نام «ژینو» در لغت به معنای «تولد دوباره و حیات‌بخش» است. مجموعه ژینو فعالیت خود را از سال ۱۴۰۳ با هدف ایجاد تحولی بنیادین در نحوه ارائه خدمات روانشناسی آغاز کرد. ما باور داریم روان‌درمانی یک درمان کلیشه‌ای نیست، بلکه فرآیندی کاملاً انسانی و مبتنی بر همدلی آگاهانه است؛ جایی که هر مراجع با داستان منحصربه‌فرد خود دیده می‌شود و مسیر درمان اختصاصی‌اش طراحی می‌گردد.</p>
+<p>از نخستین روز، ژینو تلاش کرده پیوندی میان دانش روز روانشناسی، پژوهش‌های علمی و تجربه بالینی درمانگران خود بسازد تا فضایی امن، حرفه‌ای و در دسترس برای خانواده‌ها، کودکان، نوجوانان و بزرگسالان فراهم آورد.</p>
 <p><strong>چشم‌انداز:</strong> ارتقای فرهنگ مراجعه به روانشناس، حذف تابوهای سلامت روان در جامعه و ارائه استانداردهای درمانی برابر با کلینیک‌های پیشرو جهان.</p>`,
           },
         },
@@ -245,9 +248,9 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
           props: {
             badge: 'آشنایی بیشتر',
             title: 'آماده‌اید مسیر درمان را آغاز کنید؟',
-            subtitle: 'تیم پذیرش ژینو آماده راهنمایی شماست.',
-            phoneLabel: `تماس (${CLINIC_INFO.phone1})`,
-            phoneHref: `tel:${CLINIC_INFO.phoneClean}`,
+            subtitle: 'تیم کلینیک ژینو آماده راهنمایی شماست.',
+            phoneLabel: '',
+            phoneHref: '',
           },
         },
       ]);
@@ -261,7 +264,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             badge: 'ارتباط با مرکز ژینو',
             title: 'تماس با ما و آدرس کلینیک',
             subtitle:
-              'همکاران ما در بخش پذیرش آماده پاسخگویی به سوالات و راهنمایی شما جهت ثبت نوبت مشاوره می‌باشند.',
+              'از طریق راه‌های ارتباطی زیر یا رزرو آنلاین با کلینیک ژینو در ارتباط باشید.',
             showBooking: true,
             primaryCtaLabel: 'رزرو آنلاین نوبت',
           },
@@ -275,27 +278,17 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
             iconFilled: true,
             columnsMobile: 1,
             columnsTablet: 2,
-            columnsDesktop: 3,
+            columnsDesktop: 2,
             items: [
               {
                 icon: 'location_on',
                 title: 'آدرس حضوری',
                 body: CLINIC_INFO.address,
-                note: 'دسترسی آسان از میدان ونک',
+                note: CLINIC_INFO.hoursText,
                 accent: 'primary',
                 dir: 'rtl',
                 link: '',
                 linkLabel: '',
-              },
-              {
-                icon: 'call',
-                title: 'شماره‌های تلفن',
-                body: `${CLINIC_INFO.phone1}\n${CLINIC_INFO.phone2}`,
-                note: 'شنبه تا چهارشنبه ۹ الی ۲۰ | پنجشنبه ۹ الی ۱۶',
-                accent: 'secondary',
-                dir: 'ltr',
-                link: `tel:${CLINIC_INFO.phoneClean}`,
-                linkLabel: 'تماس بگیرید',
               },
               {
                 icon: 'mail',
@@ -314,7 +307,7 @@ function defaultBlocksFor(id: SitePageId): PageBuilderDoc {
           id: uid('contactForm'),
           type: 'contactForm',
           props: {
-            title: 'ارسال پیام به پذیرش',
+            title: 'ارسال پیام',
             subtitle: 'پیام شما در کوتاه‌ترین زمان بررسی می‌شود.',
             formId: 'form-contact',
           },

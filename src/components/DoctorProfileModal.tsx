@@ -16,6 +16,9 @@ export const DoctorProfileModal: React.FC<DoctorProfileModalProps> = ({
 }) => {
   if (!doctor) return null;
 
+  const canBook = bookingEnabled && doctor.bookable !== false && doctor.role !== 'management';
+  const isManagement = doctor.role === 'management';
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
       <div className="bg-white dark:bg-surface-dim w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -60,35 +63,53 @@ export const DoctorProfileModal: React.FC<DoctorProfileModalProps> = ({
           <div>
             <h4 className="text-sm font-bold text-secondary mb-2 flex items-center gap-2">
               <span className="material-symbols-outlined text-lg">badge</span>
-              درباره متخصص:
+              {isManagement ? 'معرفی:' : 'درباره متخصص:'}
             </h4>
             <p className="text-sm text-on-surface-variant leading-relaxed bg-surface-container-low p-4 rounded-2xl border border-outline-variant/30">
               {doctor.bio}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="p-3 bg-surface rounded-xl border border-outline-variant/30">
-              <span className="text-on-surface-variant block mb-1">سابقه فعالیت بالینی:</span>
-              <span className="font-bold text-sm text-on-surface">{doctor.experienceYears || 10}+ سال تجربه</span>
+          {!isManagement && (
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="p-3 bg-surface rounded-xl border border-outline-variant/30">
+                <span className="text-on-surface-variant block mb-1">سابقه فعالیت بالینی:</span>
+                <span className="font-bold text-sm text-on-surface">{doctor.experienceYears || '—'}{doctor.experienceYears ? '+ سال تجربه' : ''}</span>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-outline-variant/30">
+                <span className="text-on-surface-variant block mb-1">شیوه برگزاری جلسات:</span>
+                <span className="font-bold text-sm text-secondary">
+                  {(doctor.sessionTypes || []).includes('online') &&
+                  (doctor.sessionTypes || []).includes('in-person')
+                    ? 'حضوری و آنلاین'
+                    : (doctor.sessionTypes || []).includes('online')
+                      ? 'آنلاین'
+                      : 'صرفاً حضوری'}
+                </span>
+              </div>
             </div>
-            <div className="p-3 bg-surface rounded-xl border border-outline-variant/30">
-              <span className="text-on-surface-variant block mb-1">شیوه برگزاری جلسات:</span>
-              <span className="font-bold text-sm text-secondary">
-                {doctor.sessionTypes.includes('online') ? 'حضوری و آنلاین' : 'صرفاً حضوری'}
-              </span>
-            </div>
-          </div>
+          )}
 
-          <div className="bg-secondary-container/20 p-4 rounded-2xl border border-secondary/20 text-xs space-y-2">
-            <div className="font-bold text-secondary text-sm flex items-center gap-1">
-              <span className="material-symbols-outlined text-base">verified</span>
-              دارای پروانه رسمی از سازمان نظام روانشناسی
+          {doctor.onlineSupport && (
+            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 text-xs">
+              <div className="font-bold text-primary text-sm flex items-center gap-1">
+                <span className="material-symbols-outlined text-base">support_agent</span>
+                پشتیبان جلسات آنلاین کلینیک
+              </div>
             </div>
-            <p className="text-on-surface-variant">
-              نوبت‌های این متخصص در کلینیک ژینو شامل جلسات مشاوره تخصصی، ارزیابی اولیه و پیگیری دوره‌ای درمان می‌باشد.
-            </p>
-          </div>
+          )}
+
+          {!isManagement && (
+            <div className="bg-secondary-container/20 p-4 rounded-2xl border border-secondary/20 text-xs space-y-2">
+              <div className="font-bold text-secondary text-sm flex items-center gap-1">
+                <span className="material-symbols-outlined text-base">verified</span>
+                دارای پروانه رسمی از سازمان نظام روانشناسی
+              </div>
+              <p className="text-on-surface-variant">
+                نوبت‌های این متخصص در کلینیک ژینو شامل جلسات مشاوره تخصصی، ارزیابی اولیه و پیگیری دوره‌ای درمان می‌باشد.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action Button */}
@@ -97,22 +118,20 @@ export const DoctorProfileModal: React.FC<DoctorProfileModalProps> = ({
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl border border-outline-variant text-on-surface-variant font-medium text-sm hover:bg-surface-container"
           >
-            انصراف
+            بستن
           </button>
-          <button
-            onClick={() => {
-              onClose();
-              onBook(doctor.id);
-            }}
-            className="bg-primary text-white font-bold px-6 py-2.5 rounded-xl shadow-lg hover:bg-primary-container transition-transform active:scale-95 text-xs sm:text-sm flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-base">calendar_month</span>
-            <span>
-              {bookingEnabled
-                ? `رزرو مستقیم نوبت با ${doctor.name}`
-                : `رزرو نوبت با ${doctor.name} (تلفنی/حضوری)`}
-            </span>
-          </button>
+          {canBook && (
+            <button
+              onClick={() => {
+                onClose();
+                onBook(doctor.id);
+              }}
+              className="bg-primary text-white font-bold px-6 py-2.5 rounded-xl shadow-lg hover:bg-primary-container transition-transform active:scale-95 text-xs sm:text-sm flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-base">calendar_month</span>
+              <span>{`رزرو مستقیم نوبت با ${doctor.name}`}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
