@@ -21,7 +21,8 @@ import {
   cloneBlockWithNewIds,
   cloneBlocksWithNewIds,
   readBuilderClipboard,
-  writeBuilderClipboard,
+  resolveBuilderClipboard,
+  writeBuilderClipboardAsync,
   type BuilderClipboard,
 } from './builderClipboard';
 import {
@@ -241,6 +242,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
   );
   const [clipboard, setClipboard] = useState<BuilderClipboard | null>(() => readBuilderClipboard());
   const [contextMenu, setContextMenu] = useState<BuilderContextMenuState | null>(null);
+  const [clipToast, setClipToast] = useState<string | null>(null);
 
   useEffect(() => {
     onBlocksChange?.(blocks);
@@ -464,9 +466,72 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     setNestedDrag(null);
   };
 
-  const setClipboardState = (payload: BuilderClipboard | null) => {
+  const showClipToast = (message: string) => {
+    setClipToast(message);
+    window.setTimeout(() => setClipToast(null), 2800);
+  };
+
+  const setClipboardState = async (payload: BuilderClipboard) => {
     setClipboard(payload);
-    writeBuilderClipboard(payload);
+    await writeBuilderClipboardAsync(payload);
+  };
+
+  const applyPaste = (payload: BuilderClipboard, targetId: string | null) => {
+    if (payload.kind === 'block') {
+      insertBlockAfterTarget(payload.block, targetId);
+      showClipToast('ویجت جای‌گذاری شد');
+      return;
+    }
+    if (payload.kind === 'blocks') {
+      const clones = cloneBlocksWithNewIds(payload.blocks);
+      if (!targetId) {
+        pushHistory([...blocks, ...clones]);
+      } else {
+        const idx = blocks.findIndex((b) => b.id === targetId);
+        const next = [...blocks];
+        next.splice(idx < 0 ? next.length : idx + 1, 0, ...clones);
+        pushHistory(next);
+      }
+      selectBlock(clones[0]?.id ?? null);
+      showClipToast(
+        clones.length === 1 ? 'ویجت جای‌گذاری شد' : `${clones.length} ویجت جای‌گذاری شد`
+      );
+    }
+  };
+
+  const applyPasteStyle = (payload: BuilderClipboard, targetId: string | null) => {
+    if (payload.kind !== 'style' || !targetId) return;
+    const targetMeta = findBlockDeep(blocks, targetId);
+    const target = targetMeta?.block ?? null;
+    if (!target) return;
+    let nextProps = JSON.parse(JSON.stringify(payload.props)) as Record<string, unknown>;
+    if (target.type === 'container') {
+      nextProps = {
+        ...nextProps,
+        columns: target.props.columns,
+        columnCount: target.props.columnCount ?? nextProps.columnCount,
+        columnsDesktop: target.props.columnsDesktop ?? nextProps.columnsDesktop,
+      };
+    }
+    if (target.type === 'iconList') {
+      nextProps = { ...nextProps, items: target.props.items };
+    }
+    if (target.type === 'heroHeader') {
+      nextProps = {
+        ...nextProps,
+        slides: target.props.slides,
+        departments: target.props.departments,
+        stats: target.props.stats,
+        title: target.props.title,
+        subtitle: target.props.subtitle,
+        badge: target.props.badge,
+      };
+    }
+    const next = mapBlocksDeep(blocks, (b) =>
+      b.id === targetId ? { ...b, props: nextProps } : b
+    );
+    pushHistory(next);
+    showClipToast('استایل جای‌گذاری شد');
   };
 
   const openContextMenu = (e: React.MouseEvent, targetId: string | null) => {
@@ -477,6 +542,10 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
       if (metaPanel) setRightTab('block');
     }
     setContextMenu({ x: e.clientX, y: e.clientY, targetId });
+    // Refresh from OS clipboard when possible (cross-site paste)
+    void resolveBuilderClipboard().then((payload) => {
+      if (payload) setClipboard(payload);
+    });
   };
 
   const insertBlockAfterTarget = (source: ServiceBlock, targetId: string | null) => {
@@ -517,7 +586,7 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     selectBlock(clone.id);
   };
 
-  const handleContextAction = (action: ContextMenuAction) => {
+  const handleContextAction = async (action: ContextMenuAction) => {
     const targetId = contextMenu?.targetId ?? selectedId;
     const targetMeta = targetId ? findBlockDeep(blocks, targetId) : null;
     const target = targetMeta?.block ?? null;
@@ -526,27 +595,30 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
     switch (action) {
       case 'copy': {
         if (!target) return;
-        setClipboardState({
+        await setClipboardState({
           kind: 'block',
           block: JSON.parse(JSON.stringify(target)) as ServiceBlock,
         });
+        showClipToast('ویجت به‌صورت JSON کپی شد');
         break;
       }
       case 'copyStyle': {
         if (!target) return;
-        setClipboardState({
+        await setClipboardState({
           kind: 'style',
           type: target.type,
           props: JSON.parse(JSON.stringify(target.props)) as Record<string, unknown>,
         });
+        showClipToast('استایل کپی شد');
         break;
       }
       case 'copyAll': {
         if (!blocks.length) return;
-        setClipboardState({
+        await setClipboardState({
           kind: 'blocks',
           blocks: JSON.parse(JSON.stringify(blocks)) as ServiceBlock[],
         });
+        showClipToast(`${blocks.length} ویجت به‌صورت JSON کپی شد`);
         break;
       }
       case 'delete': {
@@ -562,58 +634,67 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
         break;
       }
       case 'paste': {
-        if (!clipboard) return;
-        if (clipboard.kind === 'block') {
-          insertBlockAfterTarget(clipboard.block, targetId);
-        } else if (clipboard.kind === 'blocks') {
-          const clones = cloneBlocksWithNewIds(clipboard.blocks);
-          if (!targetId) {
-            pushHistory([...blocks, ...clones]);
-          } else {
-            const idx = blocks.findIndex((b) => b.id === targetId);
-            const next = [...blocks];
-            next.splice(idx < 0 ? next.length : idx + 1, 0, ...clones);
-            pushHistory(next);
-          }
-          selectBlock(clones[0]?.id ?? null);
+        const payload = (await resolveBuilderClipboard()) ?? clipboard;
+        if (!payload || (payload.kind !== 'block' && payload.kind !== 'blocks')) {
+          showClipToast('کلیپبورد خالی است یا JSON معتبر نیست');
+          return;
         }
+        setClipboard(payload);
+        applyPaste(payload, targetId);
         break;
       }
       case 'pasteStyle': {
-        if (!clipboard || clipboard.kind !== 'style' || !targetId || !target) return;
-        // Keep structural fields for containers (columns content)
-        let nextProps = JSON.parse(JSON.stringify(clipboard.props)) as Record<string, unknown>;
-        if (target.type === 'container') {
-          nextProps = {
-            ...nextProps,
-            columns: target.props.columns,
-            columnCount: target.props.columnCount ?? nextProps.columnCount,
-            columnsDesktop: target.props.columnsDesktop ?? nextProps.columnsDesktop,
-          };
+        const payload = (await resolveBuilderClipboard()) ?? clipboard;
+        if (!payload || payload.kind !== 'style') {
+          showClipToast('استایلی در کلیپبورد نیست');
+          return;
         }
-        if (target.type === 'iconList') {
-          nextProps = { ...nextProps, items: target.props.items };
-        }
-        if (target.type === 'heroHeader') {
-          nextProps = {
-            ...nextProps,
-            slides: target.props.slides,
-            departments: target.props.departments,
-            stats: target.props.stats,
-            title: target.props.title,
-            subtitle: target.props.subtitle,
-            badge: target.props.badge,
-          };
-        }
-        // If types differ, still apply props but keep type
-        const next = mapBlocksDeep(blocks, (b) =>
-          b.id === targetId ? { ...b, props: nextProps } : b
-        );
-        pushHistory(next);
+        setClipboard(payload);
+        applyPasteStyle(payload, targetId);
         break;
       }
     }
   };
+
+  useEffect(() => {
+    const isTypingTarget = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (el.isContentEditable) return true;
+      return Boolean(el.closest('[contenteditable="true"]'));
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+
+      if (mod && key === 'c' && e.shiftKey) {
+        e.preventDefault();
+        void handleContextAction('copyAll');
+        return;
+      }
+      if (mod && key === 'c') {
+        if (!selectedId) return;
+        e.preventDefault();
+        void handleContextAction('copy');
+        return;
+      }
+      if (mod && key === 'v') {
+        e.preventDefault();
+        void handleContextAction('paste');
+        return;
+      }
+      if (e.key === 'Delete' && selectedId) {
+        e.preventDefault();
+        void handleContextAction('delete');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedId, blocks, clipboard, contextMenu]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1275,15 +1356,28 @@ export const PageBuilderEditor: React.FC<PageBuilderEditorProps> = ({
         <BuilderContextMenu
           menu={contextMenu}
           hasTarget={Boolean(contextMenu.targetId || selectedId)}
-          canPaste={clipboard?.kind === 'block' || clipboard?.kind === 'blocks'}
-          canPasteStyle={
-            clipboard?.kind === 'style' && Boolean(contextMenu.targetId || selectedId)
-          }
+          canPaste
+          canPasteStyle={Boolean(contextMenu.targetId || selectedId)}
           canCopyAll={blocks.length > 0}
           canDeleteAll={blocks.length > 0}
-          onAction={handleContextAction}
+          onAction={(action) => {
+            void handleContextAction(action);
+          }}
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {clipToast && (
+        <div
+          className="pointer-events-none fixed bottom-5 right-5 z-[260] animate-fade-in"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl shadow-slate-900/30 border border-slate-700/40 min-w-[220px]">
+            <span className="material-symbols-outlined text-xl text-teal-300">content_paste</span>
+            <p className="text-xs font-bold leading-snug">{clipToast}</p>
+          </div>
+        </div>
       )}
 
       {saveToast && (

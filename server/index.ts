@@ -95,22 +95,6 @@ app.use(async (req, res, next) => {
   next();
 });
 
-app.get('/robots.txt', async (_req, res, next) => {
-  try {
-    if (await isMaintenanceModeCached()) {
-      res
-        .type('text/plain')
-        .send(
-          '# Maintenance mode — crawling disabled\nUser-agent: *\nDisallow: /\n'
-        );
-      return;
-    }
-  } catch {
-    /* fall through to static */
-  }
-  next();
-});
-
 const distDir = path.resolve(__dirname, '../dist');
 app.use(express.static(distDir));
 app.use((req, res, next) => {

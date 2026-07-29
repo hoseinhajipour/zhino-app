@@ -93,17 +93,21 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
       style={{ left: Math.max(pad, left), top: Math.max(pad, top) }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <p className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 tracking-wide">عملیات ویجت</p>
+      <p className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 tracking-wide">
+        کپی / پیست JSON
+      </p>
       <Item
         icon="content_copy"
         label="کپی کردن"
         disabled={!hasTarget}
+        shortcut="Ctrl+C"
         onClick={() => onAction('copy')}
       />
       <Item
         icon="content_paste"
-        label="جای‌گذاری (Paste)"
+        label="جای‌گذاری"
         disabled={!canPaste}
+        shortcut="Ctrl+V"
         onClick={() => onAction('paste')}
       />
       <Item
@@ -111,6 +115,7 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
         label="حذف کردن"
         disabled={!hasTarget}
         danger
+        shortcut="Del"
         onClick={() => onAction('delete')}
       />
 
@@ -135,6 +140,7 @@ export const BuilderContextMenu: React.FC<BuilderContextMenuProps> = ({
         icon="select_all"
         label="کپی همه ویجت‌ها"
         disabled={!canCopyAll}
+        shortcut="Ctrl+Shift+C"
         onClick={() => onAction('copyAll')}
       />
       <Item
