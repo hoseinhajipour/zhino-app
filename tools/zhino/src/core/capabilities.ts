@@ -126,8 +126,8 @@ const EMPTY_PROPS: Partial<Record<ServiceBlockType, Record<string, unknown>>> = 
     badge: 'اقدام کنید',
     title: 'رزرو نوبت',
     subtitle: 'کمتر از ۲ دقیقه',
-    phoneLabel: 'تماس با پذیرش',
-    phoneHref: 'tel:02188776655',
+    phoneLabel: '',
+    phoneHref: '',
   },
   richText: { html: '<p>متن دلخواه خود را اینجا بنویسید.</p>' },
   htmlCode: {

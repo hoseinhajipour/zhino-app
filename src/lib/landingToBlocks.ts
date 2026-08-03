@@ -740,7 +740,7 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       items: [
         {
           icon: 'check_circle',
-          text: 'بیش از ۱۰ سال سابقه درخشان در حوزه سلامت روان',
+          text: 'فعالیت رسمی از سال ۱۴۰۳ با رویکرد علمی و تخصصی',
           link: '',
         },
         {
@@ -769,25 +769,26 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
       link: '',
     },
     googleMap: {
-      mode: 'coords',
-      lat: 35.7575,
-      lng: 51.4100,
-      address: 'تهران، خیابان ولیعصر، میدان ونک',
-      zoom: 15,
+      mode: 'address',
+      lat: '',
+      lng: '',
+      address:
+        'تهران، خیابان شهید کلاهدوز، ابتدای خیابان مطهری، جنب بانک شهر، مجتمع نگین، پلاک ۱، طبقه اول، واحد ۵',
+      zoom: 16,
       height: 360,
       borderRadius: 24,
       showMarker: true,
     },
     tabGallery: {
-      badge: 'تجهیزات استاندارد جهانی',
-      title: 'اتاق بازی ما؛ جایی برای تولد دوباره',
-      subtitle: 'امکانات و فضاهای استاندارد طراحی شده طبق پروتکل‌های بین‌المللی روانشناسی کودک',
+      badge: 'خدمات کودک و نوجوان',
+      title: 'مسیر تخصصی بازی‌درمانی',
+      subtitle: 'ارزیابی و درمان چالش‌های هیجانی و رفتاری کودکان و نوجوانان',
       tabHint: 'کلیک برای نمایش',
       items: [
         {
           id: uid('tg'),
-          title: 'میز شن‌بازی تخصصی',
-          description: 'میز شن تخصصی برای درمان غیرکلامی اضطراب و تروماهای خردسالی',
+          title: 'بازی‌درمانی علمی',
+          description: 'درمان غیرکلامی اضطراب و چالش‌های هیجانی کودک',
           thumbnail:
             'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&q=80&w=200',
           image:
@@ -795,8 +796,8 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
         },
         {
           id: uid('tg'),
-          title: 'گوشه هنر درمانی',
-          description: 'فضای امن برای بیان احساسات از طریق رنگ، کلاژ و خلاقیت',
+          title: 'مشاوره والدین',
+          description: 'آموزش مهارت‌های فرزندپروری و هماهنگی خانه با مسیر درمان',
           thumbnail:
             'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=200',
           image:
@@ -804,8 +805,8 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
         },
         {
           id: uid('tg'),
-          title: 'کنج کتاب‌خوانی کودکان',
-          description: 'گوشه‌ای آرام برای قصه‌گویی، تخیل و تقویت مهارت‌های زبانی',
+          title: 'ارزیابی و روانسنجی',
+          description: 'آزمون‌های استاندارد هوش، تمرکز و اختلالات یادگیری',
           thumbnail:
             'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=200',
           image:
@@ -813,8 +814,8 @@ export function createEmptyBlock(type: ServiceBlock['type']): ServiceBlock {
         },
         {
           id: uid('tg'),
-          title: 'سیستم مشاهده غیرمستقیم',
-          description: 'امکان مشاهده حرفه‌ای جلسات برای آموزش والدین و سوپرویژن درمانگران',
+          title: 'مشاوره نوجوان',
+          description: 'حمایت تخصصی از چالش‌های بلوغ، اضطراب و روابط اجتماعی',
           thumbnail:
             'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=200',
           image:

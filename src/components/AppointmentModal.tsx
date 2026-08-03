@@ -121,7 +121,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <span className="material-symbols-outlined text-amber-600 text-2xl shrink-0 mt-0.5">info</span>
               <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
                 <p className="font-bold text-sm mb-1">سامانه رزرو خودکار آنلاین در حال حاضر غیرفعال می‌باشد.</p>
-                <p>جهت ثبت و هماهنگی نوبت مشاوره، لطفاً از طریق راه‌های زیر با همکاران بخش پذیرش کلینیک ژینو تماس بگیرید:</p>
+                <p>جهت ثبت و هماهنگی نوبت مشاوره، لطفاً از طریق راه‌های زیر با پشتیبانی کلینیک ژینو تماس بگیرید:</p>
               </div>
             </div>
 
@@ -134,7 +134,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                     <span className="material-symbols-outlined text-xl">call</span>
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-on-surface">تماس تلفنی با پذیرش کلینیک</div>
+                    <div className="text-xs font-bold text-on-surface">تماس تلفنی با کلینیک</div>
                     <div dir="ltr" className="text-xs font-black text-primary inline-flex items-center gap-1.5 pt-0.5">
                       {phone0?.number && <span>{phone0.number}</span>}
                       {phone0?.number && phone1?.number && <span>—</span>}
@@ -162,7 +162,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
                   </div>
                   <div>
                     <div className="text-xs font-bold text-on-surface">چت و رزرو در واتس‌اپ</div>
-                    <div className="text-xs text-on-surface-variant pt-0.5">ارسال پیام مستقیم به اپراتور پذیرش</div>
+                    <div className="text-xs text-on-surface-variant pt-0.5">ارسال پیام مستقیم به پشتیبانی</div>
                   </div>
                 </div>
                 <a
@@ -212,7 +212,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/20 text-xs text-on-surface-variant flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <span className="material-symbols-outlined text-sm text-primary">schedule</span>
-                  <span>ساعات پاسخگویی پذیرش:</span>
+                  <span>ساعات پاسخگویی:</span>
                 </div>
                 <span className="font-semibold text-on-surface">
                   شنبه تا چهارشنبه ۹ الی ۱۶ | حضوری و آنلاین

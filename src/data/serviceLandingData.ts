@@ -379,9 +379,9 @@ export const SERVICE_LANDING_DATA: Record<string, ServiceLandingDetail> = {
 
   'child-play-therapy': {
     id: 'child-play-therapy',
-    title: 'کودک و نوجوان (بازی درمانی تخصصی)',
-    subtitle: 'تشخیص و درمان اختلالات رفتاری، اضطراب جدایی، بیش‌فعالی و پرخاشگری در اتاق بازی مجهز روانشناختی',
-    badge: 'اتاق بازی استاندارد و روانسنجی کودک',
+    title: 'کودک و نوجوان (بازی درمانی)',
+    subtitle: 'تشخیص و درمان اختلالات رفتاری، اضطراب جدایی، بیش‌فعالی و پرخاشگری با رویکردهای علمی بازی‌درمانی',
+    badge: 'روانشناسی کودک، نوجوان و روانسنجی',
     heroImage: 'https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1000',
     duration: '۴۵ دقیقه',
     format: 'بازی‌درمانی حضوری + مشاوره والدین',
@@ -389,9 +389,9 @@ export const SERVICE_LANDING_DATA: Record<string, ServiceLandingDetail> = {
     sessionFeeNote: 'همراه با جلسات آموزش فرزندپروری به والدین',
     highlights: [
       { icon: 'child_care', label: 'رده سنی', value: '۳ تا ۱۸ سال' },
-      { icon: 'toys', label: 'محیط درمان', value: 'اتاق بازی شن و ابزار' },
+      { icon: 'psychology', label: 'رویکرد درمان', value: 'بازی‌درمانی علمی' },
       { icon: 'supervisor_account', label: 'جلسات موازی', value: 'کودک + آموزش والدین' },
-      { icon: 'psychology', label: 'تست‌های کودک', value: 'هوش، ADHD، استعداد' },
+      { icon: 'quiz', label: 'تست‌های کودک', value: 'هوش، ADHD، استعداد' },
     ],
     symptomsTitle: 'چه نشانه‌هایی در کودک نیازمند ارزیابی روانشناس است؟',
     symptomsSubtitle: 'کودکان زبان بیان مستقیم هیجانات را ندارند؛ رفتار آن‌ها زبان درون آن‌هاست:',
@@ -436,7 +436,7 @@ export const SERVICE_LANDING_DATA: Record<string, ServiceLandingDetail> = {
       {
         number: '۰۲',
         title: 'جلسات ارزیابی و بازی‌درمانی کودک',
-        desc: 'ورود کودک به اتاق بازی مجهز و مشاهده تعاملات، الگوهای بازی و ناخودآگاه او.',
+        desc: 'ارزیابی تعاملات، الگوهای بازی و نیازهای هیجانی کودک در فضای امن درمانی.',
       },
       {
         number: '۰۳',

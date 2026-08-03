@@ -88,13 +88,12 @@ export const WorkshopsAdminPanel: React.FC<WorkshopsAdminPanelProps> = ({ onOpen
         slug,
         description: (editing.description || '').trim(),
         posterUrl,
+        registrationPhone: (editing.registrationPhone || '').trim(),
+        registrationPhoneClean: (editing.registrationPhoneClean || '').trim(),
         active: editing.active !== false,
         sortOrder: Number(editing.sortOrder) || 0,
         pageBuilder,
       };
-      // Drop legacy per-workshop phone fields if present in older records
-      delete (payload as { registrationPhone?: string }).registrationPhone;
-      delete (payload as { registrationPhoneClean?: string }).registrationPhoneClean;
       await saveWorkshop(payload);
       setEditing(null);
       setMsg({ type: 'success', text: 'اطلاعات کارگاه ذخیره شد.' });
@@ -229,6 +228,22 @@ export const WorkshopsAdminPanel: React.FC<WorkshopsAdminPanelProps> = ({ onOpen
                     prev ? { ...prev, description: e.target.value } : prev
                   )
                 }
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">شماره ثبت‌نام کارگاه</label>
+              <input
+                className={fieldCls}
+                dir="ltr"
+                value={editing.registrationPhone || ''}
+                onChange={(e) => {
+                  const registrationPhone = e.target.value;
+                  const registrationPhoneClean = registrationPhone.replace(/\D/g, '');
+                  setEditing((prev) =>
+                    prev ? { ...prev, registrationPhone, registrationPhoneClean } : prev
+                  );
+                }}
+                placeholder="۰۲۱-۸۸۷۷۶۶۵۵"
               />
             </div>
             <div>

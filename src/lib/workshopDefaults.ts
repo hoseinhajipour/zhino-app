@@ -75,13 +75,12 @@ export function getWorkshopPageBuilder(workshop: Workshop): PageBuilderDoc {
 export function ensureWorkshopDefaults(workshop: Workshop): Workshop {
   const slug = workshop.slug || slugifyWorkshopTitle(workshop.title || workshop.id);
   const pageBuilder = getWorkshopPageBuilder({ ...workshop, slug });
-  const cleaned: Workshop = {
+  return {
     ...workshop,
     slug,
     posterUrl: workshop.posterUrl || '',
+    registrationPhone: (workshop.registrationPhone || '').trim(),
+    registrationPhoneClean: (workshop.registrationPhoneClean || '').trim(),
     pageBuilder,
   };
-  delete (cleaned as { registrationPhone?: string }).registrationPhone;
-  delete (cleaned as { registrationPhoneClean?: string }).registrationPhoneClean;
-  return cleaned;
 }

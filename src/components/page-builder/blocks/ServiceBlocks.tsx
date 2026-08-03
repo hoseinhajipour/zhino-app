@@ -1140,13 +1140,15 @@ export const CtaBlock: React.FC<{ props: Record<string, unknown>; ctx: BlockRend
         <span>{ctx.bookingEnabled ? 'شروع رزرو نوبت آنلاین' : 'رزرو نوبت (تلفنی/حضوری)'}</span>
         <span className="material-symbols-outlined text-sm">calendar_month</span>
       </button>
-      <a
-        href={str(props.phoneHref, 'tel:02188776655')}
-        className="border-2 border-white/40 text-white font-bold px-6 py-4 rounded-2xl hover:bg-white/10 transition-all text-sm flex items-center gap-2"
-      >
-        <span className="material-symbols-outlined text-sm">call</span>
-        <span>{str(props.phoneLabel)}</span>
-      </a>
+      {str(props.phoneLabel) ? (
+        <a
+          href={str(props.phoneHref) || undefined}
+          className="border-2 border-white/40 text-white font-bold px-6 py-4 rounded-2xl hover:bg-white/10 transition-all text-sm flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined text-sm">call</span>
+          <span>{str(props.phoneLabel)}</span>
+        </a>
+      ) : null}
     </div>
   </section>
 );

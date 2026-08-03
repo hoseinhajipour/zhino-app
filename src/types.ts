@@ -829,6 +829,10 @@ export interface Workshop {
   description?: string;
   /** Featured / cover poster image */
   posterUrl: string;
+  /** Display phone for workshop registration (optional) */
+  registrationPhone?: string;
+  /** Digits-only / tel href for registrationPhone */
+  registrationPhoneClean?: string;
   active?: boolean;
   sortOrder?: number;
   startsAt?: string;

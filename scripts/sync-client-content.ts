@@ -1,6 +1,7 @@
 /**
  * Sync client content updates into the running Zhino API (MySQL via /api/*).
  * Usage: npx tsx scripts/sync-client-content.ts
+ * Optional: ZHINO_API_BASE=https://zhinopsy.com ZHINO_API_TOKEN=... npx tsx scripts/sync-client-content.ts
  */
 import {
   DOCTORS,
@@ -39,6 +40,35 @@ async function api(path: string, init: RequestInit = {}) {
   return data;
 }
 
+function patchHomeIconList(page: Record<string, unknown>) {
+  const pb = page.pageBuilder as { blocks?: Array<Record<string, unknown>> } | undefined;
+  if (!pb?.blocks) return page;
+  const walk = (blocks: Array<Record<string, unknown>>) => {
+    for (const block of blocks) {
+      if (block.type === 'iconList') {
+        const props = (block.props || {}) as { items?: Array<{ text?: string }> };
+        if (Array.isArray(props.items)) {
+          props.items = props.items.map((item) =>
+            String(item.text || '').includes('۱۰ سال')
+              ? { ...item, text: 'فعالیت رسمی از سال ۱۴۰۳ با رویکرد علمی و تخصصی' }
+              : item
+          );
+          block.props = props;
+        }
+      }
+      const cols = (block.props as { columns?: Array<{ blocks?: Array<Record<string, unknown>> }> })
+        ?.columns;
+      if (Array.isArray(cols)) {
+        for (const col of cols) {
+          if (Array.isArray(col.blocks)) walk(col.blocks);
+        }
+      }
+    }
+  };
+  walk(pb.blocks);
+  return page;
+}
+
 async function main() {
   console.log('Syncing to', BASE);
 
@@ -59,7 +89,6 @@ async function main() {
   console.log('doctors upserted', DOCTORS.length);
 
   for (const svc of enrichServicesWithPageBuilder(MAIN_SERVICES)) {
-    // Strip testimonials blocks if any remain
     if (svc.pageBuilder?.blocks) {
       svc.pageBuilder = {
         ...svc.pageBuilder,
@@ -81,21 +110,35 @@ async function main() {
   }
   console.log('faqs upserted');
 
-  for (const id of ['home', 'about', 'contact'] as const) {
+  // Preserve custom home builder; only patch stale copy. Refresh about/contact from defaults.
+  try {
+    const home = (await api('/api/pages/home')) as Record<string, unknown>;
+    const patched = patchHomeIconList(home);
+    await api('/api/pages/home', { method: 'PUT', body: JSON.stringify(patched) });
+    console.log('home page iconList patched');
+  } catch (err) {
+    console.warn('home patch skipped:', err instanceof Error ? err.message : err);
+  }
+
+  for (const id of ['about', 'contact'] as const) {
     const page = createDefaultSitePage(id);
     await api(`/api/pages/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(page),
     });
   }
-  console.log('pages home/about/contact refreshed');
+  console.log('pages about/contact refreshed');
 
   const contact = mergeContactInfo({
     ...DEFAULT_CONTACT_INFO,
     email: CLINIC_INFO.email,
     telegram: CLINIC_INFO.telegram,
     instagram: CLINIC_INFO.instagram,
+    whatsapp: CLINIC_INFO.whatsappNumber,
     youtube: '',
+    bale: '',
+    eitaa: '',
+    rubika: '',
     addresses: [
       {
         id: 'addr-1',
@@ -108,22 +151,29 @@ async function main() {
   });
 
   const settings = (await api('/api/settings')) as Record<string, unknown>;
+  const existingSite =
+    typeof settings.site === 'object' && settings.site
+      ? (settings.site as Record<string, unknown>)
+      : {};
   const site = {
     ...DEFAULT_SITE_CHROME,
-    ...(typeof settings.site === 'object' && settings.site ? settings.site : {}),
+    ...existingSite,
     identity: {
       ...DEFAULT_SITE_CHROME.identity,
+      ...((existingSite.identity as Record<string, unknown>) || {}),
       ...identityPatchFromContact(contact),
       address: CLINIC_INFO.address,
       email: CLINIC_INFO.email,
       instagram: CLINIC_INFO.instagram,
       telegram: CLINIC_INFO.telegram,
+      whatsappNumber: CLINIC_INFO.whatsappNumber,
     },
     footer: {
       ...DEFAULT_SITE_CHROME.footer,
+      ...((existingSite.footer as Record<string, unknown>) || {}),
       hoursText: CLINIC_INFO.hoursText,
     },
-    menu: DEFAULT_SITE_CHROME.menu,
+    menu: (existingSite.menu as unknown) || DEFAULT_SITE_CHROME.menu,
   };
 
   await api('/api/settings', {

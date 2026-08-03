@@ -75,7 +75,7 @@ export const DEFAULT_CONTACT_INFO: ClinicContactInfo = {
       id: 'phone-2',
       label: 'تلفن ۲',
       number: CLINIC_INFO.phone2,
-      telHref: CLINIC_INFO.phoneClean,
+      telHref: CLINIC_INFO.phone2Clean || CLINIC_INFO.phoneClean,
     },
   ],
   whatsapp: CLINIC_INFO.whatsappNumber,

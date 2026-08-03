@@ -105,15 +105,21 @@ export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
         </span>
         <h1 className="text-3xl md:text-4xl font-extrabold text-primary">کارگاه‌های کلینیک ژینو</h1>
         <p className="text-base text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
-          پوستر و جزئیات هر کارگاه را ببینید و صفحه اختصاصی آن را مطالعه کنید.
+          پوستر کارگاه‌ها را ببینید و برای ثبت‌نام با شماره تماس اعلام‌شده هماهنگ کنید.
         </p>
-        <button
-          type="button"
-          onClick={() => navigateTo('contact')}
-          className="text-xs font-bold text-secondary hover:underline"
-        >
-          بازگشت به راه‌های ارتباطی
-        </button>
+        {contact?.phones?.[0]?.number && (
+          <a
+            href={
+              contact.phones[0].telHref
+                ? `tel:${contact.phones[0].telHref.replace(/\D/g, '')}`
+                : undefined
+            }
+            className="inline-flex items-center gap-2 bg-primary text-white font-bold text-sm px-5 py-2.5 rounded-xl"
+          >
+            <span className="material-symbols-outlined text-base">call</span>
+            ثبت‌نام کارگاه: {contact.phones[0].number}
+          </a>
+        )}
       </section>
 
       {loading ? (
@@ -135,7 +141,14 @@ export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
         </div>
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {active.map((w) => (
+          {active.map((w) => {
+            const regPhone = (w.registrationPhone || '').trim();
+            const regTel =
+              (w.registrationPhoneClean || '').replace(/\D/g, '') ||
+              regPhone.replace(/\D/g, '') ||
+              (contact?.phones?.[0]?.telHref || '').replace(/\D/g, '');
+            const regLabel = regPhone || contact?.phones?.[0]?.number || '';
+            return (
               <article
                 key={w.id}
                 className="bg-white dark:bg-surface-dim rounded-3xl overflow-hidden border border-outline-variant/30 shadow-soft flex flex-col"
@@ -170,8 +183,20 @@ export const WorkshopsPage: React.FC<WorkshopsPageProps> = (props) => {
                     <span className="sr-only">{getWorkshopPath(w)}</span>
                   </div>
                 </button>
+                {regLabel && (
+                  <div className="px-6 pb-6">
+                    <a
+                      href={regTel ? `tel:${regTel}` : undefined}
+                      className="w-full inline-flex items-center justify-center gap-2 border border-primary text-primary font-bold text-xs py-2.5 rounded-xl hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">call</span>
+                      ثبت‌نام: {regLabel}
+                    </a>
+                  </div>
+                )}
               </article>
-            ))}
+            );
+          })}
         </section>
       )}
     </div>
